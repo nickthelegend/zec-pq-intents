@@ -44,7 +44,7 @@
     <div class="wrap">
       <header>
         <p class="brand">zec-pq-intents</p>
-        <h1>Intents a quantum computer can’t forge or read in transit.</h1>
+        <h1>Intents signed and sealed with NIST post-quantum primitives.</h1>
         <p>Signed with ML-DSA-65, sealed to the solver with ML-KEM-768, settled in shielded ZEC on testnet. Every decision is a signed, hash-chained log entry anchored in a shielded memo, and anyone can re-verify all of it.</p>
         <div class="cta">
           <a href="https://github.com/nickthelegend/zec-pq-intents">Source</a>
@@ -55,16 +55,16 @@
       <section>
         <h2>The live log, Oct 20, 2026</h2>
         <ol class="chain">
-          <li class="s">#0 SETTLED · intent A filled and the escrow released to the solver</li>
-          <li class="s">#1 SETTLED · intent B</li>
+          <li class="s">#0 SETTLED · intent A filled and the escrow released to the solver · <a href="https://testnet.zcashexplorer.app/transactions/9800b912682a0630a64dd4a54c245fc7c0810ee117eed7b304138fddda63b7c2"><code>9800b912…</code></a></li>
+          <li class="s">#1 SETTLED · intent B · <a href="https://testnet.zcashexplorer.app/transactions/6b34215c46c7aff1e2924a8f8608b0cc17f376f254e10c4f027ad766111718d9"><code>6b34215c…</code></a></li>
           <li class="r">#2 REJECTED · C “filled” with the wrong memo</li>
           <li class="r">#3 REJECTED · A with a field changed after signing → BAD_SIGNATURE</li>
           <li class="r">#4 REJECTED · A again → ALREADY_SETTLED</li>
           <li class="r">#5 REJECTED · a new intent reusing A’s nonce</li>
           <li class="r">#6 REJECTED · signed by another key, naming the user → WRONG_KEY</li>
           <li class="r">#7 REJECTED · C filled after its deadline → EXPIRED</li>
-          <li class="s">#8 REFUNDED · C’s escrow back to the user</li>
-          <li class="a">#9 ANCHORED · head of #0–#8 in a shielded memo, found on-chain</li>
+          <li class="s">#8 REFUNDED · C’s escrow back to the user · <a href="https://testnet.zcashexplorer.app/transactions/357b706505ae07232939aa39fe7a862363283b49a06e4a62fafc6eaa823a2966"><code>357b7065…</code></a></li>
+          <li class="a">#9 ANCHORED · head of #0–#8 in a shielded memo, found on-chain · <a href="https://testnet.zcashexplorer.app/transactions/a7d960386f2d8dc926003e700b15bcc761b6e72419765ea6f958a85d73a65a73"><code>a7d96038…</code></a></li>
         </ol>
       </section>
       <section>

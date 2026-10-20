@@ -17,5 +17,4 @@ Tests (`pnpm test`, 10): FIPS 203/204 key, signature and ciphertext sizes; deter
 base64/canonical encoding; every intent field change breaks hash and signature; other-key
 signatures; malformed intents; envelope only opens with the solver key and fails on a flipped bit
 or swapped hash; fill attestation; log edits, drops, reorders, foreign keys and flipped signature
-bits are caught. Independent check of the ML-DSA-65 implementation: NEAR testnet's `ml_dsa_verify`
-host function accepted `@noble/post-quantum` 0.6.1 signatures in near-qday-recovery and near-null-402.
+bits are caught. Independent check of the ML-DSA-65 implementation (`@noble/post-quantum` 0.6.1): NEAR testnet's `ml_dsa_verify` accepted its signatures on-chain: the near-qday-recovery recovery [`5bA1eV5T…`](https://testnet.nearblocks.io/txns/5bA1eV5TJC58ycGKb4MejB19tuEwyFrUxjXp7Pnq6nPQ) and the near-null-402 settlement [`Duu6wRkh…`](https://testnet.nearblocks.io/txns/Duu6wRkhCM5XSNFHV2MzNe2gTQ6bo632pYUsS8e3pAeK) both verify ML-DSA-65 signatures made with this library.

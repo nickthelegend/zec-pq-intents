@@ -11,8 +11,7 @@ No mocked clients, no stub RPCs. Chain-touching tests read Zcash testnet through
 | mcp | stdio MCP client + desk + testnet | 5 | tools; `verify_log` (signatures, links, anchor memo on-chain); `status`, `quote`; Setup required paths |
 | **Total** | | **25 + doc** | 0 skipped |
 
-Independent check of the ML-DSA-65 implementation (`@noble/post-quantum` 0.6.1): NEAR testnet's
-`ml_dsa_verify` accepted its signatures in near-qday-recovery and near-null-402.
+Independent check of the ML-DSA-65 implementation (`@noble/post-quantum` 0.6.1): NEAR testnet's `ml_dsa_verify` accepted its signatures on-chain: the near-qday-recovery recovery [`5bA1eV5T…`](https://testnet.nearblocks.io/txns/5bA1eV5TJC58ycGKb4MejB19tuEwyFrUxjXp7Pnq6nPQ) and the near-null-402 settlement [`Duu6wRkh…`](https://testnet.nearblocks.io/txns/Duu6wRkhCM5XSNFHV2MzNe2gTQ6bo632pYUsS8e3pAeK) both verify ML-DSA-65 signatures made with this library.
 
 ## Live run (not part of `pnpm test`)
 

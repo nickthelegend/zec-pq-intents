@@ -4,8 +4,8 @@ Zecathon allows one entry per team: Shielded x402. This would fit Private Market
 
 **Name:** zec-pq-intents
 **One line:** Intents signed with ML-DSA-65 and sealed with ML-KEM-768, settled in shielded ZEC, with a signed, hash-chained, memo-anchored decision log anyone can re-verify.
-**Repo:** github.com/nickthelegend/zec-pq-intents (to be created by Nick)
-**Video:** `grokbot/videos/zec-pq-intents-demo.mp4`
+**Repo:** github.com/nickthelegend/zec-pq-intents (public before submission)
+**Video:** `zec-pq-intents-demo.mp4` (shared separately until hosted)
 
 ## Proof it works (Zcash testnet, Oct 20, 2026)
 - 3 intents funded in one shielded tx `1d6b3868…`; A and B filled (`2970d8ba…`, `a74b9dfe…`) and settled (releases `9800b912…`, `6b34215c…`).

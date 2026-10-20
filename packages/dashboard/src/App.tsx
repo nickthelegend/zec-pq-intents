@@ -41,7 +41,12 @@ function useLogCheck(log: LogEntry[]) {
         await new Promise((res) => setTimeout(res, 60));
         if (cancelled) return;
         const { hash, sig, ...body } = log[i];
-        const good = body.prev === prev && body.seq === i && entryHash(body) === hash && verifySig(verifierPk, 'pqi1:log:', hash, sig);
+        let good = false;
+        try {
+          good = body.prev === prev && body.seq === i && entryHash(body) === hash && verifySig(verifierPk, 'pqi1:log:', hash, sig);
+        } catch {
+          good = false; // a malformed entry is a failed check, not a stuck page
+        }
         prev = hash;
         setState((s) => s.map((x, k) => (k === i ? (good ? 'ok' : 'bad') : x)));
       }
@@ -248,7 +253,7 @@ export function App() {
       </header>
       <main>
         <section className="hero">
-          <h1>Intents a quantum computer can’t forge or read in transit.</h1>
+          <h1>Intents signed and sealed with NIST post-quantum primitives.</h1>
           <p className="lede">
             Each intent is signed with ML-DSA-65 and sealed to the solver with ML-KEM-768. Settlement is real shielded ZEC on testnet. Every decision is a signed, hash-chained log
             entry, anchored in a shielded memo. This page re-verifies all of it.
