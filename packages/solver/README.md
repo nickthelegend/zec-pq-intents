@@ -1,5 +1,5 @@
 # solver
 
-Real solver service (Rust/TS): receives encrypted intents, decrypts with ML-KEM, quotes from its own NEP-141 inventory, fills on testnet (ft_transfer_call), signs an ML-DSA attestation over (intent hash, fill tx, amounts), calls settle
+Real solver service: decrypts with ML-KEM, decides, fills with a real shielded ZEC payment on testnet to the user's UA carrying memo `pqi1:<intent_hash>:fill`, ML-DSA-signs a fill attestation
 
 _Placeholder — not built yet._

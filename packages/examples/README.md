@@ -1,5 +1,5 @@
 # examples
 
-e2e swap + the 4 attacks
+e2e: 2 intents filled, 1 expired + refunded, 4 attacks
 
 _Placeholder — not built yet._

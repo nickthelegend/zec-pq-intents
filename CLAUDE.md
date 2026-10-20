@@ -1,5 +1,3 @@
 # CLAUDE.md
 
-Build this project from its spec: `/Volumes/Extreme SSD/Projects/grokbot/specs/near-pq-confidential-intents.md`.
-Follow every standing rule in `/Volumes/Extreme SSD/Projects/grokbot/CLAUDE.md` and the definition of done in `grokbot/specs/verifier-definition-of-done.md`.
-No mocks, fail loudly; missing key/account => mark BLOCKED. Never print keys/seeds. Commit per diff; ask Nick before any push.
+Build from `/Volumes/Extreme SSD/Projects/grokbot/specs/zec-pq-intents.md` (Zcash core; NEAR anchor is stretch only). Follow `grokbot/CLAUDE.md` rules: null-402 quality bar, no mocked clients, BLOCKED never faked, never print keys/seeds, ask Nick before push.
