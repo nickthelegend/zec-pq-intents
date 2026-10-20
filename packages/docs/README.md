@@ -1,5 +1,5 @@
 # docs
 
-What would need to ship in Intents
+Protocol spec, threat model, how it mirrors NEAR Intents
 
-_Placeholder — not built yet. Spec: grokbot/specs/near-pq-confidential-intents.md._
+_Placeholder — not built yet._
