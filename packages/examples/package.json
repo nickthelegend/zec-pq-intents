@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "run-live": "tsx src/run.ts",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "demo": "tsx src/demo.ts"
   },
   "dependencies": {
     "@pqi/node": "workspace:*",
