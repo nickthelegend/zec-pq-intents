@@ -3,155 +3,408 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PQ Intents on Zcash</title>
-    <meta name="description" content="Intents signed with ML-DSA-65 and sealed with ML-KEM-768, settled in shielded ZEC on testnet, with an ML-DSA-signed, hash-chained decision log anchored on-chain." />
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='6' y='6' width='20' height='20' rx='4' fill='none' stroke='%23d9733f' stroke-width='3'/%3E%3Cpath d='M11 16h10' stroke='%23efe6da' stroke-width='3'/%3E%3C/svg%3E" />
+    <title>Yaksok — post-quantum intents, settled in shielded ZEC</title>
+    <meta name="description" content="Yaksok signs intents with ML-DSA-65, seals them to the solver with ML-KEM-768 and settles them in shielded testnet ZEC. Every release, refund and rejection is a signed, hash-chained log entry anchored on-chain." />
+    <meta name="theme-color" content="#1c1326" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%231c1326'/%3E%3Cpath d='M7 11h18v11H7z' fill='none' stroke='%23f08a4b' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M7 11l9 7 9-7' fill='none' stroke='%23f08a4b' stroke-width='2.2' stroke-linejoin='round'/%3E%3C/svg%3E" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
     <style>
-      :root { --char: #121110; --char-2: #1b1917; --line: #2e2a26; --bone: #efe6da; --muted: #a39788; --copper: #d9733f; --copper-hi: #f19a66; --ok: #9fcf8b; --no: #ef6f5e; color-scheme: dark; }
-      * { box-sizing: border-box; }
-      body { margin: 0; background: var(--char); color: var(--bone); font: 400 17px/1.65 'IBM Plex Sans', system-ui, sans-serif; overflow-x: hidden; }
-      a { color: var(--copper-hi); text-underline-offset: 3px; }
-      :focus-visible { outline: 2px solid var(--copper-hi); outline-offset: 3px; }
-      code, pre { font: 400 0.82em 'JetBrains Mono', monospace; }
-      code { overflow-wrap: anywhere; }
-      .wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
-      .top { display: flex; justify-content: space-between; align-items: center; padding: 24px 0; }
-      .top b { font: 700 1.05rem 'Syne', sans-serif; }
-      .top a { color: var(--bone); text-decoration: none; font-weight: 500; }
+      :root { --font: 'Onest', system-ui, sans-serif; --mono: 'JetBrains Mono', ui-monospace, monospace;
+        --deep: #1c1326; --deep-text: #1c1326; --accent: #f08a4b; --accent-ink: #2a1206; --tint: #efe9ff; --tint-2: #fdf0e7;
+        --paper: #ffffff; --ink: #1a1224; --muted: #685e75; --line: rgba(28, 19, 38, .09); --line-strong: rgba(28, 19, 38, .24);
+        --ok: #1f9d63; --no: #c9372c; color-scheme: light; }
+      /* landing-kit base: Polaris-grade structure. Each page sets the theme variables and its own font. */
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 17px/1.55 var(--font);letter-spacing:-.01em;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+img{max-width:100%;display:block}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+code,.mono{font-family:var(--mono);font-size:.86em;letter-spacing:0;overflow-wrap:anywhere}
+.wrap{max-width:1360px;margin:0 auto;padding:0 40px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 
-      .hero { display: grid; grid-template-columns: 1.1fr 1fr; gap: 48px; align-items: center; padding: 56px 0 88px; }
-      h1 { font: 800 clamp(2.2rem, 4.4vw, 3.8rem)/1 'Syne', sans-serif; letter-spacing: -0.03em; margin: 0 0 24px; }
-      h1 span { color: var(--copper); }
-      .lede { color: #cfc5b8; max-width: 52ch; margin: 0 0 30px; font-size: 1.08rem; }
-      .cta { display: flex; flex-wrap: wrap; gap: 12px; }
-      .btn { padding: 13px 20px; border-radius: 6px; background: var(--copper); color: #1a0d05; text-decoration: none; font-weight: 500; }
-      .btn.ghost { background: none; color: var(--bone); box-shadow: inset 0 0 0 1px var(--line); }
+/* type */
+.h-hero{font-weight:500;font-size:clamp(46px,6.3vw,96px);line-height:.95;letter-spacing:-.05em;margin:0}
+.h-sec{font-weight:500;font-size:clamp(36px,4.6vw,68px);line-height:1;letter-spacing:-.045em;margin:0}
+.h-card{font-weight:500;font-size:clamp(26px,2.4vw,36px);line-height:1.05;letter-spacing:-.035em;margin:0}
+.lead{font-size:clamp(18px,1.5vw,21px);line-height:1.4;letter-spacing:-.02em}
+.muted{color:var(--muted)}
+.strong{color:var(--ink)}
 
-      /* The sealing moment: a signed intent turns into its ML-KEM envelope. */
-      .seal { background: var(--char-2); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
-      .seal-head { display: flex; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--line); font-size: 0.85rem; color: var(--muted); }
-      .seal-head b { color: var(--copper-hi); font-weight: 500; transition: color .4s; }
-      .seal pre { margin: 0; padding: 18px; min-height: 236px; white-space: pre-wrap; word-break: break-all; color: var(--bone); line-height: 1.6; }
-      .seal-foot { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line); }
-      .seal-foot div { padding: 12px 18px; font-size: 0.82rem; color: var(--muted); }
-      .seal-foot div + div { border-left: 1px solid var(--line); }
-      .seal-foot b { display: block; color: var(--bone); font-weight: 500; }
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:10px;height:52px;padding:0 24px;border-radius:999px;font:500 17px/1 var(--font);letter-spacing:-.02em;text-decoration:none;border:0;cursor:pointer;white-space:nowrap;transition:transform .25s cubic-bezier(.2,.7,.2,1),background .2s,box-shadow .2s}
+.btn:hover{transform:translateY(-2px)}
+.btn svg{width:18px;height:18px}
+.btn-accent{background:var(--accent);color:var(--accent-ink)}
+.btn-white{background:#fff;color:var(--deep)}
+.btn-dark{background:var(--deep);color:#fff}
+.btn-outline{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1px var(--line-strong)}
+.btn-ghost-light{background:transparent;color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.35)}
+.btn-sm{height:44px;padding:0 18px;font-size:16px}
 
-      section { padding: 88px 0; border-top: 1px solid var(--line); }
-      h2 { font: 700 clamp(1.7rem, 3.6vw, 2.6rem)/1.05 'Syne', sans-serif; letter-spacing: -0.02em; margin: 0 0 14px; max-width: 24ch; }
-      .sub { color: var(--muted); max-width: 64ch; margin: 0 0 36px; }
+/* nav: links left, logo centre, actions right */
+.nav{position:absolute;inset:0 0 auto 0;z-index:30}
+.nav .wrap{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;height:100px}
+.nav ul{display:flex;gap:28px;list-style:none;margin:0;padding:0}
+.nav ul a{text-decoration:none;font-size:17px;letter-spacing:-.02em;opacity:.92}
+.nav ul a:hover{opacity:1}
+.nav .act{display:flex;justify-content:flex-end;align-items:center;gap:18px}
+.nav .act>a:not(.btn){text-decoration:none;font-size:17px}
+.logo{display:inline-flex;align-items:center;gap:10px;text-decoration:none;font-weight:600;font-size:24px;letter-spacing:-.04em}
+.logo svg{width:30px;height:30px}
+.nav.on-dark{color:#fff}
+.nav.on-light{color:var(--ink)}
 
-      .trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-      .card { background: var(--char-2); border: 1px solid var(--line); border-radius: 16px; padding: 22px; }
-      .card h3 { font: 700 1.15rem 'Syne', sans-serif; margin: 0 0 6px; }
-      .card p { margin: 0; color: var(--muted); font-size: 0.95rem; }
-      .card .st { display: inline-block; margin-bottom: 14px; font-size: 0.8rem; padding: 3px 10px; border-radius: 999px; }
-      .st.ok { background: rgba(159,207,139,.12); color: var(--ok); }
-      .st.rf { background: rgba(217,115,63,.14); color: var(--copper-hi); }
+/* hero shells */
+.hero{position:relative;isolation:isolate;overflow:hidden}
+.hero-bleed{min-height:max(720px,100svh);padding-top:140px;background:var(--deep);color:#fff;display:flex;align-items:flex-end}
+.hero-bleed .wrap{width:100%;padding-bottom:56px;display:grid;grid-template-columns:1.25fr 1fr;align-items:end;gap:40px}
+.hero-bleed .h-hero{max-width:11ch}
+.hero-bleed .lead{max-width:34ch;margin:26px 0 34px;color:rgba(255,255,255,.86)}
+.hero-centre{background:var(--deep);color:#fff;padding:168px 0 0;text-align:center}
+.hero-centre .h-hero{max-width:14ch;margin:0 auto}
+.hero-centre .lead{max-width:44ch;margin:26px auto 36px;color:rgba(255,255,255,.82)}
+.hero-centre .cta{justify-content:center}
+.hero-split{background:var(--deep);color:#fff;padding:150px 0 90px}
+.hero-split .wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:60px;align-items:center}
+.hero-split .lead{max-width:38ch;margin:26px 0 34px;color:rgba(255,255,255,.84)}
+.hero-light{background:var(--paper);color:var(--ink);padding:160px 0 40px}
+.hero-light .h-hero{max-width:13ch;color:var(--deep-text)}
+.hero-light .lead{max-width:44ch;margin:26px 0 34px;color:var(--muted)}
+.cta{display:flex;flex-wrap:wrap;gap:12px}
+.glow{position:absolute;z-index:-1;border-radius:50%;filter:blur(10px);pointer-events:none}
 
-      /* The log as a chain: each entry hashes the one before. */
-      .chain { list-style: none; margin: 0; padding: 0; position: relative; }
-      .chain::before { content: ''; position: absolute; left: 15px; top: 8px; bottom: 8px; width: 2px; background: var(--line); }
-      .chain li { position: relative; display: grid; grid-template-columns: 34px 120px 1fr auto; gap: 14px; align-items: baseline; padding: 10px 0; }
-      .chain li::before { content: ''; position: absolute; left: 9px; top: 18px; width: 14px; height: 14px; border-radius: 50%; background: var(--char); border: 2px solid var(--muted); }
-      .chain li.ok::before { border-color: var(--ok); } .chain li.no::before { border-color: var(--no); } .chain li.rf::before, .chain li.an::before { border-color: var(--copper); }
-      .chain .n { grid-column: 2; font: 500 0.82rem 'JetBrains Mono', monospace; color: var(--muted); }
-      .chain .v { font-weight: 500; }
-      .chain li.no .v { color: var(--no); } .chain li.ok .v { color: var(--ok); } .chain li.rf .v, .chain li.an .v { color: var(--copper-hi); }
-      .chain .why { color: var(--muted); font-size: 0.93rem; }
-      .chain a { font-size: 0.85rem; }
+/* floating white widget (hero) */
+.widget{justify-self:end;width:min(100%,360px);background:#fff;color:var(--deep-text);border-radius:28px;padding:24px;box-shadow:0 40px 80px -30px rgba(0,0,0,.55)}
+.widget .w-top{display:flex;align-items:center;gap:10px;justify-content:space-between}
+.widget .w-title{font-weight:500;font-size:26px;letter-spacing:-.04em}
+.tag{display:inline-flex;align-items:center;height:28px;padding:0 11px;border-radius:999px;font-size:13px;font-weight:500;letter-spacing:-.01em;white-space:nowrap}
+.tag-deep{background:var(--deep);color:var(--accent)}
+.tag-tint{background:var(--tint);color:var(--deep-text)}
+.tag-accent{background:var(--accent);color:var(--accent-ink)}
+.tag-no{background:#fde2e1;color:#b42318}
+.tag-ok{background:#dcf5e7;color:#14714b}
+.widget .w-note{font-size:14px;color:#6b7280;margin-top:14px}
 
-      ul.limits { padding-left: 20px; color: #cfc5b8; max-width: 72ch; }
-      ul.limits li { margin-bottom: 8px; }
-      footer { border-top: 1px solid var(--line); padding: 28px 0 48px; color: var(--muted); font-size: 0.86rem; }
+/* built-on strip */
+.built{padding:100px 0 40px;text-align:center}
+.built .pill{display:inline-block;padding:10px 26px;border-radius:999px;background:var(--tint);color:var(--deep-text);font-size:20px;letter-spacing:-.02em}
+.marquee{overflow:hidden;margin-top:44px;-webkit-mask:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
+.marquee .track{display:flex;gap:64px;width:max-content;animation:mq 34s linear infinite}
+.marquee span{display:inline-flex;align-items:center;gap:12px;font-weight:500;font-size:32px;letter-spacing:-.04em;color:var(--deep-text);white-space:nowrap}
+.marquee span i{width:26px;height:26px;border-radius:8px;background:var(--deep-text);opacity:.85;display:inline-block}
+@keyframes mq{to{transform:translateX(-50%)}}
 
-      @media (max-width: 860px) {
-        .hero { grid-template-columns: 1fr; padding-top: 32px; }
-        .trio { grid-template-columns: 1fr; }
-        .chain li { grid-template-columns: 34px 1fr; } .chain .n, .chain .v, .chain .why, .chain a { grid-column: 2; }
-        section { padding: 64px 0; }
-      }
+/* sections */
+section{padding:110px 0}
+.sec-head{display:flex;justify-content:space-between;align-items:flex-end;gap:30px;margin-bottom:56px}
+.sec-head .h-sec{color:var(--deep-text);max-width:16ch}
+.sec-head p{max-width:46ch;margin:18px 0 0}
+.intro{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:end}
+.intro .h-sec{color:var(--deep-text)}
+.intro .copy p{margin:0 0 18px;color:var(--muted)}
+.intro .copy p b{color:var(--deep-text);font-weight:500}
+
+/* bento cards */
+.bento{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.card{position:relative;border-radius:28px;padding:32px;min-height:420px;gap:28px;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between}
+.c-tint{background:var(--tint);color:var(--deep-text)}
+.c-tint-2{background:var(--tint-2);color:var(--deep-text)}
+.c-deep{background:var(--deep);color:#fff}
+.c-deep .h-card{color:var(--accent)}
+.c-accent{background:var(--accent);color:var(--accent-ink)}
+.card p{margin:12px 0 0;font-size:16px;line-height:1.45}
+.c-deep p{color:rgba(255,255,255,.72)}
+.ui{background:#fff;color:var(--deep-text);border-radius:22px;padding:22px;box-shadow:0 24px 50px -28px rgba(0,0,0,.35)}
+.ui .big{font-weight:500;font-size:44px;letter-spacing:-.05em;line-height:1}
+.ui .big small{font-size:16px;letter-spacing:-.01em;color:#6b7280;margin-left:8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips span{height:40px;display:inline-flex;align-items:center;padding:0 16px;border-radius:999px;background:var(--tint);color:var(--deep-text);font-size:16px;letter-spacing:-.02em}
+.chips span.on{background:var(--deep);color:#fff}
+.bar{display:flex;height:12px;border-radius:4px;overflow:hidden;gap:3px;margin-top:22px}
+.bar i{display:block}
+
+/* dark proof / FAQ section */
+.dark{background:var(--deep);color:#fff}
+.dark .h-sec{color:var(--accent)}
+.dark .muted{color:rgba(255,255,255,.62)}
+.faq{display:grid;grid-template-columns:1fr 1fr;gap:60px}
+.faq details{border-top:1px solid rgba(255,255,255,.14);padding:26px 0}
+.faq details:last-child{border-bottom:1px solid rgba(255,255,255,.14)}
+.faq summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;gap:20px;font-weight:500;font-size:clamp(22px,2vw,30px);letter-spacing:-.035em;color:var(--accent)}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:'+';font-weight:300;font-size:32px;line-height:1}
+.faq details[open] summary::after{content:'–'}
+.faq details p{margin:16px 0 0;color:rgba(255,255,255,.72);font-size:18px;max-width:52ch}
+
+/* evidence list */
+.ev{border-radius:28px;overflow:hidden;background:#fff;box-shadow:inset 0 0 0 1px var(--line)}
+.ev .row{display:grid;grid-template-columns:1fr auto 130px;gap:18px;align-items:center;padding:18px 26px;border-top:1px solid var(--line);font-size:16px}
+.ev .row:first-child{border-top:0}
+.ev .row a{font-family:var(--mono);font-size:14px;text-align:right;color:var(--deep-text)}
+.dark .ev{background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
+.dark .ev .row{border-color:rgba(255,255,255,.08)}
+.dark .ev .row a{color:var(--accent)}
+
+/* stat row */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+.stat{border-radius:24px;padding:28px;background:var(--tint)}
+.stat b{display:block;font-weight:500;font-size:clamp(40px,4vw,60px);letter-spacing:-.05em;line-height:1;color:var(--deep-text)}
+.stat span{display:block;margin-top:12px;color:var(--muted);font-size:16px}
+
+/* centred CTA */
+.talk{padding:130px 0 120px;text-align:center;background:linear-gradient(180deg,var(--paper) 0%,var(--tint) 100%)}
+.talk .h-sec{color:var(--deep-text);margin:0 auto}
+.talk p{max-width:46ch;margin:22px auto 34px;color:var(--muted)}
+.talk pre{display:inline-block;text-align:left;margin:0 0 30px;padding:18px 24px;border-radius:18px;background:var(--deep);color:var(--accent);font:400 15px/1.7 var(--mono);max-width:100%;overflow-x:auto}
+
+/* footer */
+.foot{background:var(--tint);padding:0 40px 40px}
+.foot .box{max-width:1360px;margin:0 auto;background:var(--deep);color:#fff;border-radius:40px;padding:56px 48px 40px;display:grid;grid-template-columns:1.2fr 1fr;gap:40px}
+.foot p{color:rgba(255,255,255,.62);max-width:44ch;margin:22px 0 0}
+.foot nav{display:flex;flex-wrap:wrap;gap:12px 36px;align-content:start}
+.foot nav a{text-decoration:none;font-size:18px;letter-spacing:-.02em}
+.foot .legal{grid-column:1/-1;display:flex;justify-content:space-between;gap:20px;padding-top:40px;color:rgba(255,255,255,.55);font-size:14px}
+
+/* reveal: transform only, so content is never hidden */
+.rv{animation:rv 1s cubic-bezier(.2,.7,.2,1) both}
+.rv.d1{animation-delay:.08s}.rv.d2{animation-delay:.16s}.rv.d3{animation-delay:.26s}.rv.d4{animation-delay:.36s}
+@keyframes rv{from{transform:translateY(22px)}to{transform:none}}
+
+@media (max-width:1024px){
+  .wrap{padding:0 24px}
+  .nav ul{display:none}
+  .nav .wrap{grid-template-columns:auto 1fr;height:84px}
+  .nav .logo{order:-1}
+  .hero-bleed .wrap,.hero-split .wrap,.intro,.faq{grid-template-columns:1fr}
+  .widget{justify-self:start}
+  .bento{grid-template-columns:1fr 1fr}
+  .bento .card:first-child{grid-column:span 2;min-height:0}
+  .stats{grid-template-columns:1fr 1fr}
+  .foot .box{grid-template-columns:1fr}
+  .sec-head{flex-direction:column;align-items:flex-start}
+}
+@media (max-width:640px){
+  body{font-size:16px}
+  .wrap{padding:0 16px}
+  section{padding:76px 0}
+  .nav .act>a:not(.btn){display:none}
+  .hero-bleed{min-height:auto;padding-top:120px}
+  .hero-bleed .wrap{padding-bottom:36px}
+  .hero-centre{padding-top:130px}
+  .hero-split{padding:124px 0 64px}
+  .hero-light{padding-top:120px}
+  .bento{grid-template-columns:1fr}
+  .bento .card:first-child{grid-column:auto}
+  .card{min-height:0;padding:24px;gap:28px}
+  .stats{grid-template-columns:1fr 1fr;gap:12px}
+  .stat{padding:20px}
+  .ev .row{grid-template-columns:1fr;gap:6px;padding:16px 18px}
+  .ev .row a{text-align:left}
+  .marquee span{font-size:24px}
+  .talk{padding:90px 0}
+  .foot{padding:0 12px 12px}
+  .foot .box{padding:36px 22px 26px;border-radius:28px}
+  .foot .legal{flex-direction:column}
+  .btn{height:48px;padding:0 20px;font-size:16px}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.rv,.marquee .track{animation:none}.btn{transition:none}}
+
+      /* Yaksok: a lattice night, and an intent that seals itself into its envelope */
+      .hero-bleed { background: radial-gradient(55% 65% at 80% 38%, rgba(240, 138, 75, .2), rgba(240, 138, 75, 0) 70%), radial-gradient(40% 40% at 8% 100%, rgba(150, 120, 255, .12), rgba(150, 120, 255, 0) 70%), var(--deep); }
+      .lattice { position: absolute; z-index: -1; inset: 0; pointer-events: none;
+        background-image: repeating-linear-gradient(60deg, rgba(240, 138, 75, .16) 0 1px, transparent 1px 36px), repeating-linear-gradient(-60deg, rgba(240, 138, 75, .16) 0 1px, transparent 1px 36px);
+        -webkit-mask: radial-gradient(52% 68% at 78% 42%, #000 0%, transparent 76%); mask: radial-gradient(52% 68% at 78% 42%, #000 0%, transparent 76%); }
+      .hero-bleed .h-hero span { color: var(--accent); }
+      .intent { width: min(100%, 390px); }
+      .ibox { position: relative; overflow: hidden; min-height: 214px; margin-top: 16px; border-radius: 18px; background: #f7f4fc; }
+      .fields { margin: 0; padding: 6px 16px; display: grid; grid-template-columns: auto 1fr; }
+      .fields dt, .fields dd { padding: 10px 0; border-top: 1px solid var(--line); font-size: 15px; }
+      .fields dt:first-of-type, .fields dd:first-of-type { border-top: 0; }
+      .fields dt { font: 400 13px/1.7 var(--mono); color: #7d7489; padding-right: 14px; }
+      .fields dd { margin: 0; text-align: right; letter-spacing: -.01em; }
+      .env { position: absolute; inset: 0; padding: 18px 16px; background: var(--deep); color: #fff; display: flex; flex-direction: column; justify-content: space-between; gap: 10px; transition: transform .9s cubic-bezier(.65, 0, .2, 1); }
+      .env::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--accent); }
+      .env-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+      .env-top b { font-weight: 500; font-size: 16px; letter-spacing: -.02em; }
+      .env-top svg { width: 22px; height: 22px; flex: none; color: var(--accent); }
+      .env p { margin: 0; font-size: 14px; color: rgba(255, 255, 255, .65); }
+      .env .ct { display: block; font: 400 12px/1.55 var(--mono); color: var(--accent); overflow-wrap: anywhere; }
+      .intent.open .env { transform: translateY(101%); }
+      .sigrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; font-size: 14px; color: #6b6377; }
+      .peek { border: 0; background: none; padding: 0; font: 500 14px var(--font); color: var(--deep-text); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+      .trio { display: grid; gap: 8px; }
+      .trio div { display: grid; grid-template-columns: 30px 1fr auto; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 14px; background: var(--tint); }
+      .trio i { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--deep); color: var(--accent); font: 500 13px var(--mono); font-style: normal; }
+      .trio b { font-weight: 500; font-size: 15px; letter-spacing: -.02em; }
+      .trio code { display: block; font-size: 11.5px; color: var(--muted); }
+      .chain { display: flex; flex-wrap: wrap; gap: 8px 0; align-items: center; }
+      .chain span { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; font: 500 12px var(--mono); color: #fff; }
+      .chain span + span { margin-left: 12px; position: relative; }
+      .chain span + span::before { content: ''; position: absolute; left: -12px; top: 50%; width: 12px; height: 2px; background: rgba(28, 19, 38, .25); }
+      .chain .s { background: var(--ok); } .chain .r { background: var(--no); } .chain .f { background: var(--accent); color: var(--accent-ink); } .chain .a { background: var(--deep); color: var(--accent); }
+      .lg { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 14px; font-size: 13px; color: var(--muted); }
+      .lg span::before { content: ''; display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; background: var(--ok); }
+      .lg .r::before { background: var(--no); } .lg .f::before { background: var(--accent); } .lg .a::before { background: var(--deep); }
+      .ev .row .n { font: 500 14px var(--mono); color: var(--accent); margin-right: 10px; }
+      @media (max-width: 1024px) { .lattice { -webkit-mask: radial-gradient(80% 50% at 60% 70%, #000 0%, transparent 76%); mask: radial-gradient(80% 50% at 60% 70%, #000 0%, transparent 76%); } }
+      @media (max-width: 640px) { .fields dt, .fields dd { font-size: 14px; } .sigrow { flex-wrap: wrap; } .chain span { width: 28px; height: 28px; font-size: 11px; } .chain span + span { margin-left: 7px; } .chain span + span::before { left: -7px; width: 7px; } }
+      @media (prefers-reduced-motion: reduce) { .env { transition: none; } }
     </style>
   </head>
   <body>
-    <div class="wrap">
-      <div class="top"><b>zec-pq-intents</b><a href="https://github.com/nickthelegend/zec-pq-intents">GitHub</a></div>
-      <header class="hero">
+    <nav class="nav on-dark" aria-label="Main">
+      <div class="wrap">
+        <ul><li><a href="#how">How it works</a></li><li><a href="#log">Decision log</a></li><li><a href="#faq">FAQ</a></li></ul>
+        <a class="logo" href="#top"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="8" width="24" height="17" rx="4" fill="#f08a4b" /><path d="M5 10l11 8.5L27 10" fill="none" stroke="#1c1326" stroke-width="2.4" stroke-linejoin="round" /></svg>Yaksok</a>
+        <div class="act"><a href="https://github.com/nickthelegend/zec-pq-intents/tree/main/packages/docs">Protocol</a><a class="btn btn-white btn-sm" href="https://github.com/nickthelegend/zec-pq-intents">Get the code</a></div>
+      </div>
+    </nav>
+
+    <header class="hero hero-bleed" id="top">
+      <div class="lattice" aria-hidden="true"></div>
+      <div class="wrap">
         <div>
-          <h1>Intents signed and sealed with <span>NIST post-quantum</span> primitives.</h1>
-          <p class="lede">An intent is signed with ML-DSA-65 and sealed to the solver with ML-KEM-768. The user escrows real testnet ZEC, the solver delivers from its own liquidity, and a verifier releases or refunds the escrow, writing every decision into a signed, hash-chained log anchored on-chain.</p>
-          <div class="cta">
-            <a class="btn" href="https://github.com/nickthelegend/zec-pq-intents">Read the code</a>
-            <a class="btn ghost" href="#log">See the decision log</a>
+          <h1 class="h-hero rv">Sign it. Seal it. <span>Settle it shielded.</span></h1>
+          <p class="lead rv d1">Intents signed with ML-DSA-65, sealed to the solver with ML-KEM-768 and settled in shielded testnet ZEC. Every release, refund and rejection is a signed, hash-chained log entry anchored on-chain.</p>
+          <div class="cta rv d2"><a class="btn btn-accent" href="#log">See the decision log <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></a><a class="btn btn-ghost-light" href="https://github.com/nickthelegend/zec-pq-intents">Read the code</a></div>
+        </div>
+        <div class="widget intent rv d3" id="intent" aria-label="Intent A from the live run: its fields, and the ML-KEM-768 envelope it was sealed in">
+          <div class="w-top"><span class="w-title">Intent A</span><span class="tag tag-deep" id="ist">sealed</span></div>
+          <div class="ibox">
+            <dl class="fields">
+              <dt>escrow</dt><dd>60,000 zat</dd>
+              <dt>min_out</dt><dd>40,000 zat</dd>
+              <dt>deadline</dt><dd>block 4,522,735</dd>
+              <dt>nonce</dt><dd><code>d3f4f31d…</code></dd>
+              <dt>hash</dt><dd><code>48a440a6…</code></dd>
+            </dl>
+            <div class="env" id="env">
+              <div class="env-top"><b>ML-KEM-768 + AES-256-GCM</b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2.5" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg></div>
+              <p>to the solver's key <code>7dded232…</code></p>
+              <code class="ct">kem_ct ArBU9pAnaqFMcpZ7DeD3J2/FtfsMGYM5…</code>
+              <code class="ct">ct W1UpbGURjUOovBye+xJS/2CcVulZ6jDGXg/w…</code>
+            </div>
           </div>
+          <div class="sigrow"><span><span class="tag tag-ok">ML-DSA-65</span> user <code>8679109f…</code></span><button class="peek" id="peek" type="button" aria-pressed="false">Open as the solver</button></div>
+          <p class="w-note">Real values from the live run. Only the solver's ML-KEM key opens the envelope.</p>
         </div>
-        <div class="seal" aria-label="An intent, then its ML-KEM-768 envelope">
-          <div class="seal-head"><span>an intent, illustrated</span><b id="state">plaintext</b></div>
-          <pre id="body"></pre>
-          <div class="seal-foot"><div>signed with<b>ML-DSA-65</b></div><div>sealed to the solver with<b>ML-KEM-768 + AES-256-GCM</b></div></div>
-        </div>
-      </header>
+      </div>
+    </header>
+
+    <div class="built">
+      <span class="pill">Built on Zcash, with the NIST post-quantum standards</span>
+      <div class="marquee" aria-hidden="true"><div class="track">
+        <span><i></i>Zcash</span><span><i></i>ML-DSA-65</span><span><i></i>FIPS 204</span><span><i></i>ML-KEM-768</span><span><i></i>FIPS 203</span><span><i></i>AES-256-GCM</span><span><i></i>Viewing keys</span><span><i></i>lightwalletd</span><span><i></i>MCP</span>
+        <span><i></i>Zcash</span><span><i></i>ML-DSA-65</span><span><i></i>FIPS 204</span><span><i></i>ML-KEM-768</span><span><i></i>FIPS 203</span><span><i></i>AES-256-GCM</span><span><i></i>Viewing keys</span><span><i></i>lightwalletd</span><span><i></i>MCP</span>
+      </div></div>
     </div>
 
-    <main class="wrap">
-      <section aria-labelledby="three">
-        <h2 id="three">Three intents, one shielded funding transaction</h2>
-        <p class="sub">Escrow 60,000 zat each, deliver 40,000. A release or a refund pays 60,000 minus a 15,000 fee budget, so 45,000 zat. Every payout was re-read with the recipient's viewing key.</p>
-        <div class="trio">
-          <div class="card"><span class="st ok">settled</span><h3>A <code>48a440a6…</code></h3><p>Filled by the solver, escrow released.</p></div>
-          <div class="card"><span class="st ok">settled</span><h3>B <code>85de1ac4…</code></h3><p>Filled by the solver, escrow released.</p></div>
-          <div class="card"><span class="st rf">refunded</span><h3>C <code>0c9bdfce…</code></h3><p>12-block deadline. Attacked twice, then refunded to the user.</p></div>
+    <main>
+      <section>
+        <div class="wrap intro">
+          <div>
+            <h2 class="h-sec">Post-quantum where the promise is made</h2>
+            <div class="cta" style="margin-top: 34px"><a class="btn btn-dark" href="https://github.com/nickthelegend/zec-pq-intents">Run it locally <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></a><a class="btn btn-outline" href="https://github.com/nickthelegend/zec-pq-intents/tree/main/packages/docs">Trust model</a></div>
+          </div>
+          <div class="copy lead">
+            <p><b>The intent layer uses NIST's post-quantum primitives,</b> the ones Zcash's roadmap brings in later. Zcash spends themselves stay elliptic-curve based.</p>
+            <p><b>The user escrows real testnet ZEC.</b> The solver delivers from its own liquidity, and a verifier releases the escrow or refunds it.</p>
+          </div>
         </div>
       </section>
 
-      <section id="log" aria-labelledby="log-h">
-        <h2 id="log-h">The decision log, entry by entry</h2>
-        <p class="sub">Each entry is signed by the verifier's ML-DSA-65 key and hashes the one before it. The head of entries 0 to 8 went into a shielded memo, found on-chain with the anchor's viewing key.</p>
-        <ol class="chain">
-          <li class="ok"><span class="n">#0</span><span class="v">SETTLED</span><span class="why">intent A filled and released</span><a href="https://testnet.zcashexplorer.app/transactions/9800b912682a0630a64dd4a54c245fc7c0810ee117eed7b304138fddda63b7c2"><code>9800b912…</code></a></li>
-          <li class="ok"><span class="n">#1</span><span class="v">SETTLED</span><span class="why">intent B filled and released</span><a href="https://testnet.zcashexplorer.app/transactions/6b34215c46c7aff1e2924a8f8608b0cc17f376f254e10c4f027ad766111718d9"><code>6b34215c…</code></a></li>
-          <li class="no"><span class="n">#2</span><span class="v">MEMO_MISMATCH</span><span class="why">the solver "filled" C with the wrong memo</span><a href="https://testnet.zcashexplorer.app/transactions/36d0f49acbcb0498073393f554c135697cb5c0bccc6ce788deb6b3c3a05bc33a"><code>36d0f49a…</code></a></li>
-          <li class="no"><span class="n">#3</span><span class="v">BAD_SIGNATURE</span><span class="why">A with min_out changed to 1 after signing</span><span></span></li>
-          <li class="no"><span class="n">#4</span><span class="v">ALREADY_SETTLED</span><span class="why">A submitted again after it settled</span><span></span></li>
-          <li class="no"><span class="n">#5</span><span class="v">NONCE_REUSED</span><span class="why">a new intent reusing A's nonce</span><span></span></li>
-          <li class="no"><span class="n">#6</span><span class="v">WRONG_KEY</span><span class="why">signed by another ML-DSA key but naming the user</span><span></span></li>
-          <li class="no"><span class="n">#7</span><span class="v">EXPIRED</span><span class="why">a correct fill of C mined after its deadline</span><a href="https://testnet.zcashexplorer.app/transactions/3b81e337b0669f97ad0f8c4a02a0e332a412a65276fbb5db0088704c6c39b1bb"><code>3b81e337…</code></a></li>
-          <li class="rf"><span class="n">#8</span><span class="v">REFUNDED</span><span class="why">C's escrow back to the user</span><a href="https://testnet.zcashexplorer.app/transactions/357b706505ae07232939aa39fe7a862363283b49a06e4a62fafc6eaa823a2966"><code>357b7065…</code></a></li>
-          <li class="an"><span class="n">#9</span><span class="v">ANCHORED</span><span class="why">head of entries 0 to 8 in a shielded memo</span><a href="https://testnet.zcashexplorer.app/transactions/a7d960386f2d8dc926003e700b15bcc761b6e72419765ea6f958a85d73a65a73"><code>a7d96038…</code></a></li>
-        </ol>
+      <section id="how" style="padding-top: 0">
+        <div class="wrap">
+          <div class="sec-head"><h2 class="h-sec">Every decision signed and chained</h2><a class="btn btn-outline btn-sm" href="https://github.com/nickthelegend/zec-pq-intents/tree/main/packages/docs">Learn more <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></a></div>
+          <div class="bento">
+            <div class="card c-tint-2">
+              <div class="ui"><div class="trio">
+                <div><i>A</i><span><b>settled</b><code>48a440a6…</code></span><span class="tag tag-ok">45,000 zat</span></div>
+                <div><i>B</i><span><b>settled</b><code>85de1ac4…</code></span><span class="tag tag-ok">45,000 zat</span></div>
+                <div><i>C</i><span><b>refunded</b><code>0c9bdfce…</code></span><span class="tag tag-tint">45,000 zat</span></div>
+              </div></div>
+              <div><h3 class="h-card">Three intents, one funding</h3><p>Escrow 60,000 zat, deliver 40,000. A release or refund pays 60,000 minus a 15,000 fee budget. C was attacked twice, then refunded.</p></div>
+            </div>
+            <div class="card c-tint">
+              <div><h3 class="h-card">A log you can't quietly edit</h3><p>Each entry is signed by the verifier's ML-DSA-65 key and hashes the one before it. The head of entries 0 to 8 is anchored in a shielded memo.</p></div>
+              <div class="ui"><div class="chain" role="img" aria-label="Ten log entries: 2 settled, 6 rejected, 1 refunded, 1 anchor"><span class="s">0</span><span class="s">1</span><span class="r">2</span><span class="r">3</span><span class="r">4</span><span class="r">5</span><span class="r">6</span><span class="r">7</span><span class="f">8</span><span class="a">9</span></div><div class="lg"><span>settled</span><span class="r">rejected</span><span class="f">refunded</span><span class="a">anchor</span></div></div>
+            </div>
+            <div class="card c-deep">
+              <div><h3 class="h-card">Agents can ask</h3><p>pqi-mcp quotes, submits intents and re-verifies the log on request: signatures, links and the anchor memo on-chain.</p></div>
+              <div class="chips"><span class="on">verify_log</span><span>quote</span><span>submit_intent</span><span>status</span></div>
+            </div>
+          </div>
+        </div>
       </section>
 
-      <section aria-labelledby="limits">
-        <h2 id="limits">What this is not</h2>
-        <ul class="limits">
-          <li>Not trustless: the verifier holds the escrow. The signed, anchored log makes every decision checkable after the fact.</li>
-          <li>Zcash spends stay elliptic-curve based. This is post-quantum at the intent layer only.</li>
-          <li>Testnet only, with demo wallets whose viewing keys are published. Not audited.</li>
-        </ul>
+      <section style="padding-top: 0">
+        <div class="wrap stats">
+          <div class="stat"><b>3</b><span>intents funded in one shielded transaction</span></div>
+          <div class="stat"><b>10</b><span>log entries, each signed and chained</span></div>
+          <div class="stat"><b>6</b><span>rejections, each written to the log</span></div>
+          <div class="stat"><b>25</b><span>tests plus a doc example</span></div>
+        </div>
+      </section>
+
+      <section class="dark" id="log">
+        <div class="wrap">
+          <div class="sec-head"><div><h2 class="h-sec">The decision log, entry by entry</h2><p class="muted lead">Oct 20, 2026, Zcash testnet. Demo-only wallets: their viewing keys and the signed intents are published so every decision can be re-checked. Every payout was re-read with the recipient's viewing key.</p></div></div>
+          <div class="ev" role="list" aria-label="Decision log">
+            <div class="row" role="listitem"><span><span class="n">#0</span>Intent A filled by the solver, escrow released</span><span class="tag tag-ok">SETTLED</span><a href="https://testnet.zcashexplorer.app/transactions/9800b912682a0630a64dd4a54c245fc7c0810ee117eed7b304138fddda63b7c2">9800b912…</a></div>
+            <div class="row" role="listitem"><span><span class="n">#1</span>Intent B filled by the solver, escrow released</span><span class="tag tag-ok">SETTLED</span><a href="https://testnet.zcashexplorer.app/transactions/6b34215c46c7aff1e2924a8f8608b0cc17f376f254e10c4f027ad766111718d9">6b34215c…</a></div>
+            <div class="row" role="listitem"><span><span class="n">#2</span>The solver "filled" C with the wrong memo</span><span class="tag tag-no">FILL_NOT_CREDITED</span><a href="https://testnet.zcashexplorer.app/transactions/36d0f49acbcb0498073393f554c135697cb5c0bccc6ce788deb6b3c3a05bc33a">36d0f49a…</a></div>
+            <div class="row" role="listitem"><span><span class="n">#3</span>A with min_out changed to 1 after signing</span><span class="tag tag-no">BAD_SIGNATURE</span><a href="https://testnet.zcashexplorer.app/transactions/1d6b38683c64a5e157af4cbfed344dca3604c28242f178de83894654b68354d9">1d6b3868…</a></div>
+            <div class="row" role="listitem"><span><span class="n">#4</span>A submitted again after it settled</span><span class="tag tag-no">ALREADY_SETTLED</span><a href="https://testnet.zcashexplorer.app/transactions/1d6b38683c64a5e157af4cbfed344dca3604c28242f178de83894654b68354d9">1d6b3868…</a></div>
+            <div class="row" role="listitem"><span><span class="n">#5</span>A new intent reusing A's nonce</span><span class="tag tag-no">NONCE_REUSED</span><a href="https://testnet.zcashexplorer.app/transactions/1d6b38683c64a5e157af4cbfed344dca3604c28242f178de83894654b68354d9">1d6b3868…</a></div>
+            <div class="row" role="listitem"><span><span class="n">#6</span>Signed by another ML-DSA key, naming the user</span><span class="tag tag-no">WRONG_KEY</span><a href="https://testnet.zcashexplorer.app/transactions/1d6b38683c64a5e157af4cbfed344dca3604c28242f178de83894654b68354d9">1d6b3868…</a></div>
+            <div class="row" role="listitem"><span><span class="n">#7</span>A correct fill of C, mined after its deadline</span><span class="tag tag-no">EXPIRED</span><a href="https://testnet.zcashexplorer.app/transactions/3b81e337b0669f97ad0f8c4a02a0e332a412a65276fbb5db0088704c6c39b1bb">3b81e337…</a></div>
+            <div class="row" role="listitem"><span><span class="n">#8</span>C's escrow back to the user</span><span class="tag tag-accent">REFUNDED</span><a href="https://testnet.zcashexplorer.app/transactions/357b706505ae07232939aa39fe7a862363283b49a06e4a62fafc6eaa823a2966">357b7065…</a></div>
+            <div class="row" role="listitem"><span><span class="n">#9</span>Head of entries 0 to 8 in a shielded memo, found with the anchor's viewing key</span><span class="tag tag-tint">ANCHORED</span><a href="https://testnet.zcashexplorer.app/transactions/a7d960386f2d8dc926003e700b15bcc761b6e72419765ea6f958a85d73a65a73">a7d96038…</a></div>
+          </div>
+          <p class="muted" style="margin: 18px 0 0; font-size: 15px">Entries #3 to #6 link the shared funding transaction; nothing was paid out for them. Entry #2 was also short: MEMO_MISMATCH and AMOUNT_TOO_LOW.</p>
+        </div>
+      </section>
+
+      <section class="dark" id="faq" style="padding-top: 0">
+        <div class="wrap faq">
+          <div><h2 class="h-sec">Frequently asked questions</h2><p class="muted lead" style="margin-top: 18px">What the promise covers, and what it doesn't.</p></div>
+          <div>
+            <details open><summary>Is it trustless?</summary><p>No. The verifier holds the escrow and is trusted for liveness: it could withhold a payout. It cannot fake the record without the signatures, links or anchors showing it.</p></details>
+            <details><summary>Is the ZEC payment post-quantum?</summary><p>No. Zcash spends stay elliptic-curve based. Yaksok is post-quantum at the intent layer only.</p></details>
+            <details><summary>Who can read my intent?</summary><p>The solver, once it opens the envelope. On a quiet testnet, amounts and timing can still link a funding and a fill.</p></details>
+            <details><summary>Is it live?</summary><p>On Zcash testnet, ZEC only, with no cross-asset leg and a single verifier key. Not audited. A portfolio piece; the Zecathon entry is Kage (Shielded x402).</p></details>
+          </div>
+        </div>
+      </section>
+
+      <section class="talk">
+        <div class="wrap">
+          <h2 class="h-sec">Make a promise that holds</h2>
+          <p class="lead">Protocol, verifier, solver, a scanner and an MCP server. The node tests re-check the published run against Zcash testnet.</p>
+          <pre>pnpm install && pnpm test
+pnpm --filter @pqi/dashboard dev</pre>
+          <div class="cta" style="justify-content: center"><a class="btn btn-dark" href="https://github.com/nickthelegend/zec-pq-intents">Get the code <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></a></div>
+        </div>
       </section>
     </main>
-    <footer class="wrap">MIT · Copyright (c) 2026 Nivesh Gajengi</footer>
+
+    <footer class="foot">
+      <div class="box">
+        <div><a class="logo" href="#top" style="color: #fff"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="8" width="24" height="17" rx="4" fill="#f08a4b" /><path d="M5 10l11 8.5L27 10" fill="none" stroke="#1c1326" stroke-width="2.4" stroke-linejoin="round" /></svg>Yaksok</a><p>약속, Korean for "promise". Intents signed and sealed with post-quantum keys, settled in shielded ZEC.</p></div>
+        <nav aria-label="Footer"><a href="#how">How it works</a><a href="#log">Decision log</a><a href="#faq">FAQ</a><a href="https://github.com/nickthelegend/zec-pq-intents">GitHub</a><a href="https://github.com/nickthelegend/zec-pq-intents/blob/main/deployments/testnet.json">Run record</a></nav>
+        <div class="legal"><span>MIT · Copyright (c) 2026 Nivesh Gajengi</span><span>Zcash testnet · not audited</span></div>
+      </div>
+    </footer>
     <script>
-      // Illustrative: the fields of a canonical intent, then a stand-in for its ML-KEM envelope (random bytes, not the real ciphertext).
-      const plain = '{\n  "id": "48a440a6…",\n  "sell": "60000 zat (escrow)",\n  "min_out": "40000 zat",\n  "deliver_to": "fresh shielded address",\n  "deadline": "+12 blocks",\n  "nonce": "…"\n}';
-      const body = document.getElementById('body'), state = document.getElementById('state');
-      const b64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-      const rnd = (n) => Array.from({ length: n }, () => b64[(Math.random() * 64) | 0]).join('');
-      body.textContent = plain;
-      const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-      if (!reduce) {
-        const chars = plain.split('');
-        let i = 0;
-        setTimeout(function step() {
-          for (let k = 0; k < 6 && i < chars.length; k++, i++) if (chars[i] !== '\n') chars[i] = b64[(Math.random() * 64) | 0];
-          body.textContent = chars.join('');
-          if (i < chars.length) setTimeout(step, 28);
-          else { body.textContent = 'kem_ct: ' + rnd(132) + '\n\naes_gcm: ' + rnd(96) + '\n\nsig: ' + rnd(48) + '…'; state.textContent = 'sealed for the solver'; }
-        }, 1600);
-      }
+      // Intent A starts in the open, then seals into its real ML-KEM-768 envelope. The button opens it again, as the solver would.
+      const box = document.getElementById('intent'), ist = document.getElementById('ist'), peek = document.getElementById('peek');
+      const set = (open) => { box.classList.toggle('open', open); ist.textContent = open ? 'signed' : 'sealed'; peek.setAttribute('aria-pressed', String(open)); peek.textContent = open ? 'Seal it again' : 'Open as the solver'; };
+      peek.addEventListener('click', () => set(!box.classList.contains('open')));
+      if (!matchMedia('(prefers-reduced-motion: reduce)').matches) { const env = document.getElementById('env'); env.style.transition = 'none'; set(true); void env.offsetWidth; env.style.transition = ''; setTimeout(() => set(false), 1800); }
     </script>
   </body>
 </html>
