@@ -1,0 +1,29 @@
+{
+  "name": "@pqi/node",
+  "version": "0.1.0",
+  "description": "zec-pq-intents services: verifier (escrow + signed log), solver (ML-KEM envelopes, shielded fills), intent desk + HTTP, zingo-cli and viewing-key scan wrappers",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "serve": "tsx src/serve.ts"
+  },
+  "dependencies": {
+    "@pqi/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "~5.9.3",
+    "vitest": "^3.2.7",
+    "tsx": "^4.23.15"
+  }
+}
