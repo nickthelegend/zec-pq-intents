@@ -79,7 +79,8 @@ export class Verifier {
   }
 
   /** Common checks on the user's signed intent: signature, key binding, nonce, funding. */
-  private async admit(s: SignedIntent, fundingTxid: string): Promise<{ hash: string; fund: ScanResult } | Decision | Pending> {
+  /** `forRefund`: a deposit mined after the deadline still has to be refundable, so skip that check. */
+  private async admit(s: SignedIntent, fundingTxid: string, forRefund = false): Promise<{ hash: string; fund: ScanResult } | Decision | Pending> {
     let hash: string;
     try {
       hash = verifyIntent(s);
@@ -100,7 +101,7 @@ export class Verifier {
     const fund = await this.funding(hash, fundingTxid, BigInt(s.intent.pay_zat));
     if (onlyUnconfirmed(fund.reasons)) return { status: 'PENDING', reason: 'funding not mined yet' };
     if (!fund.ok) return this.reject(hash, `NOT_FUNDED:${fund.reasons.join('+')}`, { funding_txid: fundingTxid });
-    if (fund.height !== null && fund.height > s.intent.deadline_height) return this.reject(hash, 'FUNDED_AFTER_DEADLINE', { funding_txid: fundingTxid });
+    if (!forRefund && fund.height !== null && fund.height > s.intent.deadline_height) return this.reject(hash, 'FUNDED_AFTER_DEADLINE', { funding_txid: fundingTxid });
     return { hash, fund };
   }
 
@@ -134,7 +135,7 @@ export class Verifier {
 
   /** The user asks for its escrow back. Only after the deadline and if nothing settled it. */
   async refund(s: SignedIntent, fundingTxid: string): Promise<Decision | Pending> {
-    const a = await this.admit(s, fundingTxid);
+    const a = await this.admit(s, fundingTxid, true);
     if ('status' in a) return a;
     const { hash } = a;
     const tip = await this.c.tip();
