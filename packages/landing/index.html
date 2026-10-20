@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>zec-pq-intents</title>
+    <meta name="description" content="Intents signed with ML-DSA-65 and sealed with ML-KEM-768, settled in shielded ZEC on testnet, with a signed, anchored decision log anyone can re-verify." />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='9' cy='9' r='4' fill='%235B3FD0'/%3E%3Ccircle cx='23' cy='23' r='4' fill='%235B3FD0'/%3E%3Cpath d='M12 12l8 8' stroke='%235B3FD0' stroke-width='3'/%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
+    <style>
+      :root { --paper: #f2f3f7; --sheet: #fbfbfd; --ink: #1a1830; --muted: #5d5b78; --rule: #d4d3e2; --pq: #5b3fd0; --ok: #157a55; --no: #b4232c; --link: #3651c9; color-scheme: light; }
+      @media (prefers-color-scheme: dark) { :root { --paper: #12111f; --sheet: #1b1a2d; --ink: #e8e6f5; --muted: #a19fbf; --rule: #2f2d48; --pq: #a18cff; --ok: #55c99a; --no: #ff8a8f; --link: #9fb1ff; color-scheme: dark; } }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--paper); color: var(--ink); font: 400 17px/1.65 'Bricolage Grotesque', system-ui, sans-serif; overflow-x: hidden; }
+      a { color: var(--link); text-underline-offset: 3px; }
+      :focus-visible { outline: 2px solid var(--pq); outline-offset: 2px; }
+      code { font: 0.85em 'IBM Plex Mono', monospace; overflow-wrap: anywhere; }
+      .wrap { max-width: 900px; margin: 0 auto; padding: 0 16px; }
+      header { padding: 60px 0 32px; }
+      .brand { font: 600 1rem 'IBM Plex Mono', monospace; margin: 0 0 30px; }
+      h1 { font: 700 clamp(2.1rem, 6vw, 3.6rem)/1.03 'Bricolage Grotesque', sans-serif; letter-spacing: -0.025em; margin: 0 0 18px; max-width: 17ch; }
+      h2 { font: 700 1.4rem/1.2 'Bricolage Grotesque', sans-serif; margin: 0 0 12px; }
+      header p { color: var(--muted); max-width: 58ch; }
+      section { padding: 36px 0; border-top: 1px solid var(--rule); }
+      section > p { max-width: 64ch; }
+      .cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+      .cta a { font-weight: 600; text-decoration: none; padding: 10px 16px; border-radius: 4px; border: 1px solid var(--ink); color: var(--ink); }
+      .cta a:first-child { background: var(--ink); color: var(--sheet); }
+      .chain { list-style: none; margin: 0; padding: 0 0 0 18px; position: relative; display: grid; gap: 8px; }
+      .chain::before { content: ''; position: absolute; left: 6px; top: 6px; bottom: 6px; border-left: 2px solid var(--rule); }
+      .chain li { position: relative; background: var(--sheet); border: 1px solid var(--rule); border-left: 4px solid var(--muted); border-radius: 6px; padding: 8px 12px; font-size: 0.95rem; overflow-wrap: anywhere; }
+      .chain li::before { content: ''; position: absolute; left: -17px; top: 14px; width: 10px; height: 10px; border-radius: 50%; background: var(--pq); }
+      .chain .s { border-left-color: var(--ok); } .chain .r { border-left-color: var(--no); } .chain .a { border-left-color: var(--pq); }
+      .table-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 6px; background: var(--sheet); }
+      table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+      th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+      th { color: var(--muted); font-size: 0.8rem; } tr:last-child td { border-bottom: 0; }
+      footer { padding: 28px 0 44px; color: var(--muted); font-size: 0.85rem; border-top: 1px solid var(--rule); }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <p class="brand">zec-pq-intents</p>
+        <h1>Intents a quantum computer can’t forge or read in transit.</h1>
+        <p>Signed with ML-DSA-65, sealed to the solver with ML-KEM-768, settled in shielded ZEC on testnet. Every decision is a signed, hash-chained log entry anchored in a shielded memo, and anyone can re-verify all of it.</p>
+        <div class="cta">
+          <a href="https://github.com/nickthelegend/zec-pq-intents">Source</a>
+          <a href="https://github.com/nickthelegend/zec-pq-intents#live-on-zcash-testnet">The live log</a>
+          <a href="https://github.com/nickthelegend/zec-pq-intents/tree/main/packages/docs">Trust model</a>
+        </div>
+      </header>
+      <section>
+        <h2>The live log, Oct 20, 2026</h2>
+        <ol class="chain">
+          <li class="s">#0 SETTLED · intent A filled and the escrow released to the solver</li>
+          <li class="s">#1 SETTLED · intent B</li>
+          <li class="r">#2 REJECTED · C “filled” with the wrong memo</li>
+          <li class="r">#3 REJECTED · A with a field changed after signing → BAD_SIGNATURE</li>
+          <li class="r">#4 REJECTED · A again → ALREADY_SETTLED</li>
+          <li class="r">#5 REJECTED · a new intent reusing A’s nonce</li>
+          <li class="r">#6 REJECTED · signed by another key, naming the user → WRONG_KEY</li>
+          <li class="r">#7 REJECTED · C filled after its deadline → EXPIRED</li>
+          <li class="s">#8 REFUNDED · C’s escrow back to the user</li>
+          <li class="a">#9 ANCHORED · head of #0–#8 in a shielded memo, found on-chain</li>
+        </ol>
+      </section>
+      <section>
+        <h2>What is post-quantum here, and what is not</h2>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Piece</th><th>Primitive</th></tr></thead>
+          <tbody>
+            <tr><td>who asked for what (intent, fill claim, log entries)</td><td>ML-DSA-65 (FIPS 204)</td></tr>
+            <tr><td>the intent in transit to the solver</td><td>ML-KEM-768 (FIPS 203) + AES-256-GCM</td></tr>
+            <tr><td>the money</td><td>Zcash shielded transactions (Ironwood) — elliptic-curve, not post-quantum</td></tr>
+          </tbody>
+        </table></div>
+      </section>
+      <section>
+        <h2>Limits</h2>
+        <p>The verifier holds the escrow, so it is trusted to pay out; it cannot rewrite the record without the signatures, links or anchors showing it. ZEC-only delivery intents on testnet. Not audited.</p>
+      </section>
+      <footer>MIT · Copyright (c) 2026 Nivesh Gajengi</footer>
+    </div>
+  </body>
+</html>

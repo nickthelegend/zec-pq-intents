@@ -1,5 +1,3 @@
 # landing
 
-Landing
-
-_Placeholder — not built yet._
+One static page (`index.html`): pitch, the live log as a chain, what is and is not post-quantum, limits.
