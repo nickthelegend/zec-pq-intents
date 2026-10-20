@@ -1,0 +1,24 @@
+{
+  "name": "@pqi/protocol",
+  "version": "0.1.0",
+  "description": "Post-quantum intents for shielded Zcash: canonical intents, ML-DSA-65 signatures, ML-KEM-768 + AES-256-GCM envelopes to the solver, signed hash-chained attestation log",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@noble/ciphers": "2.2.0",
+    "@noble/hashes": "2.2.0",
+    "@noble/post-quantum": "0.6.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "~5.9.3",
+    "vitest": "^3.2.7"
+  }
+}
