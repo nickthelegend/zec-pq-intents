@@ -1,4 +1,4 @@
-# Protocol, trust model and the Zcash post-quantum roadmap
+# Yaksok: protocol, trust model and the Zcash post-quantum roadmap
 
 ## What it is
 

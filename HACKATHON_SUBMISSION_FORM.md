@@ -1,4 +1,4 @@
-# zec-pq-intents — submission draft (portfolio; DO NOT SUBMIT)
+# Yaksok — submission draft (portfolio; DO NOT SUBMIT)
 
 Zecathon allows one entry per team: Shielded x402. This would fit Private Markets.
 

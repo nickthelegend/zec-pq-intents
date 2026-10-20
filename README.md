@@ -1,4 +1,4 @@
-# zec-pq-intents
+# Yaksok — post-quantum intents, settled in shielded ZEC
 
 **Post-quantum intents, settled in shielded ZEC.** An intent is signed with **ML-DSA-65** (FIPS 204)
 and sealed to the solver with **ML-KEM-768** (FIPS 203). The user escrows real testnet ZEC, the
