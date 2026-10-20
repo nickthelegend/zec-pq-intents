@@ -33,7 +33,10 @@ function published(path: string) {
     if (url.pathname.startsWith('/api/intents/')) {
       const h = url.pathname.split('/').pop();
       const entries = d.log.filter((e) => e.intent_hash === h);
-      return json(res, 200, { hash: h, stage: entries.length ? entries[entries.length - 1].status.toLowerCase() : 'unknown', log: entries });
+      // An intent's stage is its outcome if it has one; later refusals (a replay) do not change it.
+      const final = entries.find((e) => e.status === 'SETTLED' || e.status === 'REFUNDED');
+      const stage = (final ?? entries[entries.length - 1])?.status.toLowerCase() ?? 'unknown';
+      return json(res, 200, { hash: h, stage, log: entries });
     }
     if (req.method === 'POST') return json(res, 503, { error: 'Setup required: this desk serves a published record (PQI_PUBLISHED); run it with PQI_STATE to accept intents' });
     return json(res, 404, { error: 'not found' });
