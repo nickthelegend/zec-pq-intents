@@ -10,4 +10,4 @@ Reads the published run (`deployments/testnet.json`) and re-verifies it in the t
 pnpm --filter @pqi/dashboard dev   # http://localhost:5181
 ```
 
-Light and dark; 375 px without horizontal scroll.
+One dark app frame on the brand colour; 375 px without horizontal scroll.
