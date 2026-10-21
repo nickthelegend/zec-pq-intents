@@ -3,7 +3,8 @@
 // shielded wallet to the user's receive address with memo pqi1:<hash>:fill:<its key id>, and signs a
 // fill claim with that same key.
 import { keyId, memo, open, signFill, type Envelope, type FillClaim, type KemKey, type SignedIntent, type SigningKey } from '@pqi/protocol';
-import { scan } from './scan.js';
+import { scan, type ScanResult } from './scan.js';
+import { confirmationsAt, MIN_CONFIRMATIONS } from './verifier.js';
 import { quicksend, type ZingoConfig } from './zingo.js';
 
 /** Blocks a fill needs to be mined by the deadline with room to spare (testnet blocks are ~75 s). */
@@ -20,6 +21,8 @@ export interface SolverConfig {
   minFeeZat: bigint;
   /** default MIN_BLOCKS_LEFT: decline an intent whose deadline is closer than this */
   minBlocksLeft?: number;
+  /** default MIN_CONFIRMATIONS: the escrow funding must be this deep before the solver delivers */
+  minConfirmations?: number;
 }
 
 export type Quote = { accept: true; feeZat: bigint } | { accept: false; reason: string };
@@ -41,9 +44,14 @@ export class Solver {
     return { accept: true, feeZat: fee };
   }
 
-  /** The escrow funding, as the escrow's viewing key sees it. */
-  funded(hash: string, s: SignedIntent, fundingTxid: string) {
-    return scan(this.c.escrowUivk, fundingTxid, BigInt(s.intent.pay_zat), memo.funding(hash));
+  /** The escrow funding, as the escrow's viewing key sees it, and at least minConfirmations deep at
+   *  `tip` (otherwise not ok, with reason NOT_CONFIRMED (k of N)). */
+  async funded(hash: string, s: SignedIntent, fundingTxid: string, tip: number): Promise<ScanResult> {
+    const r = await scan(this.c.escrowUivk, fundingTxid, BigInt(s.intent.pay_zat), memo.funding(hash));
+    const need = this.c.minConfirmations ?? MIN_CONFIRMATIONS;
+    const have = confirmationsAt(r.height, tip);
+    if (r.ok && have < need) return { ...r, ok: false, reasons: [`NOT_CONFIRMED (${have} of ${need})`] };
+    return r;
   }
 
   /** keyId of the solver's ML-DSA-65 key, which its fill memos name. */

@@ -12,7 +12,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { bytesToHex, hexToBytes, intentHash, kemKeyFromSeed, keyId, memo, randomBytes, seal, signIntent, signingKeyFromSeed, toB64, verifyLog, type SignedIntent } from '@pqi/protocol';
-import { chainTip, Desk, scan, Solver, uivkFromUfvk, Verifier, address, exportUfvk, quicksend, spendable, zingoConfig, type Receiver } from '@pqi/node';
+import { chainTip, Desk, MIN_CONFIRMATIONS, scan, Solver, uivkFromUfvk, Verifier, address, exportUfvk, quicksend, spendable, zingoConfig, type Receiver } from '@pqi/node';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const DEMO = resolve(ROOT, '.demo');
@@ -48,14 +48,15 @@ async function sendOnce(label: string, from: string, to: Receiver[]): Promise<st
   }
 }
 
+/** Waits until `txid` has the confirmations the verifier and solver require. */
 async function mined(uivk: string, txid: string, label: string) {
   for (let i = 0; i < 80; i++) {
     const r = await scan(uivk, txid, 0, undefined);
-    if (r.confirmations >= 1) return r;
+    if (r.confirmations >= MIN_CONFIRMATIONS) return r;
     if (i % 3 === 0) say(`  … ${label} ${txid.slice(0, 10)} ${r.found ? 'in the mempool' : 'not seen yet'}`);
     await sleep(20_000);
   }
-  throw new Error(`${label} ${txid} not mined after ~27 minutes`);
+  throw new Error(`${label} ${txid} not ${MIN_CONFIRMATIONS} blocks deep after ~27 minutes`);
 }
 
 /** A decision's log sequence number, printed; a pending one is a bug here (everything was mined first). */

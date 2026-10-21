@@ -77,7 +77,7 @@ export class Desk {
     }
     if (OPEN.includes(item.stage) && item.stage !== 'filled' && tip > s.intent.deadline_height + this.c.verifier.claimWindow) return this.refund(item, s);
     if (item.stage === 'received') {
-      const f = await this.c.solver.funded(item.hash, s, item.fundingTxid);
+      const f = await this.c.solver.funded(item.hash, s, item.fundingTxid, tip);
       if (!f.ok) return `waiting for funding: ${f.reasons.join(', ')}`;
       const q = this.c.solver.quote(s, tip);
       if (!q.accept) {

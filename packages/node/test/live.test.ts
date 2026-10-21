@@ -24,11 +24,11 @@ const allPayouts = Object.fromEntries((['A', 'B', 'C'] as const).flatMap((k) => 
 const LEGACY = [I.A.hash, I.B.hash, I.C.hash];
 
 /** A verifier with a new key and (optionally) prior state, on the published escrow. No wallet is used. */
-function freshVerifier(prior?: { nonces?: Record<string, Record<string, string>>; closed?: Record<string, 'SETTLED' | 'REFUNDED'> }, opts: { tip?: () => Promise<number>; solvers?: string[]; legacy?: string[] } = {}) {
+function freshVerifier(prior?: { nonces?: Record<string, Record<string, string>>; closed?: Record<string, 'SETTLED' | 'REFUNDED'> }, opts: { tip?: () => Promise<number>; solvers?: string[]; legacy?: string[]; minConfirmations?: number } = {}) {
   const key = newSigningKey();
   const statePath = join(mkdtempSync(join(tmpdir(), 'pqi-')), 'state.json');
   writeFileSync(statePath, JSON.stringify({ log: [], nonces: prior?.nonces ?? {}, closed: prior?.closed ?? {}, payouts: allPayouts }));
-  const v = new Verifier({ key, escrowWallet: '/nonexistent/escrow-wallet-never-used', escrowUa: W.escrow.address, escrowUivk: W.escrow.uivk, solvers: opts.solvers ?? [keyId(solver.publicKey)], legacyUnboundFills: opts.legacy ?? LEGACY, zingo: zingoConfig(), statePath, tip: opts.tip ?? chainTip });
+  const v = new Verifier({ key, escrowWallet: '/nonexistent/escrow-wallet-never-used', escrowUa: W.escrow.address, escrowUivk: W.escrow.uivk, solvers: opts.solvers ?? [keyId(solver.publicKey)], legacyUnboundFills: opts.legacy ?? LEGACY, minConfirmations: opts.minConfirmations, zingo: zingoConfig(), statePath, tip: opts.tip ?? chainTip });
   return { v, key };
 }
 
@@ -121,6 +121,29 @@ describe('fill binding: only the solver the fill memo names is paid', () => {
     const r = await listed.settle(I.B.signed, d.txs.funding, claim(I.B.hash, d.txs.fills[I.B.hash]));
     expect(r).toMatchObject({ status: 'SETTLED', payoutTxid: NEVER_SENT });
     expect(listed.state.log[0].refs).toMatchObject({ fill_binding: 'legacy-single-solver', solver: keyId(solver.publicKey) });
+  });
+});
+
+describe('confirmations: funding and fill are acted on only at N (default 3)', () => {
+  it('A with the observed height held: funding at 2 confirmations → PENDING; fill at 2 → PENDING; fill at 3 → SETTLED; nothing logged before', async () => {
+    const fundH = (await scan(W.escrow.uivk, d.txs.funding, 60_000, memo.funding(I.A.hash))).height!;
+    const fillH = (await scan(W.receive.uivk, d.txs.fills[I.A.hash], 40_000, memo.legacyFill(I.A.hash))).height!;
+    expect(fillH).toBeGreaterThan(fundH + 2);
+    let held = fundH + 1;
+    const { v } = freshVerifier(undefined, { tip: async () => held });
+    const settleA = () => v.settle(I.A.signed, d.txs.funding, claim(I.A.hash, d.txs.fills[I.A.hash]));
+    expect(await settleA()).toEqual({ status: 'PENDING', reason: 'funding has 2 of 3 confirmations' });
+    held = fillH + 1;
+    expect(await settleA()).toEqual({ status: 'PENDING', reason: 'fill has 2 of 3 confirmations' });
+    expect(v.state.log).toHaveLength(0);
+    held = fillH + 2;
+    expect(await settleA()).toMatchObject({ status: 'SETTLED', payoutTxid: NEVER_SENT });
+  });
+
+  it('N is configurable: with 6, the same fill at 5 confirmations is still PENDING', async () => {
+    const fillH = (await scan(W.receive.uivk, d.txs.fills[I.B.hash], 40_000, memo.legacyFill(I.B.hash))).height!;
+    const { v } = freshVerifier(undefined, { tip: async () => fillH + 4, minConfirmations: 6 });
+    expect(await v.settle(I.B.signed, d.txs.funding, claim(I.B.hash, d.txs.fills[I.B.hash]))).toEqual({ status: 'PENDING', reason: 'fill has 5 of 6 confirmations' });
   });
 });
 

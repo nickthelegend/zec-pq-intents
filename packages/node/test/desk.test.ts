@@ -6,8 +6,8 @@ import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { keyId, newKemKey, newSigningKey, seal, signFill, type SignedIntent } from '@pqi/protocol';
-import { chainTip, Desk, MAX_BODY_BYTES, serveDesk, Solver, Verifier, zingoConfig, type BoardItem } from '../src/index.js';
+import { keyId, memo, newKemKey, newSigningKey, seal, signFill, type SignedIntent } from '@pqi/protocol';
+import { chainTip, Desk, MAX_BODY_BYTES, scan, serveDesk, Solver, Verifier, zingoConfig, type BoardItem } from '../src/index.js';
 
 const d = JSON.parse(readFileSync(resolve(__dirname, '../../../deployments/testnet.json'), 'utf8'));
 const I = d.intents as Record<'A' | 'B' | 'C', { hash: string; signed: SignedIntent }>;
@@ -24,7 +24,7 @@ function setup(items: (kem: Uint8Array, sign: ReturnType<typeof newSigningKey>) 
   const solver = new Solver({ sign, kem, wallet: '/nonexistent/solver-wallet-never-used', ua: W.solver.address, escrowUivk: W.escrow.uivk, zingo: zingoConfig(), minFeeZat: 15_000n });
   const verifier = new Verifier({ key: newSigningKey(), escrowWallet: '/nonexistent/escrow-wallet-never-used', escrowUa: W.escrow.address, escrowUivk: W.escrow.uivk, solvers: [keyId(sign.publicKey)], legacyUnboundFills: [I.A.hash, I.B.hash, I.C.hash], zingo: zingoConfig(), statePath: join(dir, 'verifier.json'), tip: chainTip });
   const desk = new Desk({ boardPath: join(dir, 'board.json'), solver, verifier, tip: chainTip, info: { mode: 'test' } });
-  return { desk, verifier, kem: kem.publicKey };
+  return { desk, verifier, solver, kem: kem.publicKey };
 }
 
 const item = (k: 'A' | 'B' | 'C', kem: Uint8Array, stage: BoardItem['stage'], extra: Partial<BoardItem> = {}): BoardItem => ({
@@ -47,6 +47,15 @@ describe('board', () => {
     expect(() => desk.submit(seal(I.A.signed, newKemKey().publicKey), d.txs.funding)).toThrow(/NOT_FOR_ME/);
     expect(desk.items).toHaveLength(0);
     expect(desk.submit(seal(I.A.signed, kem), d.txs.funding)).toMatchObject({ hash: I.A.hash, stage: 'received' });
+  });
+});
+
+describe('solver: funding depth (Zcash testnet)', () => {
+  it('the solver does not deliver against a funding with fewer than 3 confirmations (observed height held)', async () => {
+    const { solver } = setup();
+    const fundH = (await scan(W.escrow.uivk, d.txs.funding, 60_000, memo.funding(I.A.hash))).height!;
+    expect(await solver.funded(I.A.hash, I.A.signed, d.txs.funding, fundH + 1)).toMatchObject({ ok: false, reasons: ['NOT_CONFIRMED (2 of 3)'] });
+    expect(await solver.funded(I.A.hash, I.A.signed, d.txs.funding, fundH + 2)).toMatchObject({ ok: true });
   });
 });
 

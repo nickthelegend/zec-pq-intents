@@ -13,6 +13,12 @@ export const FEE_BUDGET_ZAT = 15_000n;
 /** Blocks after the deadline during which only the solver can be paid: a fill mined by the deadline
  *  can still be claimed, and a refund waits until the window closes. */
 export const CLAIM_WINDOW_BLOCKS = 10;
+/** Confirmations a funding or a fill needs before the verifier acts on it (a shallow reorg can undo a
+ *  1-confirmation payment, and the escrow would then pay out of other users' deposits). */
+export const MIN_CONFIRMATIONS = 3;
+
+/** Confirmations of a transaction mined at `height` when the chain tip is `tip` (0 if not mined). */
+export const confirmationsAt = (height: number | null, tip: number) => (height === null ? 0 : Math.max(0, tip - height + 1));
 
 export interface VerifierState {
   log: LogEntry[];
@@ -43,6 +49,8 @@ export interface VerifierConfig {
   tip: () => Promise<number>;
   /** default CLAIM_WINDOW_BLOCKS */
   claimWindow?: number;
+  /** default MIN_CONFIRMATIONS; counted against `tip()` */
+  minConfirmations?: number;
 }
 
 export type Decision = { status: LogStatus; reason: string | null; entry: LogEntry; payoutTxid?: string };
@@ -53,6 +61,7 @@ const onlyUnconfirmed = (reasons: string[]) => reasons.length > 0 && reasons.eve
 export class Verifier {
   readonly state: VerifierState;
   readonly claimWindow: number;
+  readonly minConfirmations: number;
   /** Decisions run one at a time, so two calls for the same intent can never both pass the checks
    *  before either closes it (which would pay the escrow out twice). */
   private queue: Promise<unknown> = Promise.resolve();
@@ -66,6 +75,8 @@ export class Verifier {
     const check = verifyLog(this.state.log, c.key.publicKey);
     if (!check.ok) throw new Error(`stored log does not verify at entry ${check.error?.seq}: ${check.error?.problem}`);
     this.claimWindow = c.claimWindow ?? CLAIM_WINDOW_BLOCKS;
+    this.minConfirmations = c.minConfirmations ?? MIN_CONFIRMATIONS;
+    if (!Number.isSafeInteger(this.minConfirmations) || this.minConfirmations < 1) throw new Error('minConfirmations must be a whole number ≥ 1');
   }
 
   private save() {
@@ -97,6 +108,12 @@ export class Verifier {
     }
   }
 
+  /** PENDING until a mined transaction has minConfirmations against the verifier's own tip. */
+  private async deepEnough(r: ScanResult, what: string): Promise<Pending | null> {
+    const have = confirmationsAt(r.height, await this.c.tip());
+    return have >= this.minConfirmations ? null : { status: 'PENDING', reason: `${what} has ${have} of ${this.minConfirmations} confirmations` };
+  }
+
   private async funding(hash: string, fundingTxid: string, payZat: bigint): Promise<ScanResult> {
     return scan(this.c.escrowUivk, fundingTxid, payZat, memo.funding(hash));
   }
@@ -124,6 +141,8 @@ export class Verifier {
     const fund = await this.funding(hash, fundingTxid, BigInt(s.intent.pay_zat));
     if (onlyUnconfirmed(fund.reasons)) return { status: 'PENDING', reason: 'funding not mined yet' };
     if (!fund.ok) return this.reject(hash, `NOT_FUNDED:${fund.reasons.join('+')}`, { funding_txid: fundingTxid });
+    const shallow = await this.deepEnough(fund, 'funding');
+    if (shallow) return shallow;
     if (!forRefund && fund.height !== null && fund.height > s.intent.deadline_height) return this.reject(hash, 'FUNDED_AFTER_DEADLINE', { funding_txid: fundingTxid });
     return { hash, fund };
   }
@@ -169,6 +188,8 @@ export class Verifier {
     }
     if (onlyUnconfirmed(fill.reasons)) return { status: 'PENDING', reason: 'fill not mined yet' };
     if (!fill.ok) return this.reject(hash, `FILL_NOT_CREDITED:${fill.reasons.join('+')}`, { fill_txid: claim.fill_txid });
+    const shallowFill = await this.deepEnough(fill, 'fill');
+    if (shallowFill) return shallowFill;
     if (fill.height === null || fill.height > s.intent.deadline_height) return this.reject(hash, 'EXPIRED', { fill_txid: claim.fill_txid, fill_height: String(fill.height), deadline: String(s.intent.deadline_height) });
     this.remember(s, hash);
     const out = BigInt(s.intent.pay_zat) - FEE_BUDGET_ZAT;
