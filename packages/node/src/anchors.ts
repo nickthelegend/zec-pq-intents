@@ -7,6 +7,6 @@ import { valueTransfers, type ZingoConfig } from './zingo.js';
 
 export async function anchorHistory(cfg: ZingoConfig, historyWallet: string): Promise<AnchorSeen[]> {
   return (await valueTransfers(cfg, historyWallet))
-    .filter((t) => t.kind !== 'received' && !/fail/i.test(t.status))
+    .filter((t) => t.kind !== 'received' && t.status !== 'failed')
     .flatMap((t) => t.memos.filter((m) => m.startsWith('pqi1:anchor:')).map((memo) => ({ txid: t.txid, memo })));
 }

@@ -17,9 +17,10 @@ export const CLAIM_WINDOW_BLOCKS = 10;
  *  1-confirmation payment, and the escrow would then pay out of other users' deposits). */
 export const MIN_CONFIRMATIONS = 3;
 
-/** Blocks after which a Zcash transaction that was built but never mined can no longer be mined: the
- *  default expiry delta of librustzcash, which zingolib builds transactions with. */
-export const TX_EXPIRY_BLOCKS = 40;
+/** Blocks after which a transaction the escrow built but that was never mined can no longer be mined.
+ *  zingolib's expiry delta: librustzcash's 40 blocks, held at the same wall-clock time (120 blocks)
+ *  once NU7's 25-second blocks are active, as they are on this testnet (wallet/expiry.rs). */
+export const TX_EXPIRY_BLOCKS = 120;
 
 /** Test hook: `PQI_TEST_CRASH_AT=<point>` kills this process with SIGKILL at that point (no cleanup,
  *  no save), so a test can restart from exactly what was on disk. */
@@ -174,8 +175,9 @@ export class Verifier {
     } catch (e) {
       throw new Error(`PAYOUT_UNRECONCILED: ${key} was being sent at height ${p.at_height} when the process stopped, and the escrow's history cannot be read to see whether it went out (${(e as Error).message}). Not paying again.`);
     }
-    const out = found.filter((t) => !/fail/i.test(t.status));
-    const mined = out.find((t) => /confirmed/i.test(t.status));
+    // zingo statuses: calculated, transmitted, mempool, confirmed, failed.
+    const out = found.filter((t) => t.status !== 'failed');
+    const mined = out.find((t) => t.status === 'confirmed');
     if (mined) {
       this.state.payouts[key] = mined.txid;
       delete this.state.sending![key];
