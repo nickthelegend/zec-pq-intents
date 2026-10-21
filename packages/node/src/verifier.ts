@@ -3,10 +3,10 @@
 // the solver), REFUNDED (deadline passed, escrow back to the user) or REJECTED, and appends an
 // ML-DSA-65 signed entry for every decision. It is trusted to act on its decisions (it holds the
 // escrow); anyone can re-check every decision and signature from the published log.
-import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, fsyncSync, openSync, readFileSync, renameSync, writeSync } from 'node:fs';
 import { appendEntry, intentHash, memo, ProtocolError, readFillMemo, verifyFill, verifyIntent, verifyLog, type FillClaim, type LogEntry, type LogStatus, type SignedIntent, type SigningKey } from '@pqi/protocol';
 import { scan, type ScanResult } from './scan.js';
-import { quicksend, type ZingoConfig } from './zingo.js';
+import { quicksend, sentWithMemo, type ZingoConfig } from './zingo.js';
 
 /** The escrow keeps this much of each deposit to pay the release/refund transaction fee. */
 export const FEE_BUDGET_ZAT = 15_000n;
@@ -16,6 +16,16 @@ export const CLAIM_WINDOW_BLOCKS = 10;
 /** Confirmations a funding or a fill needs before the verifier acts on it (a shallow reorg can undo a
  *  1-confirmation payment, and the escrow would then pay out of other users' deposits). */
 export const MIN_CONFIRMATIONS = 3;
+
+/** Blocks after which a Zcash transaction that was built but never mined can no longer be mined: the
+ *  default expiry delta of librustzcash, which zingolib builds transactions with. */
+export const TX_EXPIRY_BLOCKS = 40;
+
+/** Test hook: `PQI_TEST_CRASH_AT=<point>` kills this process with SIGKILL at that point (no cleanup,
+ *  no save), so a test can restart from exactly what was on disk. */
+function crashPoint(point: 'payout-before-broadcast' | 'payout-after-broadcast') {
+  if (process.env.PQI_TEST_CRASH_AT === point) process.kill(process.pid, 'SIGKILL');
+}
 
 /** Confirmations of a transaction mined at `height` when the chain tip is `tip` (0 if not mined). */
 export const confirmationsAt = (height: number | null, tip: number) => (height === null ? 0 : Math.max(0, tip - height + 1));
@@ -28,6 +38,20 @@ export interface VerifierState {
   closed: Record<string, 'SETTLED' | 'REFUNDED'>;
   /** decisions already paid out on-chain, so a restart never pays twice: key → txid */
   payouts: Record<string, string>;
+  /** write-ahead records: a payout about to be broadcast, saved (fsync) before the broadcast and
+   *  removed once its txid is saved. One left here after a restart means the process stopped in
+   *  between; it is reconciled against the escrow's on-chain history before any new attempt. */
+  sending?: Record<string, PayoutIntent>;
+}
+
+export interface PayoutIntent {
+  to: string;
+  amount_zat: string;
+  /** unique per payout key (pqi1:<hash>:release, :refund, pqi1:anchor:…): how it is found on-chain */
+  memo: string;
+  /** chain tip when it was recorded; a transaction built then can be mined until at_height + 1 + TX_EXPIRY_BLOCKS */
+  at_height: number;
+  at: string;
 }
 
 export interface VerifierConfig {
@@ -51,6 +75,12 @@ export interface VerifierConfig {
   claimWindow?: number;
   /** default MIN_CONFIRMATIONS; counted against `tip()` */
   minConfirmations?: number;
+  /** a zingo wallet whose history shows every payment out of the escrow (default: escrowWallet; a
+   *  view-only wallet from the escrow's full viewing key also works). Read only to reconcile a
+   *  payout that a stopped process may have broadcast. */
+  historyWallet?: string;
+  /** how often a payout retries "Insufficient balance" (notes not spendable yet), a minute apart; default 20 */
+  balanceRetries?: number;
 }
 
 export type Decision = { status: LogStatus; reason: string | null; entry: LogEntry; payoutTxid?: string };
@@ -71,7 +101,7 @@ export class Verifier {
     return run;
   }
   constructor(private readonly c: VerifierConfig) {
-    this.state = existsSync(c.statePath) ? JSON.parse(readFileSync(c.statePath, 'utf8')) : { log: [], nonces: {}, closed: {}, payouts: {} };
+    this.state = existsSync(c.statePath) ? JSON.parse(readFileSync(c.statePath, 'utf8')) : { log: [], nonces: {}, closed: {}, payouts: {}, sending: {} };
     const check = verifyLog(this.state.log, c.key.publicKey);
     if (!check.ok) throw new Error(`stored log does not verify at entry ${check.error?.seq}: ${check.error?.problem}`);
     this.claimWindow = c.claimWindow ?? CLAIM_WINDOW_BLOCKS;
@@ -79,9 +109,18 @@ export class Verifier {
     if (!Number.isSafeInteger(this.minConfirmations) || this.minConfirmations < 1) throw new Error('minConfirmations must be a whole number ≥ 1');
   }
 
+  /** Written to a temporary file, flushed to disk, then renamed over the state: a crash leaves either
+   *  the old state or the new one. */
   private save() {
-    writeFileSync(`${this.c.statePath}.tmp`, JSON.stringify(this.state, null, 2));
-    renameSync(`${this.c.statePath}.tmp`, this.c.statePath);
+    const tmp = `${this.c.statePath}.tmp`;
+    const fd = openSync(tmp, 'w');
+    try {
+      writeSync(fd, JSON.stringify(this.state, null, 2));
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+    renameSync(tmp, this.c.statePath);
   }
 
   private async log(status: LogStatus, intent_hash: string | null, reason: string | null, refs: Record<string, string>): Promise<LogEntry> {
@@ -92,20 +131,62 @@ export class Verifier {
 
   private reject = async (hash: string | null, reason: string, refs: Record<string, string> = {}): Promise<Decision> => ({ status: 'REJECTED', reason, entry: await this.log('REJECTED', hash, reason, refs) });
 
-  /** Pays once per key: the txid is stored before the decision is logged. */
-  private async payOnce(key: string, to: string, amount: bigint, m: string): Promise<string> {
+  /** Pays once per key. Before the broadcast, a write-ahead record (recipient, amount, unique memo,
+   *  height) is saved; after it, the txid replaces the record, and only then is the decision logged.
+   *  If a record is already there, a previous process stopped between the two: the escrow's history is
+   *  read for that memo first. Found → that txid is the payout (nothing is sent). Not found → no new
+   *  attempt until a transaction built then has expired (PENDING until that height). */
+  private async payOnce(key: string, to: string, amount: bigint, m: string): Promise<string | Pending> {
     if (this.state.payouts[key]) return this.state.payouts[key];
+    const sending = (this.state.sending ??= {});
+    if (sending[key]) {
+      const r = await this.reconcile(key, sending[key]);
+      if (r !== null) return r;
+    }
+    sending[key] = { to, amount_zat: amount.toString(), memo: m, at_height: await this.c.tip(), at: new Date().toISOString() };
+    this.save();
+    crashPoint('payout-before-broadcast');
+    const retries = this.c.balanceRetries ?? 20;
     for (let i = 0; ; i++) {
       try {
         const [txid] = await quicksend(this.c.zingo, this.c.escrowWallet, [{ address: to, amount, memo: m }]);
+        crashPoint('payout-after-broadcast');
         this.state.payouts[key] = txid;
+        delete sending[key];
         this.save();
         return txid;
       } catch (e) {
-        if (!/Insufficient balance/.test((e as Error).message) || i >= 20) throw e;
+        // "Insufficient balance" fails while proposing, before anything is built or broadcast, so it is
+        // safe to try again in this process. Any other failure keeps the write-ahead record.
+        if (!/Insufficient balance/.test((e as Error).message) || i >= retries) throw e;
         await new Promise((r) => setTimeout(r, 60_000));
       }
     }
+  }
+
+  /** A write-ahead record from a stopped process: the txid if the escrow's history shows the payout,
+   *  PENDING if it might still be mined, null if it provably never went out (safe to send). */
+  private async reconcile(key: string, p: PayoutIntent): Promise<string | Pending | null> {
+    const wallet = this.c.historyWallet ?? this.c.escrowWallet;
+    let found;
+    try {
+      found = await sentWithMemo(this.c.zingo, wallet, p.memo);
+    } catch (e) {
+      throw new Error(`PAYOUT_UNRECONCILED: ${key} was being sent at height ${p.at_height} when the process stopped, and the escrow's history cannot be read to see whether it went out (${(e as Error).message}). Not paying again.`);
+    }
+    const out = found.filter((t) => !/fail/i.test(t.status));
+    const mined = out.find((t) => /confirmed/i.test(t.status));
+    if (mined) {
+      this.state.payouts[key] = mined.txid;
+      delete this.state.sending![key];
+      this.save();
+      return mined.txid;
+    }
+    if (out.length) return { status: 'PENDING', reason: `PAYOUT_UNRECONCILED: ${key} went out as ${out[0].txid} (${out[0].status}); waiting for it to be mined` };
+    const expires = p.at_height + 1 + TX_EXPIRY_BLOCKS;
+    const tip = await this.c.tip();
+    if (tip <= expires) return { status: 'PENDING', reason: `PAYOUT_UNRECONCILED: ${key} is not in the escrow's history; a transaction sent before the stop could be mined until height ${expires} (tip ${tip}), so it is not sent again before then` };
+    return null;
   }
 
   /** PENDING until a mined transaction has minConfirmations against the verifier's own tip. */
@@ -194,6 +275,7 @@ export class Verifier {
     this.remember(s, hash);
     const out = BigInt(s.intent.pay_zat) - FEE_BUDGET_ZAT;
     const release = await this.payOnce(`release:${hash}`, claim.solver_ua, out, memo.release(hash));
+    if (typeof release !== 'string') return release;
     this.state.closed[hash] = 'SETTLED';
     const entry = await this.log('SETTLED', hash, null, { user: s.intent.user, nonce: s.intent.nonce, funding_txid: fundingTxid, fill_txid: claim.fill_txid, release_txid: release, solver: claim.solver, fill_binding: binding, released_zat: out.toString() });
     return { status: 'SETTLED', reason: null, entry, payoutTxid: release };
@@ -215,6 +297,7 @@ export class Verifier {
     this.remember(s, hash);
     const out = BigInt(s.intent.pay_zat) - FEE_BUDGET_ZAT;
     const refund = await this.payOnce(`refund:${hash}`, s.intent.refund_ua, out, memo.refund(hash));
+    if (typeof refund !== 'string') return refund;
     this.state.closed[hash] = 'REFUNDED';
     const entry = await this.log('REFUNDED', hash, null, { user: s.intent.user, nonce: s.intent.nonce, funding_txid: fundingTxid, refund_txid: refund, refunded_zat: out.toString() });
     return { status: 'REFUNDED', reason: null, entry, payoutTxid: refund };
@@ -230,6 +313,7 @@ export class Verifier {
     if (!head) throw new Error('nothing to anchor');
     const seq = this.state.log.length - 1;
     const txid = await this.payOnce(`anchor:${seq}:${head}`, anchorUa, amountZat, memo.anchor(seq, head));
+    if (typeof txid !== 'string') throw new Error(txid.reason);
     const entry = await this.log('ANCHORED', null, null, { anchor_txid: txid, anchored_seq: String(seq), anchored_head: head });
     return { entry, txid, head, seq };
   }

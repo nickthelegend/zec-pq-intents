@@ -24,11 +24,11 @@ function refuseTreasury(walletDir: string) {
   if (resolve(walletDir).startsWith(resolve(homedir(), 'zec-testnet-wallet'))) throw new Error(`refusing ${walletDir}: the treasury wallet is not used by these examples`);
 }
 
-async function zingo(cfg: ZingoConfig, walletDir: string, args: string[], timeoutMs = 600_000): Promise<string> {
-  if (args[0] === 'recovery_info') throw new Error('refusing recovery_info: it prints the seed');
+async function zingo(cfg: ZingoConfig, walletDir: string, args: string[], timeoutMs = 600_000, pre: string[] = []): Promise<string> {
+  if (args.includes('recovery_info')) throw new Error('refusing recovery_info: it prints the seed');
   refuseTreasury(walletDir);
   try {
-    const { stdout, stderr } = await run(cfg.bin, ['--chain', 'testnet', '--server', cfg.server, '--data-dir', walletDir, '--waitsync', ...args], {
+    const { stdout, stderr } = await run(cfg.bin, ['--chain', 'testnet', '--server', cfg.server, '--data-dir', walletDir, '--waitsync', ...pre, ...args], {
       timeout: timeoutMs,
       maxBuffer: 32 * 1024 * 1024,
       cwd: '/tmp',
@@ -81,22 +81,35 @@ export interface ValueTransfer {
   memos: string[];
 }
 
-/** Parses zingo-cli's `value_transfers` listing. */
+/** Parses zingo-cli's `value_transfers` listing (memos are listed one per line as `memo N: <text>`). */
 export async function valueTransfers(cfg: ZingoConfig, walletDir: string): Promise<ValueTransfer[]> {
   const out = await zingo(cfg, walletDir, ['value_transfers']);
   const blocks = out.split(/\n\{\n/).slice(1);
   return blocks.map((b) => {
     const field = (k: string) => b.match(new RegExp(`^\\s*${k}:\\s*(.*)$`, 'm'))?.[1]?.trim() ?? '';
-    const memosLine = field('memos');
     return {
       txid: field('txid'),
       status: field('status'),
       blockheight: /^\d+$/.test(field('blockheight')) ? Number(field('blockheight')) : null,
       kind: field('kind'),
       value: BigInt(/^\d+$/.test(field('value')) ? field('value') : '0'),
-      memos: memosLine ? memosLine.split(/,\s*/).filter(Boolean) : [],
+      memos: [...b.matchAll(/^\s*memo \d+: (.*)$/gm)].map((m) => m[1].trim()),
     };
   });
+}
+
+/** Transfers this wallet sent whose memos include `memo`, as its history (synced to the tip) shows them. */
+export async function sentWithMemo(cfg: ZingoConfig, walletDir: string, memo: string): Promise<ValueTransfer[]> {
+  return (await valueTransfers(cfg, walletDir)).filter((t) => t.kind !== 'received' && t.memos.includes(memo));
+}
+
+/** Opens (creating it the first time) a view-only wallet from a unified full viewing key. It cannot
+ *  spend; it sees every payment in and out of that wallet from `birthday` on. */
+export async function openViewWallet(cfg: ZingoConfig, walletDir: string, ufvk: string, birthday: number): Promise<void> {
+  if (!/^uviewtest1[0-9a-z]+$/.test(ufvk)) throw new Error('openViewWallet needs a testnet unified full viewing key');
+  const { existsSync, readdirSync } = await import('node:fs');
+  const fresh = !existsSync(walletDir) || readdirSync(walletDir).length === 0;
+  await zingo(cfg, walletDir, ['height'], 600_000, fresh ? ['--viewkey', ufvk, '--birthday', String(birthday)] : []);
 }
 
 export async function height(cfg: ZingoConfig, walletDir: string): Promise<number> {

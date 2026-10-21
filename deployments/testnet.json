@@ -17,7 +17,10 @@
     },
     "escrow": {
       "address": "utest1fgwtrf8nq6e2j6w7rwa06k8ggmc5llsk3v7mjjnpy5ywmdfrjzuqfvlm4wpeggn9lq7cutkum7k75v8zqg2rxlg3z0k67lcz3cmcs558",
-      "uivk": "uivktest1uw0f4rs8yw8scd2wsmyg73ut09kye90vjscx2f67yztqvmrjtsnjjcuwazhlhw0cfzekgv4wxkx8ry9vhasq3kpegttm6wwkkskc4jgrfe69gvxxmfpre0wvu60c6qu69wv5qcxaeczz434nv5tttlqeek4tmcl7hpxjfj02hmnpr4k7e6mazuw9g9l9rup9au903e30urkvd66xdt6rqudjhtq4vyp6nvp2kwmwtx46jgldppu"
+      "uivk": "uivktest1uw0f4rs8yw8scd2wsmyg73ut09kye90vjscx2f67yztqvmrjtsnjjcuwazhlhw0cfzekgv4wxkx8ry9vhasq3kpegttm6wwkkskc4jgrfe69gvxxmfpre0wvu60c6qu69wv5qcxaeczz434nv5tttlqeek4tmcl7hpxjfj02hmnpr4k7e6mazuw9g9l9rup9au903e30urkvd66xdt6rqudjhtq4vyp6nvp2kwmwtx46jgldppu",
+      "ufvk": "uviewtest10s2ycra477qvfgpyj6ysgf5vqa68vu7cg3keart5ya9mhap02t0esg5dgwln8zek7uxjjfcar5j53vjukjelfmuu6ut5vtp0ejvjajrwe4r3a22lwqvdh2lrrnyttv8afjehwg3nmrz07gzxlyhl6dmepugk4tsugkj6pfxxxs5kahczzc4wny40sddeccupw6s9ttvvaaxyfcjnnwhnwln32j7umagllj67fvsfaktt0wp9j5kj05qfpt0r9m7kxcg45zgzn52hqx4r87ewhl0crlnhtkx2zwgg3zvyjhavsalt2cx9y4x5mqcndv03kq9sxg9ata55put98jfllthm347a4lkvzmmvghuceyaml2kk9vlc59h602sljg0vzvpd6m5q862h89cdjn4kyzgvvy0aqc845phjetf956c9nyy9ufgp657u289tpxvl000pr2fyjqacw8jm8yad2wa47qmzhs0q0n7dxddaw08qyp56ss7lnxjj",
+      "birthday": 4522600,
+      "ufvk_note": "Published Oct 21 (pass 2): the full viewing key shows every payment out of the escrow (releases, refunds, anchors), so anyone can list them all from the chain. It cannot spend."
     },
     "anchor": {
       "address": "utest1s9sycjsq3rzn8u9k9cqlrlw66w8fkyzl8479vuzjmq44ksxmjgykp2sv6aepkdgl6f6vry3xt3hc6d3fr27rewqgmw0mk73r5y9feyxu",
