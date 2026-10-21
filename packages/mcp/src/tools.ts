@@ -9,7 +9,7 @@
 import { appendFileSync, readFileSync } from 'node:fs';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { fromB64, hexToBytes, keyId, memo, seal, signIntent, signingKeyFromSeed, verifyLog, type LogEntry } from '@pqi/protocol';
+import { fromB64, GENESIS, hexToBytes, keyId, memo, seal, signIntent, signingKeyFromSeed, verifyLog, type LogEntry } from '@pqi/protocol';
 import { chainTip, quicksend, scan, SetupRequiredError, zingoConfig } from '@pqi/node';
 
 const desk = () => process.env.PQI_DESK_URL ?? 'http://127.0.0.1:8404';
@@ -102,7 +102,7 @@ export function createServer(): McpServer {
     {
       title: 'Re-verify the attestation log',
       description:
-        'Fetches the verifier’s log, checks the verifier key against the one you pinned (PQI_VERIFIER_ID), re-checks every hash, link and ML-DSA-65 signature, checks the latest anchor memo on-chain with the anchor address’s published viewing key, and says how many entries come after that anchor (not yet anchored). Read-only.',
+        'Fetches the verifier’s log, checks the verifier key against the one you pinned (PQI_VERIFIER_ID), re-checks every hash, link and ML-DSA-65 signature, checks every anchor memo on-chain with the anchor address’s published viewing key and that each names the anchor before it, and says how many entries come after the last anchor (not yet anchored). Read-only.',
       annotations: { readOnlyHint: true },
     },
     () =>
@@ -114,17 +114,42 @@ export function createServer(): McpServer {
         const counts = log.reduce<Record<string, number>>((m, e) => ((m[e.status] = (m[e.status] ?? 0) + 1), m), {});
         if (keyId(pk) !== pinned) return { ok: false, entries: 0, head: null, error: { seq: null, problem: `the desk serves verifier key ${keyId(pk)}, not the pinned ${pinned}` }, counts, verifier: keyId(pk), anchor: 'not checked' };
         const check = verifyLog(log, pk);
-        const last = [...log].reverse().find((e) => e.status === 'ANCHORED');
+        const anchors = log.filter((e) => e.status === 'ANCHORED');
+        const last = anchors[anchors.length - 1];
         let anchor: unknown = 'no anchor yet';
         let anchorOk = true;
         if (last && info.anchor.uivk) {
+          // Every anchor: its memo on-chain (head, and the previous anchor's txid; the Oct 20 one names
+          // none), its head equal to the log's own, and its link to the anchor before it.
+          let links = true;
+          let failed: LogEntry | undefined;
+          let lastSeen: Awaited<ReturnType<typeof scan>> | undefined;
+          for (const [i, a] of anchors.entries()) {
+            const seq = Number(a.refs.anchored_seq);
+            const prev = a.refs.prev_anchor_txid;
+            const linked = i === 0 ? prev === undefined || prev === GENESIS : prev === anchors[i - 1].refs.anchor_txid;
+            const r = await scan(info.anchor.uivk, a.refs.anchor_txid, 1, memo.anchor(seq, a.refs.anchored_head, prev));
+            const headOk = verifyLog(log.slice(0, seq + 1), pk).head === a.refs.anchored_head;
+            links &&= linked;
+            if (!(r.ok && headOk && linked)) failed ??= a;
+            lastSeen = r;
+          }
           const seq = Number(last.refs.anchored_seq);
-          const r = await scan(info.anchor.uivk, last.refs.anchor_txid, 1, memo.anchor(seq, last.refs.anchored_head));
-          const head = verifyLog(log.slice(0, seq + 1), pk).head;
-          anchorOk = r.ok && head === last.refs.anchored_head;
-          anchor = { txid: last.refs.anchor_txid, memo_on_chain: r.ok, height: r.height, anchored_head_matches_log: head === last.refs.anchored_head, anchored_through: seq, entries_after_anchor: log.length - 1 - seq };
+          anchorOk = !failed;
+          anchor = {
+            txid: last.refs.anchor_txid,
+            memo_on_chain: lastSeen!.ok,
+            height: lastSeen!.height,
+            anchored_head_matches_log: verifyLog(log.slice(0, seq + 1), pk).head === last.refs.anchored_head,
+            anchored_through: seq,
+            entries_after_anchor: log.length - 1 - seq,
+            anchors: anchors.length,
+            chain_links: links,
+            escrow_history: 'not read here; `pnpm --filter @pqi/node check-anchors` lists every anchor the escrow sent (its full viewing key) and catches a fork',
+          };
+          if (failed) anchor = { ...(anchor as object), first_bad_anchor: failed.refs.anchor_txid };
         }
-        const error = check.error ?? (anchorOk ? null : { seq: Number(last?.refs.anchored_seq), problem: 'the anchor memo is missing on-chain or does not match the log' });
+        const error = check.error ?? (anchorOk ? null : { seq: Number(last?.refs.anchored_seq), problem: 'an anchor memo is missing on-chain, does not match the log, or does not link to the anchor before it' });
         return { ok: check.ok && anchorOk, entries: check.entries, head: check.head, error, counts, verifier: keyId(pk), anchor };
       }),
   );

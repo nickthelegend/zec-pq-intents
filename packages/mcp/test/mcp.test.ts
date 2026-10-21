@@ -65,7 +65,7 @@ describe('pqi-mcp', () => {
   it('verify_log: every signature and link verifies, and the anchor memo is on-chain and matches', async () => {
     const r = JSON.parse((await call('verify_log')).text);
     expect(r).toMatchObject({ ok: true, entries: 10, counts: { SETTLED: 2, REJECTED: 6, REFUNDED: 1, ANCHORED: 1 }, verifier: d.keys.verifier.id });
-    expect(r.anchor).toMatchObject({ txid: d.anchor.txid, memo_on_chain: true, anchored_head_matches_log: true, anchored_through: 8, entries_after_anchor: 1 });
+    expect(r.anchor).toMatchObject({ txid: d.anchor.txid, memo_on_chain: true, anchored_head_matches_log: true, anchored_through: 8, entries_after_anchor: 1, anchors: 1, chain_links: true });
   });
 
   it('verify_log: a desk serving a log signed by a key other than the pinned one fails; no pin is Setup required', async () => {
