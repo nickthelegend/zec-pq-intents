@@ -10,6 +10,11 @@ Zcash spends stay elliptic-curve based: this is post-quantum **at the intent lay
 primitives Zcash's roadmap introduces later (ML-KEM with Tachyon). Not trustless: the verifier holds
 the escrow (see [docs](packages/docs/README.md)).
 
+**Review, Oct 21:** [`docs/JUDGE-2026-10-21.md`](docs/JUDGE-2026-10-21.md) found that any key could
+claim a solver's fill and that settle and refund could both pay. Both are fixed with tests, along
+with the claim window, the desk's board, ticks, refunds and HTTP rules, the MCP trust pins and
+canonical base64. The review also lists what is still open.
+
 ## Live on Zcash testnet
 
 Run of Oct 20, 2026 (`deployments/testnet.json`). Demo-only wallets; their incoming viewing keys
@@ -48,9 +53,9 @@ the recomputed head of entries 0–8. Every payout was re-read with the recipien
 | [`packages/scan`](packages/scan) | `zpay-verify` (copy): viewing-key checks of every funding, fill, payout and anchor; `tip` |
 | [`packages/mcp`](packages/mcp) | `pqi-mcp`: `quote`, `submit_intent`, `status`, `verify_log` |
 | [`packages/examples`](packages/examples) | the resumable live run above |
-| [`packages/dashboard`](packages/dashboard) | intents, the log re-verified in the browser, attacks |
+| [`packages/dashboard`](packages/dashboard) | the Yaksok terminal: intent book, attestation tape re-verified in the browser, inspector, anchor, attack console |
 | [`packages/docs`](packages/docs) | protocol, rejections, trust model, roadmap sources |
-| [`packages/landing`](packages/landing) | one-page landing |
+| [`packages/landing`](packages/landing) | one-page landing generated from the run record; its tape re-verifies in the browser too |
 
 ## Run it
 
@@ -58,9 +63,11 @@ Needs Node 22+, pnpm 10, Rust 1.89 (pinned in `packages/scan`).
 
 ```sh
 pnpm install
-pnpm test                                    # 25 tests + doc: protocol 10, scan 3 + doc (local); node 7 + mcp 5 (live testnet)
+pnpm test                                    # 37 tests + doc: protocol 11, scan 3 + doc, node 17, mcp 6 (node and mcp read Zcash testnet)
 pnpm --filter @pqi/dashboard dev             # http://localhost:5181
 PQI_PUBLISHED=deployments/testnet.json pnpm --filter @pqi/node serve    # read-only desk for the MCP server
+# MCP server: node packages/mcp/dist/main.js with PQI_VERIFIER_ID=f60f1305… (verify_log needs the key you trust)
+node packages/landing/build.mjs              # regenerate the landing from deployments/testnet.json
 PQI_FUNDER_WALLET=<demo wallet> pnpm --filter @pqi/examples run-live    # a new live run
 ```
 
@@ -70,8 +77,12 @@ Demo video: `zec-pq-intents-demo.mp4` (shared separately until hosted).
 
 - The verifier holds the escrow and is trusted for liveness (it could withhold a payout); it cannot
   fake the record without the signatures, links or anchors showing it.
-- The solver sees plaintext intents. Amounts and timing can link a funding and a fill on a quiet
-  testnet.
+- The solver and the verifier see plaintext intents. The escrow viewing key is public, so funding
+  amounts and intent hashes are visible. The run used one receive address for all three intents.
+  The on-chain notes are ECC-encrypted, so a future quantum adversary could link funding and fill.
+- Only configured solver keys are paid. With several solvers, one could still claim another's fill.
+- Anchors are periodic and go to the verifier's own address (equivocation would need a full scan to
+  catch). One confirmation is accepted, and a crash between broadcast and save could pay twice.
 - Only ZEC on testnet: delivery intents, no cross-asset leg.
 - Testnet only, not audited, single verifier key. Portfolio piece; the Zecathon entry is Shielded x402.
 

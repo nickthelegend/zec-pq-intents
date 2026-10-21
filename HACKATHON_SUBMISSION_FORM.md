@@ -11,7 +11,8 @@ Zecathon allows one entry per team: Shielded x402. This would fit Private Market
 - 3 intents funded in one shielded tx `1d6b3868…`; A and B filled (`2970d8ba…`, `a74b9dfe…`) and settled (releases `9800b912…`, `6b34215c…`).
 - 6 signed rejections: wrong-memo fill, tampered intent, replay, nonce reuse, wrong key, late fill; C refunded (`357b7065…`).
 - Log head anchored in `a7d96038…`; memo found with the anchor viewing key, equals the recomputed head.
-- 25 tests + doc (TESTING.md); dashboard re-verifies every signature in the browser.
+- 37 tests + doc (TESTING.md); the dashboard and landing re-verify every signature in the browser.
+- Oct 21 review (`docs/JUDGE-2026-10-21.md`): fill-claim theft, a settle/refund double payout, refund griefing at the deadline, board squatting, cross-site desk POSTs and a self-vouching `verify_log` were found and fixed with tests.
 
 ## Honest scope
-Post-quantum at the intent layer only (Zcash spends stay ECC). Verifier trusted for liveness. ZEC-only delivery intents. Testnet only. Built Oct 20, 2026.
+Post-quantum at the intent layer only (Zcash spends stay ECC, and their notes could be linked by a future quantum adversary). Verifier trusted for liveness; only configured solver keys are paid. ZEC-only delivery intents. Testnet only. Built Oct 20, 2026.
