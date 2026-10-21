@@ -4,7 +4,7 @@
 // ML-DSA-65 signed entry for every decision. It is trusted to act on its decisions (it holds the
 // escrow); anyone can re-check every decision and signature from the published log.
 import { closeSync, existsSync, fsyncSync, openSync, readFileSync, renameSync, writeSync } from 'node:fs';
-import { appendEntry, intentHash, memo, ProtocolError, readFillMemo, verifyFill, verifyIntent, verifyLog, type FillClaim, type LogEntry, type LogStatus, type SignedIntent, type SigningKey } from '@pqi/protocol';
+import { appendEntry, GENESIS, intentHash, memo, ProtocolError, readFillMemo, verifyFill, verifyIntent, verifyLog, type FillClaim, type LogEntry, type LogStatus, type SignedIntent, type SigningKey } from '@pqi/protocol';
 import { scan, type ScanResult } from './scan.js';
 import { quicksend, sentWithMemo, type ZingoConfig } from './zingo.js';
 
@@ -303,18 +303,21 @@ export class Verifier {
     return { status: 'REFUNDED', reason: null, entry, payoutTxid: refund };
   }
 
-  /** Puts the current head in a shielded memo to the public anchor address, then logs that. */
-  anchor(anchorUa: string, amountZat = 10_000n): Promise<{ entry: LogEntry; txid: string; head: string; seq: number }> {
+  /** Puts the current head, and the txid of the previous anchor, in a shielded memo from the escrow
+   *  to the public anchor address, then logs that. Anchors chain: a second head anchored after the
+   *  same anchor is a fork anyone can see in the escrow's history (checkAnchors). */
+  anchor(anchorUa: string, amountZat = 10_000n): Promise<{ entry: LogEntry; txid: string; head: string; seq: number; prev: string }> {
     return this.exclusive(() => this.anchorNow(anchorUa, amountZat));
   }
 
-  private async anchorNow(anchorUa: string, amountZat: bigint): Promise<{ entry: LogEntry; txid: string; head: string; seq: number }> {
+  private async anchorNow(anchorUa: string, amountZat: bigint): Promise<{ entry: LogEntry; txid: string; head: string; seq: number; prev: string }> {
     const head = this.state.log[this.state.log.length - 1]?.hash;
     if (!head) throw new Error('nothing to anchor');
     const seq = this.state.log.length - 1;
-    const txid = await this.payOnce(`anchor:${seq}:${head}`, anchorUa, amountZat, memo.anchor(seq, head));
+    const prev = [...this.state.log].reverse().find((e) => e.status === 'ANCHORED')?.refs.anchor_txid ?? GENESIS;
+    const txid = await this.payOnce(`anchor:${seq}:${head}`, anchorUa, amountZat, memo.anchor(seq, head, prev));
     if (typeof txid !== 'string') throw new Error(txid.reason);
-    const entry = await this.log('ANCHORED', null, null, { anchor_txid: txid, anchored_seq: String(seq), anchored_head: head });
-    return { entry, txid, head, seq };
+    const entry = await this.log('ANCHORED', null, null, { anchor_txid: txid, anchored_seq: String(seq), anchored_head: head, prev_anchor_txid: prev });
+    return { entry, txid, head, seq, prev };
   }
 }

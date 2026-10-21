@@ -182,9 +182,9 @@ async function main() {
   // ---- anchor ----
   st.anchor ??= await verifier.anchor(st.addr.anchor);
   save();
-  const a = st.anchor as { txid: string; head: string; seq: number };
+  const a = st.anchor as { txid: string; head: string; seq: number; prev?: string };
   await mined(st.uivk.anchor, a.txid, 'anchor');
-  const anchorSeen = await scan(st.uivk.anchor, a.txid, 1, memo.anchor(a.seq, a.head));
+  const anchorSeen = await scan(st.uivk.anchor, a.txid, 1, memo.anchor(a.seq, a.head, a.prev));
   const recomputed = verifyLog(verifier.state.log.slice(0, a.seq + 1), verifierKey.publicKey);
   say(`anchor ${a.txid}: memo seen ${anchorSeen.ok}; recomputed head of entries 0..${a.seq} = anchored head: ${recomputed.head === a.head}`);
 

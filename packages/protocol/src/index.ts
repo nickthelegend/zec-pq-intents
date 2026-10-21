@@ -224,7 +224,10 @@ export const memo = {
   legacyFill: (hash: string) => `pqi1:${hash}:fill`,
   release: (hash: string) => `pqi1:${hash}:release`,
   refund: (hash: string) => `pqi1:${hash}:refund`,
-  anchor: (seq: number, head: string) => `pqi1:anchor:${seq}:${head}`,
+  /** The log head at `seq`, and the txid of the previous anchor (GENESIS for the first), so anchors
+   *  form one chain: two anchors naming the same previous anchor are a visible fork. Without `prev`,
+   *  the Oct 20, 2026 form, which names no previous anchor. */
+  anchor: (seq: number, head: string, prev?: string) => `pqi1:anchor:${seq}:${head}${prev === undefined ? '' : `:${prev}`}`,
 };
 
 /** What a memo says about a fill of `hash`: the solver key id it names (null for the legacy form),
@@ -315,4 +318,111 @@ export function verifyLog(log: LogEntry[], verifierPk: Uint8Array): LogCheck {
     prev = hash;
   }
   return { ok: true, head: prev, entries: log.length, error: null };
+}
+
+// ---------- anchor chain ----------
+
+/** What an anchor memo says: the anchored sequence number and head, and the previous anchor's txid
+ *  (null for the legacy form that names none). Null if it is not an anchor memo. */
+export function readAnchorMemo(m: string | null | undefined): { seq: number; head: string; prev: string | null } | null {
+  const r = /^pqi1:anchor:(0|[1-9]\d{0,8}):([0-9a-f]{64})(?::([0-9a-f]{64}))?$/.exec(m ?? '');
+  return r ? { seq: Number(r[1]), head: r[2], prev: r[3] ?? null } : null;
+}
+
+/** An anchor transaction as the escrow's own history shows it (every payment out of the escrow). */
+export interface AnchorSeen {
+  txid: string;
+  memo: string;
+}
+
+export type AnchorProblem =
+  | { kind: 'ANCHOR_FORK'; txids: [string, string]; detail: string }
+  | { kind: 'ANCHOR_PREV_UNKNOWN'; txid: string; prev: string }
+  | { kind: 'ANCHOR_SEQ_NOT_INCREASING'; txid: string; seq: number; prevSeq: number }
+  | { kind: 'ANCHOR_HEAD_MISMATCH'; txid: string; seq: number; detail: string }
+  | { kind: 'ANCHOR_NOT_IN_HISTORY'; txid: string; seq: number }
+  | { kind: 'ANCHOR_NOT_IN_LOG'; txid: string; seq: number };
+
+export interface AnchorCheck {
+  ok: boolean;
+  /** anchors in chain order (oldest first) */
+  chain: { txid: string; seq: number; head: string; prev: string | null }[];
+  /** anchors past the end of this log: it is behind, and they cannot be checked against it */
+  later: { txid: string; seq: number }[];
+  /** log entries after the last anchor this log covers */
+  unanchored: number;
+  problems: AnchorProblem[];
+}
+
+/**
+ * Checks a log against every anchor the escrow ever sent (`sent`, from its full history, which the
+ * published full viewing key shows to anyone):
+ *  - each anchor names the previous one by txid (the first names GENESIS; a legacy anchor names none
+ *    and may only come first), and no two name the same one: two anchored heads for one history are
+ *    ANCHOR_FORK, whichever audience was shown which;
+ *  - sequence numbers increase along the chain;
+ *  - every anchor within this log's length anchors this log's entry hash at its seq, and appears in the
+ *    log as an ANCHORED entry naming the same transaction (ANCHOR_HEAD_MISMATCH / ANCHOR_NOT_IN_LOG:
+ *    the log shown is not the log anchored, or hides an anchor);
+ *  - every ANCHORED entry in the log names a transaction in the history with the same seq, head and
+ *    previous anchor (ANCHOR_NOT_IN_HISTORY).
+ * The log itself should already have passed verifyLog.
+ */
+export function checkAnchors(log: LogEntry[], sent: AnchorSeen[]): AnchorCheck {
+  const problems: AnchorProblem[] = [];
+  const anchors = sent.flatMap((a) => {
+    const r = readAnchorMemo(a.memo);
+    return r ? [{ txid: a.txid, ...r }] : [];
+  });
+  const byTxid = new Map(anchors.map((a) => [a.txid, a]));
+  // Forks: two anchors after the same previous one, or two different heads for one seq.
+  const after = new Map<string, (typeof anchors)[number]>();
+  for (const a of anchors) {
+    const from = a.prev ?? 'legacy';
+    const twin = after.get(from);
+    if (twin && from !== 'legacy') problems.push({ kind: 'ANCHOR_FORK', txids: [twin.txid, a.txid], detail: `both anchor after ${from === GENESIS ? 'genesis' : from}` });
+    else after.set(from, a);
+    const sameSeq = anchors.find((b) => b !== a && b.seq === a.seq && b.head !== a.head && b.txid < a.txid);
+    if (sameSeq) problems.push({ kind: 'ANCHOR_FORK', txids: [sameSeq.txid, a.txid], detail: `two heads anchored for entry ${a.seq}` });
+    if (a.prev !== null && a.prev !== GENESIS && !byTxid.has(a.prev)) problems.push({ kind: 'ANCHOR_PREV_UNKNOWN', txid: a.txid, prev: a.prev });
+    const p = a.prev && byTxid.get(a.prev);
+    if (p && p.seq >= a.seq) problems.push({ kind: 'ANCHOR_SEQ_NOT_INCREASING', txid: a.txid, seq: a.seq, prevSeq: p.seq });
+  }
+  // The chain, oldest first: start from the anchor with no predecessor and follow the links.
+  const chain: AnchorCheck['chain'] = [];
+  let cur = anchors.find((a) => a.prev === null || a.prev === GENESIS);
+  while (cur && chain.length < anchors.length) {
+    chain.push({ txid: cur.txid, seq: cur.seq, head: cur.head, prev: cur.prev });
+    const id: string = cur.txid;
+    cur = anchors.find((a) => a.prev === id);
+  }
+  const later: AnchorCheck['later'] = [];
+  const logged = new Map(log.filter((e) => e.status === 'ANCHORED').map((e) => [e.refs.anchor_txid, e]));
+  for (const a of anchors) {
+    if (a.seq >= log.length) {
+      later.push({ txid: a.txid, seq: a.seq });
+      continue;
+    }
+    if (log[a.seq].hash !== a.head) problems.push({ kind: 'ANCHOR_HEAD_MISMATCH', txid: a.txid, seq: a.seq, detail: `anchors ${a.head.slice(0, 12)}…, the log has ${log[a.seq].hash.slice(0, 12)}…` });
+    if (!logged.has(a.txid)) problems.push({ kind: 'ANCHOR_NOT_IN_LOG', txid: a.txid, seq: a.seq });
+  }
+  for (const [txid, e] of logged) {
+    const a = byTxid.get(txid);
+    const prevRef = e.refs.prev_anchor_txid ?? null;
+    if (!a || a.seq !== Number(e.refs.anchored_seq) || a.head !== e.refs.anchored_head || a.prev !== prevRef) problems.push({ kind: 'ANCHOR_NOT_IN_HISTORY', txid, seq: Number(e.refs.anchored_seq) });
+  }
+  const covered = Math.max(-1, ...anchors.filter((a) => a.seq < log.length).map((a) => a.seq));
+  return { ok: problems.length === 0, chain, later, unanchored: log.length - 1 - covered, problems };
+}
+
+/** Two logs that both verify under the same verifier key and differ at some entry: the first such
+ *  seq and both hashes. Each entry is ML-DSA signed, so this is the verifier's own signature on two
+ *  histories. Null if one log is a prefix of the other. */
+export function findEquivocation(a: LogEntry[], b: LogEntry[], verifierPk: Uint8Array): { seq: number; a: string; b: string } | null {
+  for (const l of [a, b]) {
+    const c = verifyLog(l, verifierPk);
+    if (!c.ok) throw new ProtocolError('BAD_LOG', `a log does not verify at entry ${c.error?.seq}: ${c.error?.problem}`);
+  }
+  for (let i = 0; i < Math.min(a.length, b.length); i++) if (a[i].hash !== b[i].hash) return { seq: i, a: a[i].hash, b: b[i].hash };
+  return null;
 }

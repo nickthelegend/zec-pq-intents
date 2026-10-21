@@ -4,6 +4,9 @@ import { ml_kem768 } from '@noble/post-quantum/ml-kem.js';
 import {
   appendEntry,
   canonical,
+  checkAnchors,
+  findEquivocation,
+  GENESIS,
   fromB64,
   hexToBytes,
   intentHash,
@@ -13,6 +16,7 @@ import {
   newSigningKey,
   memo,
   open,
+  readAnchorMemo,
   readFillMemo,
   seal,
   signFill,
@@ -170,5 +174,71 @@ describe('fill attestation and log', () => {
     sig[0] ^= 1;
     expect(verifyLog([log[0], { ...log[1], sig: toB64(sig) }, log[2]], verifier.publicKey).error).toEqual({ seq: 1, problem: 'ML-DSA-65 signature does not verify' });
     expect(hexToBytes(ok.head).length).toBe(32);
+  });
+});
+
+describe('anchor chain', () => {
+  const verifier = newSigningKey();
+  const tx = (n: number) => n.toString(16).padStart(2, '0').repeat(32);
+  /** A log of `n` decisions with an anchor after every `every` entries, and the escrow's history of those anchors. */
+  function anchored(n: number, every: number, key = verifier) {
+    const log: LogEntry[] = [];
+    const sent: { txid: string; memo: string }[] = [];
+    let prev = GENESIS;
+    for (let i = 0; i < n; i++) {
+      appendEntry(log, key, { status: 'REJECTED', intent_hash: 'a'.repeat(64), reason: `R${i}`, refs: {}, at_height: 100 + i });
+      if ((i + 1) % every === 0) {
+        const seq = log.length - 1;
+        const head = log[seq].hash;
+        const txid = tx(sent.length + 1);
+        sent.push({ txid, memo: memo.anchor(seq, head, prev) });
+        appendEntry(log, key, { status: 'ANCHORED', intent_hash: null, reason: null, refs: { anchor_txid: txid, anchored_seq: String(seq), anchored_head: head, prev_anchor_txid: prev }, at_height: 100 + i });
+        prev = txid;
+      }
+    }
+    return { log, sent };
+  }
+
+  it('an anchor memo names the previous anchor; the legacy form names none', () => {
+    const h = 'ab'.repeat(32);
+    expect(readAnchorMemo(memo.anchor(8, h, tx(7)))).toEqual({ seq: 8, head: h, prev: tx(7) });
+    expect(readAnchorMemo(memo.anchor(8, h))).toEqual({ seq: 8, head: h, prev: null });
+    expect(readAnchorMemo(`pqi1:anchor:08:${h}`)).toBeNull();
+    expect(readAnchorMemo(`pqi1:${h}:release`)).toBeNull();
+    expect(new TextEncoder().encode(memo.anchor(123456789, h, tx(7))).length).toBeLessThanOrEqual(512);
+  });
+
+  it('one chain of anchors checks out; anchors past the log’s end are reported as later, not as problems', () => {
+    const { log, sent } = anchored(6, 2);
+    const c = checkAnchors(log, sent);
+    expect(c).toMatchObject({ ok: true, problems: [], later: [], unanchored: 1 });
+    expect(c.chain.map((a) => a.txid)).toEqual([tx(1), tx(2), tx(3)]);
+    expect(checkAnchors(log.slice(0, 4), sent)).toMatchObject({ ok: true, later: [{ txid: tx(2), seq: 4 }, { txid: tx(3), seq: 7 }] });
+  });
+
+  it('two heads anchored after the same anchor is a fork, whichever log is shown; a log that hides an anchor or was not the one anchored is caught', () => {
+    const { log, sent } = anchored(4, 2);
+    // The verifier re-writes history after the first anchor for another audience and anchors that too.
+    const other = log.slice(0, 3);
+    appendEntry(other, verifier, { status: 'SETTLED', intent_hash: 'b'.repeat(64), reason: null, refs: {}, at_height: 200 });
+    appendEntry(other, verifier, { status: 'REJECTED', intent_hash: 'a'.repeat(64), reason: 'R3', refs: {}, at_height: 201 });
+    const forkTx = tx(9);
+    const otherSent = [...sent, { txid: forkTx, memo: memo.anchor(4, other[4].hash, tx(1)) }];
+    appendEntry(other, verifier, { status: 'ANCHORED', intent_hash: null, reason: null, refs: { anchor_txid: forkTx, anchored_seq: '4', anchored_head: other[4].hash, prev_anchor_txid: tx(1) }, at_height: 202 });
+    for (const shown of [log, other]) {
+      const c = checkAnchors(shown, otherSent);
+      expect(c.ok).toBe(false);
+      expect(c.problems.map((p) => p.kind)).toEqual(expect.arrayContaining(['ANCHOR_FORK', 'ANCHOR_HEAD_MISMATCH', 'ANCHOR_NOT_IN_LOG']));
+    }
+    // Both logs verify under the verifier's key, so the two signed entries at 3 are the evidence.
+    expect(findEquivocation(log, other, verifier.publicKey)).toEqual({ seq: 3, a: log[3].hash, b: other[3].hash });
+    expect(findEquivocation(log, log.slice(0, 3), verifier.publicKey)).toBeNull();
+  });
+
+  it('an ANCHORED entry naming a transaction the escrow never sent, or a broken link, is caught', () => {
+    const { log, sent } = anchored(4, 2);
+    expect(checkAnchors(log, sent.slice(0, 1)).problems.map((p) => p.kind)).toContain('ANCHOR_NOT_IN_HISTORY');
+    const relinked = [sent[0], { txid: sent[1].txid, memo: memo.anchor(3, log[3].hash, tx(42)) }];
+    expect(checkAnchors(log, relinked).problems.map((p) => p.kind)).toEqual(expect.arrayContaining(['ANCHOR_PREV_UNKNOWN', 'ANCHOR_NOT_IN_HISTORY']));
   });
 });

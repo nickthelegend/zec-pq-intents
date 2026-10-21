@@ -15,7 +15,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "serve": "tsx src/serve.ts"
+    "serve": "tsx src/serve.ts",
+    "check-anchors": "tsx src/check-anchors.ts"
   },
   "dependencies": {
     "@pqi/protocol": "workspace:*"

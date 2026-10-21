@@ -56,7 +56,7 @@ async function main() {
 
   await say('\n4. the chain, read now through viewing keys (Zcash testnet, lightwalletd)');
   const a = d.log.find((e: LogEntry) => e.status === 'ANCHORED');
-  const an = await scan(d.wallets.anchor.uivk, a.refs.anchor_txid, 1, memo.anchor(Number(a.refs.anchored_seq), a.refs.anchored_head));
+  const an = await scan(d.wallets.anchor.uivk, a.refs.anchor_txid, 1, memo.anchor(Number(a.refs.anchored_seq), a.refs.anchored_head, a.refs.prev_anchor_txid));
   await say(`   anchor ${short(a.refs.anchor_txid)} block ${an.height}: memo pqi1:anchor:${a.refs.anchored_seq}:${short(a.refs.anchored_head)} on-chain ${an.ok}, = head of #0..#${a.refs.anchored_seq} ${verifyLog(d.log.slice(0, Number(a.refs.anchored_seq) + 1), vpk).head === a.refs.anchored_head}`);
   for (const e of d.log.filter((x: LogEntry) => x.status === 'SETTLED')) {
     const r = await scan(d.wallets.solver.uivk, e.refs.release_txid, Number(e.refs.released_zat), memo.release(e.intent_hash));
