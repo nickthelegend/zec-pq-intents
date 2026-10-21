@@ -5,6 +5,9 @@ import { memo, open, signFill, type Envelope, type FillClaim, type KemKey, type 
 import { scan } from './scan.js';
 import { quicksend, type ZingoConfig } from './zingo.js';
 
+/** Blocks a fill needs to be mined by the deadline with room to spare (testnet blocks are ~75 s). */
+export const MIN_BLOCKS_LEFT = 3;
+
 export interface SolverConfig {
   sign: SigningKey;
   kem: KemKey;
@@ -14,6 +17,8 @@ export interface SolverConfig {
   zingo: ZingoConfig;
   /** least the solver keeps: pay_zat - min_out_zat must cover this */
   minFeeZat: bigint;
+  /** default MIN_BLOCKS_LEFT: decline an intent whose deadline is closer than this */
+  minBlocksLeft?: number;
 }
 
 export type Quote = { accept: true; feeZat: bigint } | { accept: false; reason: string };
@@ -29,7 +34,9 @@ export class Solver {
   quote(s: SignedIntent, tip: number): Quote {
     const fee = BigInt(s.intent.pay_zat) - BigInt(s.intent.min_out_zat);
     if (fee < this.c.minFeeZat) return { accept: false, reason: `fee ${fee} zat is below ${this.c.minFeeZat}` };
-    if (tip >= s.intent.deadline_height) return { accept: false, reason: `deadline ${s.intent.deadline_height} already reached (tip ${tip})` };
+    const left = s.intent.deadline_height - tip;
+    const need = this.c.minBlocksLeft ?? MIN_BLOCKS_LEFT;
+    if (left < need) return { accept: false, reason: `deadline ${s.intent.deadline_height} is ${left} block(s) away (tip ${tip}); a fill needs ${need} to be mined in time` };
     return { accept: true, feeZat: fee };
   }
 
