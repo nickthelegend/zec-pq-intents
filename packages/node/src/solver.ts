@@ -1,7 +1,8 @@
 // The solver: opens envelopes sealed to its ML-KEM key, checks the user's signature and that the
 // escrow is funded (with the escrow's published viewing key), decides on a fee, delivers from its own
-// shielded wallet to the user's fresh address with memo pqi1:<hash>:fill, and signs a fill claim.
-import { memo, open, signFill, type Envelope, type FillClaim, type KemKey, type SignedIntent, type SigningKey } from '@pqi/protocol';
+// shielded wallet to the user's receive address with memo pqi1:<hash>:fill:<its key id>, and signs a
+// fill claim with that same key.
+import { keyId, memo, open, signFill, type Envelope, type FillClaim, type KemKey, type SignedIntent, type SigningKey } from '@pqi/protocol';
 import { scan } from './scan.js';
 import { quicksend, type ZingoConfig } from './zingo.js';
 
@@ -45,11 +46,17 @@ export class Solver {
     return scan(this.c.escrowUivk, fundingTxid, BigInt(s.intent.pay_zat), memo.funding(hash));
   }
 
-  /** Pays the user's receive address. `memoOverride` exists only to stage the wrong-memo attack. */
+  /** keyId of the solver's ML-DSA-65 key, which its fill memos name. */
+  get id(): string {
+    return keyId(this.c.sign.publicKey);
+  }
+
+  /** Pays the user's receive address, naming this solver in the memo. `memoOverride` exists only to
+   *  stage the wrong-memo attack. */
   async deliver(hash: string, s: SignedIntent, memoOverride?: string): Promise<string> {
     for (let i = 0; ; i++) {
       try {
-        const [txid] = await quicksend(this.c.zingo, this.c.wallet, [{ address: s.intent.receive_ua, amount: BigInt(s.intent.min_out_zat), memo: memoOverride ?? memo.fill(hash) }]);
+        const [txid] = await quicksend(this.c.zingo, this.c.wallet, [{ address: s.intent.receive_ua, amount: BigInt(s.intent.min_out_zat), memo: memoOverride ?? memo.fill(hash, this.id) }]);
         return txid;
       } catch (e) {
         if (!/Insufficient balance/.test((e as Error).message) || i >= 20) throw e;

@@ -11,7 +11,9 @@ import {
   keyId,
   newKemKey,
   newSigningKey,
+  memo,
   open,
+  readFillMemo,
   seal,
   signFill,
   signIntent,
@@ -137,6 +139,20 @@ describe('fill attestation and log', () => {
     expect(code(() => verifyFill(f))).toBe('OK');
     expect(code(() => verifyFill({ ...f, fill_txid: 'ce'.repeat(32) }))).toBe('BAD_SIGNATURE');
     expect(code(() => verifyFill({ ...f, solver_pk: toB64(newSigningKey().publicKey) }))).toBe('WRONG_KEY');
+  });
+
+  it('a fill memo names the solver key that paid it; the legacy form names none; anything else is not a fill memo', () => {
+    const h = 'ab'.repeat(32);
+    const id = keyId(solver.publicKey);
+    expect(memo.fill(h, id)).toBe(`pqi1:${h}:fill:${id}`);
+    expect(new TextEncoder().encode(memo.fill(h, id)).length).toBeLessThanOrEqual(512);
+    expect(readFillMemo(memo.fill(h, id), h)).toEqual({ solver: id });
+    expect(readFillMemo(memo.legacyFill(h), h)).toEqual({ solver: null });
+    expect(readFillMemo(memo.fill('cd'.repeat(32), id), h)).toBeNull();
+    expect(readFillMemo(`pqi1:${h}:fll`, h)).toBeNull();
+    expect(readFillMemo(`${memo.legacyFill(h)}:${id.toUpperCase()}`, h)).toBeNull();
+    expect(readFillMemo(`${memo.fill(h, id)}x`, h)).toBeNull();
+    expect(readFillMemo(null, h)).toBeNull();
   });
 
   it('the log verifies end to end, and editing, dropping, reordering or re-signing with another key is caught', () => {

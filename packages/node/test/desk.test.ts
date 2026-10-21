@@ -22,7 +22,7 @@ function setup(items: (kem: Uint8Array, sign: ReturnType<typeof newSigningKey>) 
   writeFileSync(join(dir, 'verifier.json'), JSON.stringify({ log: [], nonces: {}, closed: {}, payouts }));
   writeFileSync(join(dir, 'board.json'), JSON.stringify(items(kem.publicKey, sign)));
   const solver = new Solver({ sign, kem, wallet: '/nonexistent/solver-wallet-never-used', ua: W.solver.address, escrowUivk: W.escrow.uivk, zingo: zingoConfig(), minFeeZat: 15_000n });
-  const verifier = new Verifier({ key: newSigningKey(), escrowWallet: '/nonexistent/escrow-wallet-never-used', escrowUa: W.escrow.address, escrowUivk: W.escrow.uivk, solvers: [keyId(sign.publicKey)], zingo: zingoConfig(), statePath: join(dir, 'verifier.json'), tip: chainTip });
+  const verifier = new Verifier({ key: newSigningKey(), escrowWallet: '/nonexistent/escrow-wallet-never-used', escrowUa: W.escrow.address, escrowUivk: W.escrow.uivk, solvers: [keyId(sign.publicKey)], legacyUnboundFills: [I.A.hash, I.B.hash, I.C.hash], zingo: zingoConfig(), statePath: join(dir, 'verifier.json'), tip: chainTip });
   const desk = new Desk({ boardPath: join(dir, 'board.json'), solver, verifier, tip: chainTip, info: { mode: 'test' } });
   return { desk, verifier, kem: kem.publicKey };
 }

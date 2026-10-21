@@ -4,7 +4,7 @@
 // ML-DSA-65 signed entry for every decision. It is trusted to act on its decisions (it holds the
 // escrow); anyone can re-check every decision and signature from the published log.
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { appendEntry, intentHash, memo, ProtocolError, verifyFill, verifyIntent, verifyLog, type FillClaim, type LogEntry, type LogStatus, type SignedIntent, type SigningKey } from '@pqi/protocol';
+import { appendEntry, intentHash, memo, ProtocolError, readFillMemo, verifyFill, verifyIntent, verifyLog, type FillClaim, type LogEntry, type LogStatus, type SignedIntent, type SigningKey } from '@pqi/protocol';
 import { scan, type ScanResult } from './scan.js';
 import { quicksend, type ZingoConfig } from './zingo.js';
 
@@ -30,8 +30,13 @@ export interface VerifierConfig {
   escrowUa: string;
   escrowUivk: string;
   /** keyIds of the solver ML-DSA keys whose fill claims this verifier pays. A claim signed by any
-   *  other key is refused, so nobody can claim a fill they did not make. */
+   *  other key is refused (FILL_UNKNOWN_SOLVER). Among these, only the key the fill's memo names is
+   *  paid (FILL_BY_OTHER_SOLVER otherwise), so one solver cannot claim another's delivery. */
   solvers: string[];
+  /** Intent hashes from before fills named their solver (the Oct 20, 2026 run). Their fill memo
+   *  `pqi1:<hash>:fill` names nobody, so it is accepted only for these intents and only while exactly
+   *  one solver key is configured; the SETTLED entry says `fill_binding: legacy-single-solver`. */
+  legacyUnboundFills?: string[];
   zingo: ZingoConfig;
   statePath: string;
   /** current chain height */
@@ -123,6 +128,11 @@ export class Verifier {
     return { hash, fund };
   }
 
+  /** A memo that names no solver is only good for a listed legacy intent with a single solver key. */
+  private legacyFill(hash: string): boolean {
+    return this.c.solvers.length === 1 && (this.c.legacyUnboundFills ?? []).includes(hash);
+  }
+
   private remember(s: SignedIntent, hash: string) {
     (this.state.nonces[s.intent.user] ??= {})[s.intent.nonce] = hash;
     this.save();
@@ -144,7 +154,19 @@ export class Verifier {
     }
     if (!this.c.solvers.includes(claim.solver)) return this.reject(hash, 'FILL_UNKNOWN_SOLVER', { fill_txid: claim.fill_txid, solver: claim.solver });
     if (claim.intent_hash !== hash) return this.reject(hash, 'FILL_FOR_OTHER_INTENT', { fill_txid: claim.fill_txid });
-    const fill = await scan(s.intent.receive_uivk, claim.fill_txid, BigInt(s.intent.min_out_zat), memo.fill(hash));
+    // The fill must name the claiming solver in its memo: only whoever paid the fill wrote that memo.
+    let fill = await scan(s.intent.receive_uivk, claim.fill_txid, BigInt(s.intent.min_out_zat), memo.fill(hash, claim.solver));
+    let binding = 'solver-memo';
+    if (!fill.ok && fill.reasons.includes('MEMO_MISMATCH')) {
+      const named = fill.outputs.map((o) => readFillMemo(o.memo, hash)).filter((x) => x !== null);
+      const other = named.find((n) => n.solver !== null && n.solver !== claim.solver);
+      if (other) return this.reject(hash, 'FILL_BY_OTHER_SOLVER', { fill_txid: claim.fill_txid, solver: claim.solver, memo_solver: other.solver! });
+      if (named.some((n) => n.solver === null)) {
+        if (!this.legacyFill(hash)) return this.reject(hash, 'FILL_NOT_SOLVER_BOUND', { fill_txid: claim.fill_txid, solver: claim.solver });
+        fill = await scan(s.intent.receive_uivk, claim.fill_txid, BigInt(s.intent.min_out_zat), memo.legacyFill(hash));
+        binding = 'legacy-single-solver';
+      }
+    }
     if (onlyUnconfirmed(fill.reasons)) return { status: 'PENDING', reason: 'fill not mined yet' };
     if (!fill.ok) return this.reject(hash, `FILL_NOT_CREDITED:${fill.reasons.join('+')}`, { fill_txid: claim.fill_txid });
     if (fill.height === null || fill.height > s.intent.deadline_height) return this.reject(hash, 'EXPIRED', { fill_txid: claim.fill_txid, fill_height: String(fill.height), deadline: String(s.intent.deadline_height) });
@@ -152,7 +174,7 @@ export class Verifier {
     const out = BigInt(s.intent.pay_zat) - FEE_BUDGET_ZAT;
     const release = await this.payOnce(`release:${hash}`, claim.solver_ua, out, memo.release(hash));
     this.state.closed[hash] = 'SETTLED';
-    const entry = await this.log('SETTLED', hash, null, { user: s.intent.user, nonce: s.intent.nonce, funding_txid: fundingTxid, fill_txid: claim.fill_txid, release_txid: release, solver: claim.solver, released_zat: out.toString() });
+    const entry = await this.log('SETTLED', hash, null, { user: s.intent.user, nonce: s.intent.nonce, funding_txid: fundingTxid, fill_txid: claim.fill_txid, release_txid: release, solver: claim.solver, fill_binding: binding, released_zat: out.toString() });
     return { status: 'SETTLED', reason: null, entry, payoutTxid: release };
   }
 

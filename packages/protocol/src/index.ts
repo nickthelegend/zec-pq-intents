@@ -215,11 +215,27 @@ export function open(e: Envelope, solver: KemKey): SignedIntent {
 
 export const memo = {
   funding: (hash: string) => `pqi1:${hash}`,
-  fill: (hash: string) => `pqi1:${hash}:fill`,
+  /** A fill names the key id (sha256 of the ML-DSA-65 public key) of the solver that paid it. Only
+   *  the sender of a shielded transaction writes its memo, so no other solver can put its own key
+   *  on a delivery it did not make; the fill claim is then signed by that same key. */
+  fill: (hash: string, solver: string) => `pqi1:${hash}:fill:${solver}`,
+  /** The Oct 20, 2026 run's fill memo, which names no solver. A verifier accepts it only for intents
+   *  it lists as legacy, and only while it pays a single solver key. */
+  legacyFill: (hash: string) => `pqi1:${hash}:fill`,
   release: (hash: string) => `pqi1:${hash}:release`,
   refund: (hash: string) => `pqi1:${hash}:refund`,
   anchor: (seq: number, head: string) => `pqi1:anchor:${seq}:${head}`,
 };
+
+/** What a memo says about a fill of `hash`: the solver key id it names (null for the legacy form),
+ *  or null if it is not a fill memo for this intent at all. */
+export function readFillMemo(m: string | null | undefined, hash: string): { solver: string | null } | null {
+  if (!m) return null;
+  const legacy = memo.legacyFill(hash);
+  if (m === legacy) return { solver: null };
+  const id = m.startsWith(`${legacy}:`) ? m.slice(legacy.length + 1) : '';
+  return /^[0-9a-f]{64}$/.test(id) ? { solver: id } : null;
+}
 
 // ---------- fill attestation (solver) ----------
 

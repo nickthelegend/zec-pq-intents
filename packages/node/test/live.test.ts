@@ -20,12 +20,15 @@ const claim = (hash: string, txid: string) => signFill(solver, hash, txid, W.sol
 const NEVER_SENT = 'test-marker-no-payment-sent';
 const allPayouts = Object.fromEntries((['A', 'B', 'C'] as const).flatMap((k) => [`release:${I[k].hash}`, `refund:${I[k].hash}`]).map((k) => [k, NEVER_SENT]));
 
+/** The Oct 20 intents, whose fill memos name no solver (accepted as legacy single-solver). */
+const LEGACY = [I.A.hash, I.B.hash, I.C.hash];
+
 /** A verifier with a new key and (optionally) prior state, on the published escrow. No wallet is used. */
-function freshVerifier(prior?: { nonces?: Record<string, Record<string, string>>; closed?: Record<string, 'SETTLED' | 'REFUNDED'> }, opts: { tip?: () => Promise<number> } = {}) {
+function freshVerifier(prior?: { nonces?: Record<string, Record<string, string>>; closed?: Record<string, 'SETTLED' | 'REFUNDED'> }, opts: { tip?: () => Promise<number>; solvers?: string[]; legacy?: string[] } = {}) {
   const key = newSigningKey();
   const statePath = join(mkdtempSync(join(tmpdir(), 'pqi-')), 'state.json');
   writeFileSync(statePath, JSON.stringify({ log: [], nonces: prior?.nonces ?? {}, closed: prior?.closed ?? {}, payouts: allPayouts }));
-  const v = new Verifier({ key, escrowWallet: '/nonexistent/escrow-wallet-never-used', escrowUa: W.escrow.address, escrowUivk: W.escrow.uivk, solvers: [keyId(solver.publicKey)], zingo: zingoConfig(), statePath, tip: opts.tip ?? chainTip });
+  const v = new Verifier({ key, escrowWallet: '/nonexistent/escrow-wallet-never-used', escrowUa: W.escrow.address, escrowUivk: W.escrow.uivk, solvers: opts.solvers ?? [keyId(solver.publicKey)], legacyUnboundFills: opts.legacy ?? LEGACY, zingo: zingoConfig(), statePath, tip: opts.tip ?? chainTip });
   return { v, key };
 }
 
@@ -45,10 +48,10 @@ describe('published run, re-checked on testnet', () => {
   });
 
   it('the receive key sees A and B delivered, C’s wrong-memo fill not credited, and C’s late fill after its deadline', async () => {
-    for (const k of ['A', 'B'] as const) expect((await scan(W.receive.uivk, d.txs.fills[I[k].hash], 40_000, memo.fill(I[k].hash))).ok).toBe(true);
-    const wrong = await scan(W.receive.uivk, d.txs.wrongMemoFill, 40_000, memo.fill(I.C.hash));
+    for (const k of ['A', 'B'] as const) expect((await scan(W.receive.uivk, d.txs.fills[I[k].hash], 40_000, memo.legacyFill(I[k].hash))).ok).toBe(true);
+    const wrong = await scan(W.receive.uivk, d.txs.wrongMemoFill, 40_000, memo.legacyFill(I.C.hash));
     expect(wrong.reasons).toContain('MEMO_MISMATCH');
-    const late = await scan(W.receive.uivk, d.txs.lateFill, 40_000, memo.fill(I.C.hash));
+    const late = await scan(W.receive.uivk, d.txs.lateFill, 40_000, memo.legacyFill(I.C.hash));
     expect(late.ok).toBe(true);
     expect(late.height!).toBeGreaterThan(I.C.signed.intent.deadline_height);
   });
@@ -98,6 +101,26 @@ describe('fill claims: only the configured solver is paid', () => {
     const paid = await v.settle(I.A.signed, d.txs.funding, claim(I.A.hash, d.txs.fills[I.A.hash]));
     expect(paid).toMatchObject({ status: 'SETTLED', payoutTxid: NEVER_SENT });
     expect(v.state.log.map((e) => e.reason ?? e.status)).toEqual(['FILL_UNKNOWN_SOLVER', 'SETTLED']);
+  });
+});
+
+describe('fill binding: only the solver the fill memo names is paid', () => {
+  it('with two solver keys configured, A’s Oct 20 fill (its memo names no solver) is paid to neither → FILL_NOT_SOLVER_BOUND', async () => {
+    const second = newSigningKey();
+    const { v } = freshVerifier(undefined, { solvers: [keyId(solver.publicKey), keyId(second.publicKey)] });
+    const fillA = d.txs.fills[I.A.hash];
+    expect(await v.settle(I.A.signed, d.txs.funding, claim(I.A.hash, fillA))).toMatchObject({ status: 'REJECTED', reason: 'FILL_NOT_SOLVER_BOUND' });
+    expect(await v.settle(I.A.signed, d.txs.funding, signFill(second, I.A.hash, fillA, W.user.address))).toMatchObject({ status: 'REJECTED', reason: 'FILL_NOT_SOLVER_BOUND' });
+    expect(v.state.closed[I.A.hash]).toBeUndefined();
+  });
+
+  it('an unbound fill is legacy only for the listed Oct 20 intents: unlisted → FILL_NOT_SOLVER_BOUND; listed → SETTLED, marked legacy-single-solver', async () => {
+    const unlisted = freshVerifier(undefined, { legacy: [] }).v;
+    expect(await unlisted.settle(I.B.signed, d.txs.funding, claim(I.B.hash, d.txs.fills[I.B.hash]))).toMatchObject({ status: 'REJECTED', reason: 'FILL_NOT_SOLVER_BOUND' });
+    const listed = freshVerifier().v;
+    const r = await listed.settle(I.B.signed, d.txs.funding, claim(I.B.hash, d.txs.fills[I.B.hash]));
+    expect(r).toMatchObject({ status: 'SETTLED', payoutTxid: NEVER_SENT });
+    expect(listed.state.log[0].refs).toMatchObject({ fill_binding: 'legacy-single-solver', solver: keyId(solver.publicKey) });
   });
 });
 
