@@ -29,15 +29,18 @@ seal to solver (ML-KEM)│
 fund escrow ───────────┼────────────────────────────────────────────────────────────────► pqi1:<hash>
 post envelope ─────────┴──► open, check signature,
                             check funding (escrow UIVK),
-                            deliver to receive_ua ─────────────────────────────────────────► pqi1:<hash>:fill
+                            funding 3 blocks deep,
+                            deliver to receive_ua ─────────────────────────────────────────► pqi1:<hash>:fill:<solver key id>
                             sign fill claim ──────────────► check intent sig, nonce, funding,
                                                             claim key is a configured solver,
-                                                            fill seen by receive UIVK, by deadline
+                                                            fill seen by receive UIVK naming
+                                                            that key, by deadline, both 3 deep
+                                                            write-ahead record, then
                                                             release escrow to solver ──────────► pqi1:<hash>:release
                                                             append signed SETTLED entry
 after deadline + 10-block claim window, nothing settled:    refund escrow to refund_ua ────────► pqi1:<hash>:refund
                                                             append signed REFUNDED entry
-periodically:                                               log head in a memo ────────────────► pqi1:anchor:<seq>:<head>
+periodically:                                               log head + previous anchor ────────► pqi1:anchor:<seq>:<head>:<prev txid>
 ```
 
 ## What the verifier rejects (each is a signed `REJECTED` entry with its reason)
@@ -49,15 +52,25 @@ periodically:                                               log head in a memo �
 | the same intent settled twice | closed set | `ALREADY_SETTLED` / `ALREADY_REFUNDED` |
 | a new intent reusing a nonce | user → nonce → first intent | `NONCE_REUSED` |
 | a fill claimed by someone who did not make it (e.g. the user, who sees the fill txid) | the claim's ML-DSA key must be one of the verifier's configured solver keys | `FILL_UNKNOWN_SOLVER` |
-| fill with the wrong memo or amount | receive UIVK must see `pqi1:<hash>:fill` ≥ min_out | `FILL_NOT_CREDITED:…` |
+| one configured solver claims a fill another solver paid | the fill memo must name the claiming key (only the payer writes the memo) | `FILL_BY_OTHER_SOLVER` |
+| a fill whose memo names no solver (the Oct 20 form), outside the listed Oct 20 intents or with more than one solver key | `pqi1:<hash>:fill:<solver key id>` required | `FILL_NOT_SOLVER_BOUND` |
+| fill with the wrong memo or amount | receive UIVK must see `pqi1:<hash>:fill:<solver>` ≥ min_out | `FILL_NOT_CREDITED:…` |
 | fill mined after the deadline | fill height ≤ deadline | `EXPIRED` |
 | escrow not funded (or too little, or late) | escrow UIVK must see `pqi1:<hash>` ≥ pay by the deadline | `NOT_FUNDED:…`, `FUNDED_AFTER_DEADLINE` |
 | refund before the deadline | tip > deadline | `NOT_EXPIRED_YET` |
 | refund inside the claim window (a fill mined by the deadline may still be claimed) | tip > deadline + 10 | `CLAIM_WINDOW_OPEN` |
 | a signature or key in a second base64 spelling | canonical base64 only | `BAD_ENCODING` |
 
-A transaction that is not mined yet is not a decision: nothing is logged (`PENDING`). Decisions run
-one at a time, so a settle and a refund (or two settles) of the same intent cannot both pay.
+A transaction that is not mined yet, or is fewer than 3 blocks deep (`minConfirmations`, counted
+against the verifier's own tip), is not a decision: nothing is logged (`PENDING`). Decisions run one
+at a time, so a settle and a refund (or two settles) of the same intent cannot both pay.
+
+**Payouts are write-ahead.** Before a release, refund or anchor is broadcast, its recipient, amount,
+unique memo and the height are saved and flushed to disk; the txid replaces that record after the
+broadcast. If the process stops in between, the restarted verifier looks the memo up in the
+escrow's history first. If it is there, that is the payout and nothing is sent. If it is not, the
+verifier waits (`PAYOUT_UNRECONCILED`, `PENDING`) until a transaction built at that height has
+expired (120 blocks on this testnet), so it can never be mined later, and only then tries again.
 
 **Desk rules.** An envelope is opened when it is posted. If it does not open with the solver's key to
 a signed intent with that hash, it is refused and never takes the hash's place on the board. One
@@ -78,9 +91,10 @@ match the agent's pinned ones.
   with the published keys and viewing keys. It is trusted for liveness, not for honesty of record.
 - **Solver:** sees the plaintext intent (it must, to fill it) and chooses whether to fill. It
   cannot change the intent (signature) or claim late (fill height ≤ deadline). Only the configured
-  solver keys are paid, so the user or an observer cannot claim the solver's fill (until Oct 21 any
-  key could: see `docs/JUDGE-2026-10-21.md`). With several solvers, one configured solver could
-  still claim another's fill. The fix is a fill memo that names the solver, and it is not built.
+  solver keys are paid, and only the one the fill's memo names: only whoever paid the fill wrote
+  that memo, so neither the user, an observer, nor another configured solver can claim it (see
+  `docs/JUDGE-2026-10-21.md`). The Oct 20 fills name no solver; they are honoured only as
+  legacy single-solver fills, and the SETTLED entry says so.
 - **Board:** holds ciphertext, intent hashes and funding txids.
 - **What ML-KEM protects, and what it does not.** The envelope (receive address, its viewing key,
   refund address, amounts, deadline) is sealed with ML-KEM-768, so recording the board today and
@@ -93,10 +107,17 @@ match the agent's pinned ones.
   includes it. The solver and verifier learn amounts and addresses. The demo run used one receive
   address for all three intents, so those deliveries are linkable. Timing can link a funding and
   a fill on a quiet testnet.
-- **Anchors:** the head is anchored periodically in a memo to the verifier's own anchor address.
-  Entries after the last anchor are not covered yet (`verify_log` reports how many). A verifier
-  could anchor two different heads, and only a scan of every note the anchor viewing key can see
-  would catch that. 1 confirmation is accepted for funding and fills.
+- **Anchors:** the head is anchored periodically, from the escrow, in a memo to the public anchor
+  address. Each anchor names the previous anchor's txid, so anchors form one chain. The escrow's
+  full viewing key is published, and a view-only wallet made from it lists every payment out of
+  the escrow, so every anchor the verifier ever sent can be listed by anyone. `checkAnchors` (CLI:
+  `pnpm --filter @pqi/node check-anchors`) catches two heads anchored after the same anchor
+  (`ANCHOR_FORK`), a log that hides an anchor, and a log that is not the one anchored. An anchor
+  sent from any other wallet is not in the escrow's history, so a log that names one fails
+  (`ANCHOR_NOT_IN_HISTORY`). Each audience has to run the check for this to hold. Not covered:
+  entries after the last anchor (`verify_log` reports how many), and anchors past the end of the log
+  you hold, which are listed as `later` and can only be checked with the rest of the log. Funding
+  and fills need 3 confirmations; a reorg deeper than that is not handled.
 
 ## Zcash post-quantum roadmap (sources)
 
@@ -109,8 +130,9 @@ match the agent's pinned ones.
 
 | Do | See |
 |---|---|
-| `pnpm --filter @pqi/protocol test` | ML-DSA/ML-KEM sizes, every tamper caught, canonical base64, the log re-verifies (11 tests) |
-| `pnpm --filter @pqi/node test` | the published run re-checked on testnet; fill theft, settle/refund races and the claim window refused; desk board, ticks, refunds and HTTP rules (17 tests) |
+| `pnpm --filter @pqi/protocol test` | ML-DSA/ML-KEM sizes, every tamper caught, canonical base64, the log re-verifies, fill memos name the solver, anchor forks caught (16 tests) |
+| `pnpm --filter @pqi/node test` | both published runs re-checked on testnet; fill theft by an outsider or another solver, settle/refund races, the claim window and shallow confirmations refused; a verifier process killed mid-payout reconciles on restart; every anchor the escrow sent checked against the logs; desk board, ticks, refunds and HTTP rules (32 tests) |
+| `PQI_VERIFIER_ID=f60f1305… pnpm --filter @pqi/node check-anchors deployments/testnet-pass2.json` | every anchor the escrow sent (view-only wallet from its published full viewing key), one chain, checked against the log |
 | open the dashboard | every log entry's ML-DSA-65 signature re-verified in your browser, the chain linked |
 | dashboard → "Change a field" | the intent no longer verifies (`BAD_SIGNATURE`) |
 | `PQI_PUBLISHED=deployments/testnet.json pnpm --filter @pqi/node serve` + MCP `verify_log` with `PQI_VERIFIER_ID=f60f1305…` | ok, entry counts, the anchor memo found on-chain and matching the head, 1 entry after the anchor |
