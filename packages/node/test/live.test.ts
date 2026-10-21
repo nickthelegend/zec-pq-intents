@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { fromB64, intentHash, memo, newSigningKey, signFill, verifyLog, type LogEntry, type SignedIntent } from '@pqi/protocol';
+import { fromB64, intentHash, keyId, memo, newSigningKey, signFill, verifyLog, type LogEntry, type SignedIntent } from '@pqi/protocol';
 import { chainTip, scan, Verifier, zingoConfig } from '../src/index.js';
 
 const d = JSON.parse(readFileSync(resolve(__dirname, '../../../deployments/testnet.json'), 'utf8'));
@@ -12,12 +12,20 @@ const I = d.intents as Record<'A' | 'B' | 'C', { hash: string; signed: SignedInt
 const W = d.wallets as Record<string, { address: string; uivk: string }>;
 const log = d.log as LogEntry[];
 
-/** A verifier with a new key and (optionally) prior state. Refusals never pay, so no wallet is used. */
-function freshVerifier(prior?: { nonces?: Record<string, Record<string, string>>; closed?: Record<string, 'SETTLED' | 'REFUNDED'> }) {
+/** The solver key the fresh verifiers below accept fill claims from. */
+const solver = newSigningKey();
+const claim = (hash: string, txid: string) => signFill(solver, hash, txid, W.solver.address);
+/** Every payout a fresh verifier could make is recorded up front under this marker, so a test that
+ *  reaches a payout gets the marker back and nothing is ever sent (payOnce never pays a key twice). */
+const NEVER_SENT = 'test-marker-no-payment-sent';
+const allPayouts = Object.fromEntries((['A', 'B', 'C'] as const).flatMap((k) => [`release:${I[k].hash}`, `refund:${I[k].hash}`]).map((k) => [k, NEVER_SENT]));
+
+/** A verifier with a new key and (optionally) prior state, on the published escrow. No wallet is used. */
+function freshVerifier(prior?: { nonces?: Record<string, Record<string, string>>; closed?: Record<string, 'SETTLED' | 'REFUNDED'> }, opts: { tip?: () => Promise<number> } = {}) {
   const key = newSigningKey();
   const statePath = join(mkdtempSync(join(tmpdir(), 'pqi-')), 'state.json');
-  if (prior) writeFileSync(statePath, JSON.stringify({ log: [], nonces: prior.nonces ?? {}, closed: prior.closed ?? {}, payouts: {} }));
-  const v = new Verifier({ key, escrowWallet: '/nonexistent/escrow-wallet-never-used-by-refusals', escrowUa: W.escrow.address, escrowUivk: W.escrow.uivk, zingo: zingoConfig(), statePath, tip: chainTip });
+  writeFileSync(statePath, JSON.stringify({ log: [], nonces: prior?.nonces ?? {}, closed: prior?.closed ?? {}, payouts: allPayouts }));
+  const v = new Verifier({ key, escrowWallet: '/nonexistent/escrow-wallet-never-used', escrowUa: W.escrow.address, escrowUivk: W.escrow.uivk, solvers: [keyId(solver.publicKey)], zingo: zingoConfig(), statePath, tip: opts.tip ?? chainTip });
   return { v, key };
 }
 
@@ -56,8 +64,6 @@ describe('published run, re-checked on testnet', () => {
 });
 
 describe('a fresh verifier refuses the same attacks, from chain data alone', () => {
-  const solver = newSigningKey();
-  const claim = (hash: string, txid: string) => signFill(solver, hash, txid, W.solver.address);
 
   it('changed intent → BAD_SIGNATURE; another key naming the user → WRONG_KEY; each a signed entry', async () => {
     const { v, key } = freshVerifier();
@@ -79,5 +85,18 @@ describe('a fresh verifier refuses the same attacks, from chain data alone', () 
     expect((await v.settle(I.A.signed, d.txs.funding, claim(I.A.hash, d.txs.fills[I.A.hash]))).reason).toBe('ALREADY_SETTLED');
     const reuse = d.attacks.reuse as SignedIntent;
     expect((await v.settle(reuse, d.txs.funding, claim(intentHash(reuse.intent), d.txs.fills[I.A.hash]))).reason).toBe('NONCE_REUSED');
+  });
+});
+
+describe('fill claims: only the configured solver is paid', () => {
+  it('a claim on A’s real fill signed by anyone else → FILL_UNKNOWN_SOLVER; the solver’s own claim settles', async () => {
+    const { v } = freshVerifier();
+    // The user (or anyone who learns the fill txid) signs a claim with their own key and address.
+    const thief = newSigningKey();
+    const stolen = signFill(thief, I.A.hash, d.txs.fills[I.A.hash], W.user.address);
+    expect(await v.settle(I.A.signed, d.txs.funding, stolen)).toMatchObject({ status: 'REJECTED', reason: 'FILL_UNKNOWN_SOLVER' });
+    const paid = await v.settle(I.A.signed, d.txs.funding, claim(I.A.hash, d.txs.fills[I.A.hash]));
+    expect(paid).toMatchObject({ status: 'SETTLED', payoutTxid: NEVER_SENT });
+    expect(v.state.log.map((e) => e.reason ?? e.status)).toEqual(['FILL_UNKNOWN_SOLVER', 'SETTLED']);
   });
 });

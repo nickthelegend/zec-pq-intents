@@ -26,6 +26,9 @@ export interface VerifierConfig {
   escrowWallet: string;
   escrowUa: string;
   escrowUivk: string;
+  /** keyIds of the solver ML-DSA keys whose fill claims this verifier pays. A claim signed by any
+   *  other key is refused, so nobody can claim a fill they did not make. */
+  solvers: string[];
   zingo: ZingoConfig;
   statePath: string;
   /** current chain height */
@@ -120,6 +123,7 @@ export class Verifier {
     } catch (e) {
       return this.reject(hash, `FILL_${e instanceof ProtocolError ? e.code : 'INVALID'}`, { fill_txid: claim.fill_txid });
     }
+    if (!this.c.solvers.includes(claim.solver)) return this.reject(hash, 'FILL_UNKNOWN_SOLVER', { fill_txid: claim.fill_txid, solver: claim.solver });
     if (claim.intent_hash !== hash) return this.reject(hash, 'FILL_FOR_OTHER_INTENT', { fill_txid: claim.fill_txid });
     const fill = await scan(s.intent.receive_uivk, claim.fill_txid, BigInt(s.intent.min_out_zat), memo.fill(hash));
     if (onlyUnconfirmed(fill.reasons)) return { status: 'PENDING', reason: 'fill not mined yet' };
