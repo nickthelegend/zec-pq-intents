@@ -1,12 +1,15 @@
 // MCP tools for agents trading with post-quantum signed intents.
 //   PQI_DESK_URL     desk HTTP API (default http://127.0.0.1:8404)
-//   PQI_AGENT_FILE   the agent's identity: {"ml_dsa_seed": hex, "wallet": zingo dir, "receive_ua", "receive_uivk", "refund_ua"}
-//                    (only submit_intent needs it; the seed never leaves this process)
+//   PQI_VERIFIER_ID  keyId of the verifier you trust (verify_log refuses to run without it: a desk
+//                    that also supplied the key would be vouching for itself)
+//   PQI_AGENT_FILE   the agent's identity: {"ml_dsa_seed": hex, "wallet": zingo dir, "receive_ua", "receive_uivk", "refund_ua",
+//                    "trust": {"escrow": UA, "solver_kem": keyId}} (only submit_intent needs it; the seed never leaves
+//                    this process; nothing is signed or paid unless the desk's escrow and KEM key match "trust")
 //   PQI_MCP_LOG      one JSON line per call
 import { appendFileSync, readFileSync } from 'node:fs';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { fromB64, hexToBytes, memo, seal, signIntent, signingKeyFromSeed, verifyLog, type LogEntry } from '@pqi/protocol';
+import { fromB64, hexToBytes, keyId, memo, seal, signIntent, signingKeyFromSeed, verifyLog, type LogEntry } from '@pqi/protocol';
 import { chainTip, quicksend, scan, SetupRequiredError, zingoConfig } from '@pqi/node';
 
 const desk = () => process.env.PQI_DESK_URL ?? 'http://127.0.0.1:8404';
@@ -69,8 +72,12 @@ export function createServer(): McpServer {
       run('submit_intent', a, async () => {
         const file = process.env.PQI_AGENT_FILE;
         if (!file) throw new SetupRequiredError('PQI_AGENT_FILE');
-        const me = JSON.parse(readFileSync(file, 'utf8')) as { ml_dsa_seed: string; wallet: string; receive_ua: string; receive_uivk: string; refund_ua: string };
+        const me = JSON.parse(readFileSync(file, 'utf8')) as { ml_dsa_seed: string; wallet: string; receive_ua: string; receive_uivk: string; refund_ua: string; trust?: { escrow?: string; solver_kem?: string } };
+        if (!me.trust?.escrow || !me.trust?.solver_kem) throw new SetupRequiredError('PQI_AGENT_FILE trust.escrow and trust.solver_kem', 'the escrow address and solver KEM key id you trust');
         const info = await get<Info>('/api/info');
+        // The desk tells us where to pay and whom to seal to; check both against what we trust first.
+        if (info.escrow.address !== me.trust.escrow) throw new Error(`refused before signing or paying: the desk's escrow ${info.escrow.address} is not the pinned ${me.trust.escrow}`);
+        if (keyId(fromB64(info.solver.kem.pk)) !== me.trust.solver_kem) throw new Error(`refused before signing or paying: the desk's solver KEM key is not the pinned ${me.trust.solver_kem}`);
         if (info.mode !== 'live') throw new Error(`the desk is ${info.mode}; it cannot accept intents`);
         if (a.pay_zat - a.min_out_zat < Number(info.min_fee_zat)) throw new Error(`refused before signing: fee ${a.pay_zat - a.min_out_zat} zat is below the solver's ${info.min_fee_zat}`);
         const key = signingKeyFromSeed(hexToBytes(me.ml_dsa_seed));
@@ -94,23 +101,31 @@ export function createServer(): McpServer {
     'verify_log',
     {
       title: 'Re-verify the attestation log',
-      description: 'Fetches the verifier’s log and public key, re-checks every hash, link and ML-DSA-65 signature, and checks the latest anchor memo on-chain with the anchor address’s published viewing key. Read-only.',
+      description:
+        'Fetches the verifier’s log, checks the verifier key against the one you pinned (PQI_VERIFIER_ID), re-checks every hash, link and ML-DSA-65 signature, checks the latest anchor memo on-chain with the anchor address’s published viewing key, and says how many entries come after that anchor (not yet anchored). Read-only.',
       annotations: { readOnlyHint: true },
     },
     () =>
       run('verify_log', {}, async () => {
+        const pinned = process.env.PQI_VERIFIER_ID;
+        if (!pinned || !/^[0-9a-f]{64}$/.test(pinned)) throw new SetupRequiredError('PQI_VERIFIER_ID', 'the key id of the verifier you trust; the desk cannot vouch for its own log');
         const [info, { log }] = await Promise.all([get<Info>('/api/info'), get<{ log: LogEntry[] }>('/api/log')]);
-        const check = verifyLog(log, fromB64(info.verifier.pk));
+        const pk = fromB64(info.verifier.pk);
         const counts = log.reduce<Record<string, number>>((m, e) => ((m[e.status] = (m[e.status] ?? 0) + 1), m), {});
+        if (keyId(pk) !== pinned) return { ok: false, entries: 0, head: null, error: { seq: null, problem: `the desk serves verifier key ${keyId(pk)}, not the pinned ${pinned}` }, counts, verifier: keyId(pk), anchor: 'not checked' };
+        const check = verifyLog(log, pk);
         const last = [...log].reverse().find((e) => e.status === 'ANCHORED');
         let anchor: unknown = 'no anchor yet';
+        let anchorOk = true;
         if (last && info.anchor.uivk) {
           const seq = Number(last.refs.anchored_seq);
           const r = await scan(info.anchor.uivk, last.refs.anchor_txid, 1, memo.anchor(seq, last.refs.anchored_head));
-          const head = verifyLog(log.slice(0, seq + 1), fromB64(info.verifier.pk)).head;
-          anchor = { txid: last.refs.anchor_txid, memo_on_chain: r.ok, height: r.height, anchored_head_matches_log: head === last.refs.anchored_head };
+          const head = verifyLog(log.slice(0, seq + 1), pk).head;
+          anchorOk = r.ok && head === last.refs.anchored_head;
+          anchor = { txid: last.refs.anchor_txid, memo_on_chain: r.ok, height: r.height, anchored_head_matches_log: head === last.refs.anchored_head, anchored_through: seq, entries_after_anchor: log.length - 1 - seq };
         }
-        return { ok: check.ok, entries: check.entries, head: check.head, error: check.error, counts, verifier: info.verifier.id, anchor };
+        const error = check.error ?? (anchorOk ? null : { seq: Number(last?.refs.anchored_seq), problem: 'the anchor memo is missing on-chain or does not match the log' });
+        return { ok: check.ok && anchorOk, entries: check.entries, head: check.head, error, counts, verifier: keyId(pk), anchor };
       }),
   );
   return server;
