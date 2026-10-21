@@ -169,6 +169,10 @@ async function main() {
   await mined(st.uivk.receive, late, 'late fill');
   st.decisions.expired ??= logged(await verifier.settle(I.C, funding, solver.claim(H.C, late)));
   save();
+  while ((await chainTip()) <= I.C.intent.deadline_height + verifier.claimWindow) {
+    say(`  … waiting for C's claim window to close at ${I.C.intent.deadline_height + verifier.claimWindow}`);
+    await sleep(45_000);
+  }
   const refund = await verifier.refund(I.C, funding);
   if (refund.status === 'PENDING') throw new Error(refund.reason);
   st.decisions.refund ??= refund.entry.seq;

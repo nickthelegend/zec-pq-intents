@@ -100,3 +100,29 @@ describe('fill claims: only the configured solver is paid', () => {
     expect(v.state.log.map((e) => e.reason ?? e.status)).toEqual(['FILL_UNKNOWN_SOLVER', 'SETTLED']);
   });
 });
+
+describe('one decision at a time, and a claim window before refunds', () => {
+  it('a settle and a refund of A at the same time: one SETTLED, the other ALREADY_SETTLED (never both paid)', async () => {
+    const { v } = freshVerifier();
+    const [a, b] = await Promise.all([v.settle(I.A.signed, d.txs.funding, claim(I.A.hash, d.txs.fills[I.A.hash])), v.refund(I.A.signed, d.txs.funding)]);
+    expect(a.status).toBe('SETTLED');
+    expect(b).toMatchObject({ status: 'REJECTED', reason: 'ALREADY_SETTLED' });
+    expect(v.state.log.map((e) => e.status)).toEqual(['SETTLED', 'REJECTED']);
+  });
+
+  it('two settles of B at the same time: one SETTLED, one ALREADY_SETTLED', async () => {
+    const { v } = freshVerifier();
+    const c = claim(I.B.hash, d.txs.fills[I.B.hash]);
+    const r = await Promise.all([v.settle(I.B.signed, d.txs.funding, c), v.settle(I.B.signed, d.txs.funding, c)]);
+    expect(r.map((x) => ('reason' in x && x.reason) || x.status)).toEqual(['SETTLED', 'ALREADY_SETTLED']);
+  });
+
+  it('C one block after its deadline → CLAIM_WINDOW_OPEN; after the window (the real tip) → REFUNDED', async () => {
+    const deadline = I.C.signed.intent.deadline_height;
+    // The clock is held at deadline + 1; the funding is still read from testnet.
+    const early = freshVerifier(undefined, { tip: async () => deadline + 1 }).v;
+    expect(await early.refund(I.C.signed, d.txs.funding)).toMatchObject({ status: 'REJECTED', reason: 'CLAIM_WINDOW_OPEN' });
+    const late = freshVerifier().v;
+    expect(await late.refund(I.C.signed, d.txs.funding)).toMatchObject({ status: 'REFUNDED', payoutTxid: NEVER_SENT });
+  });
+});

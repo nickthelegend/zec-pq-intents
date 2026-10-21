@@ -10,6 +10,9 @@ import { quicksend, type ZingoConfig } from './zingo.js';
 
 /** The escrow keeps this much of each deposit to pay the release/refund transaction fee. */
 export const FEE_BUDGET_ZAT = 15_000n;
+/** Blocks after the deadline during which only the solver can be paid: a fill mined by the deadline
+ *  can still be claimed, and a refund waits until the window closes. */
+export const CLAIM_WINDOW_BLOCKS = 10;
 
 export interface VerifierState {
   log: LogEntry[];
@@ -33,6 +36,8 @@ export interface VerifierConfig {
   statePath: string;
   /** current chain height */
   tip: () => Promise<number>;
+  /** default CLAIM_WINDOW_BLOCKS */
+  claimWindow?: number;
 }
 
 export type Decision = { status: LogStatus; reason: string | null; entry: LogEntry; payoutTxid?: string };
@@ -42,10 +47,20 @@ const onlyUnconfirmed = (reasons: string[]) => reasons.length > 0 && reasons.eve
 
 export class Verifier {
   readonly state: VerifierState;
+  readonly claimWindow: number;
+  /** Decisions run one at a time, so two calls for the same intent can never both pass the checks
+   *  before either closes it (which would pay the escrow out twice). */
+  private queue: Promise<unknown> = Promise.resolve();
+  private exclusive<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.queue.then(fn, fn);
+    this.queue = run.catch(() => undefined);
+    return run;
+  }
   constructor(private readonly c: VerifierConfig) {
     this.state = existsSync(c.statePath) ? JSON.parse(readFileSync(c.statePath, 'utf8')) : { log: [], nonces: {}, closed: {}, payouts: {} };
     const check = verifyLog(this.state.log, c.key.publicKey);
     if (!check.ok) throw new Error(`stored log does not verify at entry ${check.error?.seq}: ${check.error?.problem}`);
+    this.claimWindow = c.claimWindow ?? CLAIM_WINDOW_BLOCKS;
   }
 
   private save() {
@@ -114,7 +129,11 @@ export class Verifier {
   }
 
   /** A solver claims it filled `s`. On success the escrow pays the solver and the entry is SETTLED. */
-  async settle(s: SignedIntent, fundingTxid: string, claim: FillClaim): Promise<Decision | Pending> {
+  settle(s: SignedIntent, fundingTxid: string, claim: FillClaim): Promise<Decision | Pending> {
+    return this.exclusive(() => this.settleNow(s, fundingTxid, claim));
+  }
+
+  private async settleNow(s: SignedIntent, fundingTxid: string, claim: FillClaim): Promise<Decision | Pending> {
     const a = await this.admit(s, fundingTxid);
     if ('status' in a) return a;
     const { hash } = a;
@@ -137,13 +156,19 @@ export class Verifier {
     return { status: 'SETTLED', reason: null, entry, payoutTxid: release };
   }
 
-  /** The user asks for its escrow back. Only after the deadline and if nothing settled it. */
-  async refund(s: SignedIntent, fundingTxid: string): Promise<Decision | Pending> {
+  /** The user asks for its escrow back. Only once the deadline and the claim window have passed, and
+   *  if nothing settled it. */
+  refund(s: SignedIntent, fundingTxid: string): Promise<Decision | Pending> {
+    return this.exclusive(() => this.refundNow(s, fundingTxid));
+  }
+
+  private async refundNow(s: SignedIntent, fundingTxid: string): Promise<Decision | Pending> {
     const a = await this.admit(s, fundingTxid, true);
     if ('status' in a) return a;
     const { hash } = a;
     const tip = await this.c.tip();
     if (tip <= s.intent.deadline_height) return this.reject(hash, 'NOT_EXPIRED_YET', { tip: String(tip), deadline: String(s.intent.deadline_height) });
+    if (tip <= s.intent.deadline_height + this.claimWindow) return this.reject(hash, 'CLAIM_WINDOW_OPEN', { tip: String(tip), deadline: String(s.intent.deadline_height), refund_after: String(s.intent.deadline_height + this.claimWindow) });
     this.remember(s, hash);
     const out = BigInt(s.intent.pay_zat) - FEE_BUDGET_ZAT;
     const refund = await this.payOnce(`refund:${hash}`, s.intent.refund_ua, out, memo.refund(hash));
@@ -153,7 +178,11 @@ export class Verifier {
   }
 
   /** Puts the current head in a shielded memo to the public anchor address, then logs that. */
-  async anchor(anchorUa: string, amountZat = 10_000n): Promise<{ entry: LogEntry; txid: string; head: string; seq: number }> {
+  anchor(anchorUa: string, amountZat = 10_000n): Promise<{ entry: LogEntry; txid: string; head: string; seq: number }> {
+    return this.exclusive(() => this.anchorNow(anchorUa, amountZat));
+  }
+
+  private async anchorNow(anchorUa: string, amountZat: bigint): Promise<{ entry: LogEntry; txid: string; head: string; seq: number }> {
     const head = this.state.log[this.state.log.length - 1]?.hash;
     if (!head) throw new Error('nothing to anchor');
     const seq = this.state.log.length - 1;
