@@ -58,6 +58,21 @@ describe('keys', () => {
     expect(canonical({ b: 1, a: [true, null, 'x'], c: { z: 1, y: 2 } })).toBe('{"a":[true,null,"x"],"b":1,"c":{"y":2,"z":1}}');
     expect(() => canonical({ x: 1.5 })).toThrow(/non-integer/);
   });
+
+  it('base64 has one spelling per value: non-zero padding bits are refused, so a signed intent cannot be re-spelled', () => {
+    expect(fromB64('QQ==')).toEqual(Uint8Array.of(0x41));
+    for (const s of ['QR==', 'QUJ=', 'QUI', 'Q===']) expect(code(() => fromB64(s))).toBe('BAD_ENCODING');
+    // An ML-DSA-65 public key is 1952 bytes, so its base64 ends in one '=' with 2 padding bits.
+    // Flipping one of them gives a different string for the same key.
+    const s = signIntent(newSigningKey(), fields);
+    const pk = s.user_pk;
+    expect(pk.endsWith('=') && !pk.endsWith('==')).toBe(true);
+    const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    const respelled = pk.slice(0, -2) + B64[B64.indexOf(pk.at(-2)!) ^ 1] + '=';
+    expect(respelled).not.toBe(pk);
+    expect(code(() => verifyIntent({ ...s, user_pk: respelled }))).toBe('BAD_ENCODING');
+    expect(code(() => verifyIntent(s))).toBe('OK');
+  });
 });
 
 describe('intents', () => {

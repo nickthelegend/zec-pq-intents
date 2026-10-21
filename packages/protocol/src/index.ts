@@ -45,6 +45,9 @@ export function fromB64(s: string): Uint8Array {
       out[o++] = (acc >> bits) & 255;
     }
   }
+  // One spelling per value: padding bits must be zero ("QR==" and "QQ==" would both be 0x41), so a
+  // signature or key string cannot be rewritten into another that verifies the same.
+  if (toB64(out) !== s) throw new ProtocolError('BAD_ENCODING', 'non-canonical base64');
   return out;
 }
 
