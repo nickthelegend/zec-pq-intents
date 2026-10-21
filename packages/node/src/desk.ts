@@ -1,14 +1,18 @@
 // The intent desk: a public board of sealed envelopes plus the state machine that moves each one
 //   received → funded (escrow sees pqi1:<hash>) → filled (solver delivered) → settled (escrow released)
-// The board only ever holds ciphertext and the intent hash; the solver opens envelopes, the verifier
-// decides. `tick()` advances every open intent by what the chain shows now; it is idempotent.
+// and, once the deadline and the claim window have passed without a settlement, → refunded.
+// The board holds ciphertext and the intent hash; an envelope is opened once on arrival (junk is
+// refused, so nobody can squat a hash), the solver fills, the verifier decides. `tick()` advances
+// every open intent by what the chain shows now; one tick runs at a time.
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { keyId, ProtocolError, toB64, type Envelope, type FillClaim, type SignedIntent } from '@pqi/protocol';
 import type { Solver } from './solver.js';
 import type { Verifier } from './verifier.js';
 
-export type Stage = 'received' | 'declined' | 'funded' | 'filled' | 'settled' | 'refunded' | 'rejected';
+export type Stage = 'received' | 'declined' | 'funded' | 'filled' | 'settled' | 'refunded' | 'rejected' | 'refund_refused';
+/** Stages a tick still works on. */
+const OPEN: Stage[] = ['received', 'declined', 'funded', 'filled', 'rejected'];
 
 export interface BoardItem {
   hash: string;
@@ -43,6 +47,14 @@ export class Desk {
   submit(envelope: Envelope, fundingTxid: string): BoardItem {
     if (!/^[0-9a-f]{64}$/.test(envelope?.intent_hash ?? '')) throw new ProtocolError('BAD_ENVELOPE', 'missing intent hash');
     if (!/^[0-9a-f]{64}$/.test(fundingTxid ?? '')) throw new ProtocolError('BAD_ENVELOPE', 'funding_txid must be 64 hex');
+    // Only an envelope that opens with the solver's key, carries a valid user signature and hashes
+    // to its intent_hash is stored; anything else is refused here and never takes the hash's slot.
+    try {
+      this.c.solver.open(envelope);
+    } catch (e) {
+      if (e instanceof ProtocolError) throw e;
+      throw new ProtocolError('BAD_ENVELOPE', 'the envelope does not open to a signed intent');
+    }
     const existing = this.items.find((i) => i.hash === envelope.intent_hash);
     if (existing) return existing;
     const item: BoardItem = { hash: envelope.intent_hash, envelope, fundingTxid, stage: 'received', note: null, fillTxid: null, claim: null, postedAt: new Date().toISOString() };
@@ -63,6 +75,7 @@ export class Desk {
       this.save();
       return item.note;
     }
+    if (OPEN.includes(item.stage) && item.stage !== 'filled' && tip > s.intent.deadline_height + this.c.verifier.claimWindow) return this.refund(item, s);
     if (item.stage === 'received') {
       const f = await this.c.solver.funded(item.hash, s, item.fundingTxid);
       if (!f.ok) return `waiting for funding: ${f.reasons.join(', ')}`;
@@ -94,10 +107,28 @@ export class Desk {
     return item.stage;
   }
 
-  async tick(): Promise<{ hash: string; result: string }[]> {
-    const out = [];
-    for (const i of this.items.filter((x) => ['received', 'funded', 'filled'].includes(x.stage))) out.push({ hash: i.hash, result: await this.step(i) });
-    return out;
+  /** Past the deadline and the claim window with nothing settled: the verifier refunds the escrow. */
+  private async refund(item: BoardItem, s: SignedIntent): Promise<string> {
+    const d = await this.c.verifier.refund(s, item.fundingTxid);
+    if (d.status === 'PENDING') return d.reason;
+    item.stage = d.status === 'REFUNDED' ? 'refunded' : 'refund_refused';
+    item.note = d.reason;
+    this.save();
+    return `${d.status}${d.reason ? ` ${d.reason}` : ''}`;
+  }
+
+  private ticking: Promise<{ hash: string; result: string }[]> | null = null;
+
+  /** One pass over the open intents. A call while a pass is running gets that pass's result. */
+  tick(): Promise<{ hash: string; result: string }[]> {
+    this.ticking ??= (async () => {
+      const out = [];
+      for (const i of this.items.filter((x) => OPEN.includes(x.stage))) {
+        out.push({ hash: i.hash, result: await this.step(i) });
+      }
+      return out;
+    })().finally(() => (this.ticking = null));
+    return this.ticking;
   }
 
   status(hash: string) {
@@ -115,11 +146,27 @@ export class Desk {
   }
 }
 
-const json = (res: ServerResponse, status: number, body: unknown) => res.writeHead(status, { 'content-type': 'application/json', 'access-control-allow-origin': '*' }).end(JSON.stringify(body, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)));
+/** Reads are public (CORS open); writes are not offered to other origins. */
+const json = (res: ServerResponse, status: number, body: unknown, cors = true) =>
+  res.writeHead(status, { 'content-type': 'application/json', ...(cors ? { 'access-control-allow-origin': '*' } : {}) }).end(JSON.stringify(body, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)));
 
+export const MAX_BODY_BYTES = 64 * 1024;
+
+class HttpError extends Error {
+  constructor(readonly status: number, message: string) {
+    super(message);
+  }
+}
+
+/** JSON bodies only (a cross-site form or plain fetch cannot send that without a preflight, which
+ *  this server never approves), and at most MAX_BODY_BYTES. */
 async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
+  if (!/^application\/json\b/.test(req.headers['content-type'] ?? '')) throw new HttpError(415, 'POST bodies must be application/json');
   let s = '';
-  for await (const c of req) s += c;
+  for await (const c of req) {
+    s += c;
+    if (s.length > MAX_BODY_BYTES) throw new HttpError(413, `body over ${MAX_BODY_BYTES} bytes`);
+  }
   return JSON.parse(s || '{}');
 }
 
@@ -133,11 +180,18 @@ export function serveDesk(desk: Desk): Server {
       if (req.method === 'GET' && url.pathname.startsWith('/api/intents/')) return json(res, 200, desk.status(url.pathname.split('/').pop() ?? ''));
       if (req.method === 'POST' && url.pathname === '/api/intents') {
         const b = await body(req);
-        return json(res, 200, desk.submit(b.envelope as Envelope, b.funding_txid as string));
+        return json(res, 200, desk.submit(b.envelope as Envelope, b.funding_txid as string), false);
       }
-      if (req.method === 'POST' && url.pathname === '/api/tick') return json(res, 200, await desk.tick());
-      return json(res, 404, { error: 'not found' });
-    })().catch((e: Error) => json(res, e instanceof ProtocolError || e instanceof SyntaxError ? 400 : 502, { error: e.message }));
+      if (req.method === 'POST' && url.pathname === '/api/tick') {
+        await body(req);
+        return json(res, 200, await desk.tick(), false);
+      }
+      return json(res, 404, { error: 'not found' }, req.method === 'GET');
+    })().catch((e: Error) => {
+      const status = e instanceof HttpError ? e.status : e instanceof ProtocolError || e instanceof SyntaxError ? 400 : 502;
+      if (status === 413) res.setHeader('connection', 'close');
+      json(res, status, { error: e.message }, false);
+    });
   });
 }
 
