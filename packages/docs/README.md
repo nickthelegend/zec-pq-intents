@@ -31,10 +31,11 @@ post envelope ─────────┴──► open, check signature,
                             check funding (escrow UIVK),
                             deliver to receive_ua ─────────────────────────────────────────► pqi1:<hash>:fill
                             sign fill claim ──────────────► check intent sig, nonce, funding,
+                                                            claim key is a configured solver,
                                                             fill seen by receive UIVK, by deadline
                                                             release escrow to solver ──────────► pqi1:<hash>:release
                                                             append signed SETTLED entry
-after deadline, no valid fill:                              refund escrow to refund_ua ────────► pqi1:<hash>:refund
+after deadline + 10-block claim window, nothing settled:    refund escrow to refund_ua ────────► pqi1:<hash>:refund
                                                             append signed REFUNDED entry
 periodically:                                               log head in a memo ────────────────► pqi1:anchor:<seq>:<head>
 ```
@@ -47,12 +48,27 @@ periodically:                                               log head in a memo �
 | intent signed by another key, naming the user | sha256(signing key) must equal `intent.user` | `WRONG_KEY` |
 | the same intent settled twice | closed set | `ALREADY_SETTLED` / `ALREADY_REFUNDED` |
 | a new intent reusing a nonce | user → nonce → first intent | `NONCE_REUSED` |
+| a fill claimed by someone who did not make it (e.g. the user, who sees the fill txid) | the claim's ML-DSA key must be one of the verifier's configured solver keys | `FILL_UNKNOWN_SOLVER` |
 | fill with the wrong memo or amount | receive UIVK must see `pqi1:<hash>:fill` ≥ min_out | `FILL_NOT_CREDITED:…` |
 | fill mined after the deadline | fill height ≤ deadline | `EXPIRED` |
 | escrow not funded (or too little, or late) | escrow UIVK must see `pqi1:<hash>` ≥ pay by the deadline | `NOT_FUNDED:…`, `FUNDED_AFTER_DEADLINE` |
 | refund before the deadline | tip > deadline | `NOT_EXPIRED_YET` |
+| refund inside the claim window (a fill mined by the deadline may still be claimed) | tip > deadline + 10 | `CLAIM_WINDOW_OPEN` |
+| a signature or key in a second base64 spelling | canonical base64 only | `BAD_ENCODING` |
 
-A transaction that is not mined yet is not a decision: nothing is logged (`PENDING`).
+A transaction that is not mined yet is not a decision: nothing is logged (`PENDING`). Decisions run
+one at a time, so a settle and a refund (or two settles) of the same intent cannot both pay.
+
+**Desk rules.** An envelope is opened when it is posted. If it does not open with the solver's key to
+a signed intent with that hash, it is refused and never takes the hash's place on the board. One
+tick runs at a time. An intent that is declined, rejected or never filled is refunded by the
+verifier once the deadline and the claim window have passed. The solver declines intents with
+fewer than 3 blocks left. POSTs need an `application/json` body of at most 64 KiB, so a page on
+another site cannot trigger them. Reads stay open (CORS `*`).
+
+**Agents.** `verify_log` needs the verifier key id you trust (`PQI_VERIFIER_ID`), so the desk cannot
+vouch for its own log. `submit_intent` signs and pays only if the desk's escrow and solver KEM key
+match the agent's pinned ones.
 
 ## Trust model
 
@@ -61,12 +77,26 @@ A transaction that is not mined yet is not a decision: nothing is logged (`PENDI
   anchored on-chain, and every input (intent, signatures, funding, fill, payout) can be re-checked
   with the published keys and viewing keys. It is trusted for liveness, not for honesty of record.
 - **Solver:** sees the plaintext intent (it must, to fill it) and chooses whether to fill. It
-  cannot change the intent (signature), claim someone else's fill (memo binds the intent hash and
-  the receive UIVK sees only real outputs), or claim late.
-- **Board:** holds only ciphertext and intent hashes. ML-KEM-768 protects the intents against
-  harvest-now-decrypt-later.
-- **Privacy limits:** funding, fill and payouts are shielded (Ironwood), but the verifier and solver
-  learn amounts and addresses. Timing can link a funding and a fill on a quiet testnet.
+  cannot change the intent (signature) or claim late (fill height ≤ deadline). Only the configured
+  solver keys are paid, so the user or an observer cannot claim the solver's fill (until Oct 21 any
+  key could: see `docs/JUDGE-2026-10-21.md`). With several solvers, one configured solver could
+  still claim another's fill. The fix is a fill memo that names the solver, and it is not built.
+- **Board:** holds ciphertext, intent hashes and funding txids.
+- **What ML-KEM protects, and what it does not.** The envelope (receive address, its viewing key,
+  refund address, amounts, deadline) is sealed with ML-KEM-768, so recording the board today and
+  breaking ECC later does not open it. The on-chain legs are ordinary Zcash notes, encrypted with
+  elliptic-curve keys: a future quantum adversary holding the chain could read the funding and
+  fill memos (`pqi1:<hash>…`) and amounts and link them. This is the gap Zcash's own ML-KEM step
+  addresses.
+- **Privacy today:** the escrow's viewing key is published, so anyone can see each funding's
+  amount, time and intent hash. The verifier reads the signed intent, and the published run
+  includes it. The solver and verifier learn amounts and addresses. The demo run used one receive
+  address for all three intents, so those deliveries are linkable. Timing can link a funding and
+  a fill on a quiet testnet.
+- **Anchors:** the head is anchored periodically in a memo to the verifier's own anchor address.
+  Entries after the last anchor are not covered yet (`verify_log` reports how many). A verifier
+  could anchor two different heads, and only a scan of every note the anchor viewing key can see
+  would catch that. 1 confirmation is accepted for funding and fills.
 
 ## Zcash post-quantum roadmap (sources)
 
@@ -79,10 +109,11 @@ A transaction that is not mined yet is not a decision: nothing is logged (`PENDI
 
 | Do | See |
 |---|---|
-| `pnpm --filter @pqi/protocol test` | ML-DSA/ML-KEM sizes, every tamper caught, the log re-verifies (10 tests) |
+| `pnpm --filter @pqi/protocol test` | ML-DSA/ML-KEM sizes, every tamper caught, canonical base64, the log re-verifies (11 tests) |
+| `pnpm --filter @pqi/node test` | the published run re-checked on testnet; fill theft, settle/refund races and the claim window refused; desk board, ticks, refunds and HTTP rules (17 tests) |
 | open the dashboard | every log entry's ML-DSA-65 signature re-verified in your browser, the chain linked |
 | dashboard → "Change a field" | the intent no longer verifies (`BAD_SIGNATURE`) |
-| `PQI_PUBLISHED=deployments/testnet.json pnpm --filter @pqi/node serve` + MCP `verify_log` | ok, entry counts, the anchor memo found on-chain and matching the head |
+| `PQI_PUBLISHED=deployments/testnet.json pnpm --filter @pqi/node serve` + MCP `verify_log` with `PQI_VERIFIER_ID=f60f1305…` | ok, entry counts, the anchor memo found on-chain and matching the head, 1 entry after the anchor |
 
 ## Pre-existing work
 

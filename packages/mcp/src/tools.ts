@@ -50,7 +50,7 @@ export function createServer(): McpServer {
 
   server.registerTool(
     'quote',
-    { title: 'Ask whether the solver would fill', description: 'Given what you would escrow (pay_zat) and want delivered (min_out_zat), says whether the solver accepts and its fee. Read-only.', inputSchema: { pay_zat: z.number().int().positive(), min_out_zat: z.number().int().positive() }, annotations: { readOnlyHint: true } },
+    { title: 'Check the fee against the solver minimum', description: 'Given what you would escrow (pay_zat) and want delivered (min_out_zat), checks the fee against the solver’s published minimum. Local arithmetic: the solver decides when it opens the envelope, and also declines intents with fewer than 3 blocks before the deadline. Read-only.', inputSchema: { pay_zat: z.number().int().positive(), min_out_zat: z.number().int().positive() }, annotations: { readOnlyHint: true } },
     (a) =>
       run('quote', a, async () => {
         const info = await get<Info>('/api/info');
