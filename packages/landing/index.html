@@ -151,7 +151,7 @@
     </section>
 
     <section class="p s6" id="run" aria-labelledby="run-h">
-      <div class="ph"><h2 id="run-h">Run it</h2><span class="meta">37 + doc tests · no mocks</span></div>
+      <div class="ph"><h2 id="run-h">Run it</h2><span class="meta">57 + doc tests · no mocks</span></div>
       <div class="pb">
 <pre><b>pnpm install && pnpm test</b>
 pnpm --filter @pqi/dashboard dev          <span class="muted"># the terminal, :5181</span>
@@ -159,9 +159,9 @@ PQI_PUBLISHED=deployments/testnet.json \
   pnpm --filter @pqi/node serve           <span class="muted"># read-only desk</span></pre>
         <table class="tests" style="margin-top:12px">
           <tbody>
-            <tr><td>protocol</td><td class="muted">local</td><td>11</td></tr>
+            <tr><td>protocol</td><td class="muted">local</td><td>16</td></tr>
             <tr><td>scan (Rust)</td><td class="muted">local</td><td>3 + doc</td></tr>
-            <tr><td>node</td><td class="muted">Zcash testnet + local</td><td>17</td></tr>
+            <tr><td>node</td><td class="muted">Zcash testnet + local</td><td>32</td></tr>
             <tr><td>mcp</td><td class="muted">stdio client + desk + testnet</td><td>6</td></tr>
           </tbody>
         </table>
@@ -174,7 +174,7 @@ PQI_PUBLISHED=deployments/testnet.json \
         <ul class="plain">
           <li>Not trustless. The verifier holds the escrow and could withhold a payout. It cannot change the record without the signatures, links or anchors showing it.</li>
           <li>The solver and the verifier read the plaintext intent. In this run, one receive address served all three intents, so those deliveries can be linked.</li>
-          <li>Anchors are periodic. A verifier could anchor two different heads, and only a scan of every note the anchor viewing key sees would catch that. One confirmation is accepted.</li>
+          <li>Anchors are periodic, and each names the one before it. The escrow's full viewing key is published, so every anchor it sent can be listed and a second head is a visible fork; entries after the last anchor are not covered. Funding and fills need 3 confirmations.</li>
           <li>ZEC only, testnet only, a single verifier key, not audited. A portfolio piece: the Zecathon entry is Shielded x402.</li>
         </ul>
       </div>

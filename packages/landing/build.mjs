@@ -15,7 +15,7 @@ const root = resolve(here, '../..');
 const d = JSON.parse(readFileSync(join(root, 'deployments/testnet.json'), 'utf8'));
 const EXPLORER = 'https://testnet.zcashexplorer.app/transactions/';
 const REPO = 'https://github.com/nickthelegend/zec-pq-intents';
-const TESTS = { protocol: 11, scan: '3 + doc', node: 17, mcp: 6, total: '37 + doc' };
+const TESTS = { protocol: 16, scan: '3 + doc', node: 32, mcp: 6, total: '57 + doc' };
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const short = (h, n = 8) => `${h.slice(0, n)}…`;
@@ -255,7 +255,7 @@ PQI_PUBLISHED=deployments/testnet.json \\
         <ul class="plain">
           <li>Not trustless. The verifier holds the escrow and could withhold a payout. It cannot change the record without the signatures, links or anchors showing it.</li>
           <li>The solver and the verifier read the plaintext intent. In this run, one receive address served all three intents, so those deliveries can be linked.</li>
-          <li>Anchors are periodic. A verifier could anchor two different heads, and only a scan of every note the anchor viewing key sees would catch that. One confirmation is accepted.</li>
+          <li>Anchors are periodic, and each names the one before it. The escrow's full viewing key is published, so every anchor it sent can be listed and a second head is a visible fork; entries after the last anchor are not covered. Funding and fills need 3 confirmations.</li>
           <li>ZEC only, testnet only, a single verifier key, not audited. A portfolio piece: the Zecathon entry is Shielded x402.</li>
         </ul>
       </div>

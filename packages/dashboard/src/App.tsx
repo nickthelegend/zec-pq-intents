@@ -447,7 +447,7 @@ function Refusals({ onSel }: { onSel: (n: number) => void }) {
     <section className="p s12" aria-labelledby="ref-h">
       <div className="ph">
         <h2 id="ref-h">Refused on testnet</h2>
-        <span className="meta">each one a signed log entry · tested too: FILL_UNKNOWN_SOLVER, CLAIM_WINDOW_OPEN (not in this run)</span>
+        <span className="meta" title="Each refusal is a signed log entry. Also tested: FILL_UNKNOWN_SOLVER, FILL_NOT_SOLVER_BOUND, CLAIM_WINDOW_OPEN. FILL_BY_OTHER_SOLVER is entry 10 of the Oct 21 pass-2 run (deployments/testnet-pass2.json).">each one a signed log entry · tested too: FILL_UNKNOWN_SOLVER, FILL_NOT_SOLVER_BOUND, CLAIM_WINDOW_OPEN · FILL_BY_OTHER_SOLVER: pass 2</span>
       </div>
       {rows.length === 0 ? (
         <p className="pb faint">No refusals were recorded in this run.</p>
