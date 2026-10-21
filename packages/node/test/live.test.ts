@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { fromB64, intentHash, keyId, memo, newSigningKey, signFill, verifyLog, type LogEntry, type SignedIntent } from '@pqi/protocol';
+import { findEquivocation, fromB64, intentHash, keyId, memo, newSigningKey, signFill, verifyLog, type FillClaim, type LogEntry, type SignedIntent } from '@pqi/protocol';
 import { chainTip, scan, Verifier, zingoConfig } from '../src/index.js';
 
 const d = JSON.parse(readFileSync(resolve(__dirname, '../../../deployments/testnet.json'), 'utf8'));
@@ -170,5 +170,38 @@ describe('one decision at a time, and a claim window before refunds', () => {
     expect(await early.refund(I.C.signed, d.txs.funding)).toMatchObject({ status: 'REJECTED', reason: 'CLAIM_WINDOW_OPEN' });
     const late = freshVerifier().v;
     expect(await late.refund(I.C.signed, d.txs.funding)).toMatchObject({ status: 'REFUNDED', payoutTxid: NEVER_SENT });
+  });
+});
+
+describe('pass 2 on testnet (Oct 21): a fill that names its solver, 3 confirmations, a crash mid-release', () => {
+  const p2 = JSON.parse(readFileSync(resolve(__dirname, '../../../deployments/testnet-pass2.json'), 'utf8'));
+  const D = p2.intent as { hash: string; signed: SignedIntent; claim: FillClaim };
+  const pk = fromB64(d.keys.verifier.pk);
+
+  it('the pass-2 log verifies with the same verifier key and extends the Oct 20 log: FILL_BY_OTHER_SOLVER, SETTLED, ANCHORED', () => {
+    const l = p2.log as LogEntry[];
+    expect(verifyLog(l, pk)).toMatchObject({ ok: true, entries: log.length + 3 });
+    expect(findEquivocation(log, l, pk)).toBeNull();
+    expect(l.slice(log.length).map((e) => e.reason ?? e.status)).toEqual(['FILL_BY_OTHER_SOLVER', 'SETTLED', 'ANCHORED']);
+    expect(l[log.length + 1].refs).toMatchObject({ fill_binding: 'solver-memo', solver: d.keys.solver.id, release_txid: p2.txs.release });
+  });
+
+  it('D’s fill names the solver’s key in its memo; a fresh verifier with two solver keys refuses the other one (FILL_BY_OTHER_SOLVER) and pays the named one', async () => {
+    expect((await scan(W.receive.uivk, p2.txs.fill, 40_000, memo.fill(D.hash, d.keys.solver.id))).ok).toBe(true);
+    const other = newSigningKey();
+    const statePath = join(mkdtempSync(join(tmpdir(), 'pqi-')), 'state.json');
+    writeFileSync(statePath, JSON.stringify({ log: [], nonces: {}, closed: {}, payouts: { [`release:${D.hash}`]: NEVER_SENT } }));
+    const v = new Verifier({ key: newSigningKey(), escrowWallet: '/nonexistent/escrow-wallet-never-used', escrowUa: W.escrow.address, escrowUivk: W.escrow.uivk, solvers: [d.keys.solver.id, keyId(other.publicKey)], zingo: zingoConfig(), statePath, tip: chainTip });
+    expect(await v.settle(D.signed, p2.txs.funding, signFill(other, D.hash, p2.txs.fill, W.user.address))).toMatchObject({ status: 'REJECTED', reason: 'FILL_BY_OTHER_SOLVER' });
+    expect(await v.settle(D.signed, p2.txs.funding, D.claim)).toMatchObject({ status: 'SETTLED', payoutTxid: NEVER_SENT });
+  });
+
+  it('the release broadcast before the kill is on-chain once, with the memo of the write-ahead record, and is the txid the log settled with', async () => {
+    expect(p2.crash).toMatchObject({ point: 'payout-after-broadcast', signal: 'SIGKILL', write_ahead: { memo: memo.release(D.hash), amount_zat: '45000', to: W.solver.address }, reconciled_txid: p2.txs.release, escrow_sends_with_release_memo: [p2.txs.release] });
+    expect((await scan(W.solver.uivk, p2.txs.release, 45_000, memo.release(D.hash))).ok).toBe(true);
+    // The release was written ahead only once the fill was 3 blocks deep; the run saw the funding at 1 of 3.
+    const fill = await scan(W.receive.uivk, p2.txs.fill, 40_000, memo.fill(D.hash, d.keys.solver.id));
+    expect(p2.crash.write_ahead.at_height - fill.height! + 1).toBeGreaterThanOrEqual(3);
+    expect(p2.observedPending).toContain('waiting for funding: NOT_CONFIRMED (1 of 3)');
   });
 });

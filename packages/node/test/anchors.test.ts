@@ -5,12 +5,13 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { appendEntry, checkAnchors, GENESIS, newSigningKey, readAnchorMemo, type AnchorSeen, type FillClaim, type LogEntry, type SignedIntent } from '@pqi/protocol';
-import { anchorHistory, openViewWallet, Verifier, zingoConfig } from '../src/index.js';
+import { appendEntry, checkAnchors, findEquivocation, fromB64, GENESIS, memo, newSigningKey, readAnchorMemo, type AnchorSeen, type FillClaim, type LogEntry, type SignedIntent } from '@pqi/protocol';
+import { anchorHistory, openViewWallet, sentWithMemo, Verifier, zingoConfig } from '../src/index.js';
 
 const d = JSON.parse(readFileSync(resolve(__dirname, '../../../deployments/testnet.json'), 'utf8'));
 const W = d.wallets as Record<string, { address: string; uivk: string; ufvk?: string; birthday?: number }>;
 const log = d.log as LogEntry[];
+const p2 = JSON.parse(readFileSync(resolve(__dirname, '../../../deployments/testnet-pass2.json'), 'utf8'));
 const VIEW = join(mkdtempSync(join(tmpdir(), 'pqi-escrow-view-')), 'wallet');
 let sent: AnchorSeen[] = [];
 
@@ -36,6 +37,24 @@ describe('anchors in the escrow’s on-chain history (Zcash testnet)', () => {
     const key = newSigningKey();
     for (const e of log) appendEntry(forged, key, { status: e.seq === 0 ? 'REFUNDED' : e.status, intent_hash: e.intent_hash, reason: e.reason, refs: e.refs, at_height: e.at_height });
     expect(checkAnchors(forged, sent).problems).toContainEqual(expect.objectContaining({ kind: 'ANCHOR_HEAD_MISMATCH', txid: d.anchor.txid, seq: 8 }));
+  });
+});
+
+describe('pass 2 in the escrow’s history (Zcash testnet)', () => {
+  it('the pass-2 anchor names the Oct 20 anchor: one chain of two, the pass-2 log checks out, and the Oct 20 log sees it as later', () => {
+    const c = checkAnchors(p2.log, sent);
+    expect(c.problems).toEqual([]);
+    expect(c.chain.slice(0, 2).map((a) => [a.txid, a.prev])).toEqual([
+      [d.anchor.txid, null],
+      [p2.txs.anchor, d.anchor.txid],
+    ]);
+    expect(findEquivocation(log, p2.log, fromB64(d.keys.verifier.pk))).toBeNull();
+    expect(checkAnchors(log, sent).later).toContainEqual({ txid: p2.txs.anchor, seq: 11 });
+  });
+
+  it('the release that was broadcast just before the process was killed went out of the escrow exactly once', async () => {
+    const sends = await sentWithMemo(zingoConfig(), VIEW, memo.release(p2.intent.hash));
+    expect(sends.map((t) => t.txid)).toEqual([p2.txs.release]);
   });
 });
 
