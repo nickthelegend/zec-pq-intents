@@ -5,7 +5,7 @@
 // escrow); anyone can re-check every decision and signature from the published log.
 import { closeSync, existsSync, fsyncSync, openSync, readFileSync, renameSync, writeSync } from 'node:fs';
 import { appendEntry, GENESIS, intentHash, memo, ProtocolError, readFillMemo, verifyFill, verifyIntent, verifyLog, type FillClaim, type LogEntry, type LogStatus, type SignedIntent, type SigningKey } from '@pqi/protocol';
-import { scan, type ScanResult } from './scan.js';
+import { owns, scan, type ScanResult } from './scan.js';
 import { quicksend, sentWithMemo, type ZingoConfig } from './zingo.js';
 
 /** The escrow keeps this much of each deposit to pay the release/refund transaction fee. */
@@ -221,6 +221,9 @@ export class Verifier {
     const firstUse = this.state.nonces[s.intent.user]?.[s.intent.nonce];
     if (firstUse && firstUse !== hash) return this.reject(hash, 'NONCE_REUSED', { funding_txid: fundingTxid, first_use: firstUse });
     if (s.intent.escrow !== this.c.escrowUa) return this.reject(hash, 'WRONG_ESCROW', { funding_txid: fundingTxid });
+    // A fill is read with receive_uivk; if that key does not derive receive_ua, a delivery to
+    // receive_ua would be invisible here, refused, and the escrow refunded on top of it.
+    if (!forRefund && !(await owns(s.intent.receive_uivk, s.intent.receive_ua)).pay_to) return this.reject(hash, 'RECEIVE_KEY_MISMATCH', { funding_txid: fundingTxid });
     const fund = await this.funding(hash, fundingTxid, BigInt(s.intent.pay_zat));
     if (onlyUnconfirmed(fund.reasons)) return { status: 'PENDING', reason: 'funding not mined yet' };
     if (!fund.ok) return this.reject(hash, `NOT_FUNDED:${fund.reasons.join('+')}`, { funding_txid: fundingTxid });

@@ -22,6 +22,7 @@ pub mod lwd;
 use orchard::note_encryption::{DomainVersion, IronwoodVersion, NoteEncryptionDomain, OrchardVersion};
 use sapling::note_encryption::SaplingDomain;
 use serde::Serialize;
+use zcash_keys::address::UnifiedAddress;
 use zcash_keys::keys::{UnifiedFullViewingKey, UnifiedIncomingViewingKey};
 use zcash_note_encryption::try_note_decryption;
 use zcash_primitives::transaction::{components::sapling::zip212_enforcement, Transaction};
@@ -34,6 +35,7 @@ pub const NETWORK: Network = Network::TestNetwork;
 #[derive(Debug)]
 pub enum VerifyError {
     BadKey(String),
+    BadAddress(String),
     BadTxid(String),
     Lwd(lwd::LwdError),
     Unparseable(String),
@@ -44,6 +46,7 @@ impl std::fmt::Display for VerifyError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             VerifyError::BadKey(e) => write!(f, "not a testnet unified incoming viewing key: {e}"),
+            VerifyError::BadAddress(e) => write!(f, "not a testnet unified address: {e}"),
             VerifyError::BadTxid(t) => write!(f, "not a txid (64 hex characters): {t}"),
             VerifyError::Lwd(e) => write!(f, "{e}"),
             VerifyError::Unparseable(e) => write!(f, "transaction does not parse: {e}"),
@@ -127,6 +130,53 @@ pub fn parse_uivk(s: &str) -> Result<UnifiedIncomingViewingKey, VerifyError> {
 pub fn uivk_from_ufvk(ufvk: &str) -> Result<String, VerifyError> {
     let k = UnifiedFullViewingKey::decode(&NETWORK, ufvk.trim()).map_err(|e| VerifyError::BadKey(e.to_string()))?;
     k.to_unified_incoming_viewing_key().encode(&NETWORK).map_err(|e| VerifyError::BadKey(format!("{e:?}")))
+}
+
+/// Which receivers of a unified address an incoming viewing key derives, so a payer can tell
+/// whether a payment to that address will be seen with that key.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct Ownership {
+    pub address: String,
+    /// Receivers the address has: "orchard", "sapling", "transparent".
+    pub receivers: Vec<&'static str>,
+    /// Shielded receivers of the address that this key derives (a payment to them is visible to it).
+    pub covered: Vec<&'static str>,
+    /// A unified address holding only one covered receiver (Orchard first), or None when the key
+    /// covers none: pay this, not the full address, so a payment cannot land on a receiver the key
+    /// does not see.
+    pub pay_to: Option<String>,
+}
+
+/// Does `uivk` derive the shielded receivers of `ua`? An Orchard receiver is covered when the key
+/// decrypts its diversifier to an index that re-derives the same address; Sapling likewise.
+pub fn owns(uivk: &str, ua: &str) -> Result<Ownership, VerifyError> {
+    let key = parse_uivk(uivk)?;
+    let addr = UnifiedAddress::decode(&NETWORK, ua.trim()).map_err(|e| VerifyError::BadAddress(e.to_string()))?;
+    let mut receivers = Vec::new();
+    let mut covered = Vec::new();
+    let orchard = addr.orchard().filter(|a| key.orchard().as_ref().is_some_and(|k| k.diversifier_index(a).is_some()));
+    let sapling = addr.sapling().filter(|a| key.sapling().as_ref().is_some_and(|k| k.decrypt_diversifier(a).is_some()));
+    if addr.has_orchard() {
+        receivers.push("orchard");
+    }
+    if addr.has_sapling() {
+        receivers.push("sapling");
+    }
+    if addr.has_transparent() {
+        receivers.push("transparent");
+    }
+    if orchard.is_some() {
+        covered.push("orchard");
+    }
+    if sapling.is_some() {
+        covered.push("sapling");
+    }
+    let only = match (orchard, sapling) {
+        (Some(o), _) => UnifiedAddress::from_receivers(Some(*o), None, None, None, None),
+        (None, Some(s)) => UnifiedAddress::from_receivers(None, Some(*s), None, None, None),
+        (None, None) => None,
+    };
+    Ok(Ownership { address: ua.trim().to_string(), receivers, covered, pay_to: only.map(|u| u.encode(&NETWORK)) })
 }
 
 fn memo_of(m: &[u8; 512]) -> (Option<String>, bool) {
@@ -272,6 +322,56 @@ mod tests {
         let mut gone = report(vec![], 0, false);
         gone.found = false;
         assert_eq!(check(&gone, &E(1, None)).reasons, vec!["TX_NOT_FOUND"]);
+    }
+
+    /// The published run's wallets (deployments/testnet.json): the receive key derives the receive
+    /// address; the anchor wallet's key does not.
+    fn wallets() -> serde_json::Value {
+        serde_json::from_str::<serde_json::Value>(include_str!("../../../deployments/testnet.json")).expect("record")["wallets"].clone()
+    }
+
+    #[test]
+    fn owns_the_address_its_key_derives_and_not_another_wallets() {
+        let w = wallets();
+        let (ua, own, other) = (w["receive"]["address"].as_str().unwrap(), w["receive"]["uivk"].as_str().unwrap(), w["anchor"]["uivk"].as_str().unwrap());
+        let mine = owns(own, ua).unwrap();
+        assert_eq!(mine.receivers, vec!["orchard"]);
+        assert_eq!(mine.covered, vec!["orchard"]);
+        assert_eq!(owns(own, &mine.pay_to.unwrap()).unwrap().covered, vec!["orchard"]);
+        let theirs = owns(other, ua).unwrap();
+        assert!(theirs.covered.is_empty());
+        assert_eq!(theirs.pay_to, None);
+    }
+
+    #[test]
+    fn a_new_diversified_address_of_the_same_key_is_covered() {
+        let w = wallets();
+        let key = parse_uivk(w["receive"]["uivk"].as_str().unwrap()).unwrap();
+        let fresh = UnifiedAddress::from_receivers(Some(key.orchard().as_ref().unwrap().address_at(7u32)), None, None, None, None).unwrap().encode(&NETWORK);
+        assert_ne!(fresh, w["receive"]["address"].as_str().unwrap());
+        assert_eq!(owns(w["receive"]["uivk"].as_str().unwrap(), &fresh).unwrap().covered, vec!["orchard"]);
+        assert!(owns(w["anchor"]["uivk"].as_str().unwrap(), &fresh).unwrap().covered.is_empty());
+    }
+
+    #[test]
+    fn a_mixed_address_is_paid_only_on_the_receiver_the_key_covers() {
+        let w = wallets();
+        let anchor = UnifiedAddress::decode(&NETWORK, w["anchor"]["address"].as_str().unwrap()).unwrap();
+        // Orchard from the anchor wallet, Sapling from the receive wallet's own key.
+        let key = parse_uivk(w["receive"]["uivk"].as_str().unwrap()).unwrap();
+        let sapling = key.sapling().as_ref().expect("the receive key has a Sapling part").find_address(0u32).unwrap().1;
+        let mixed = UnifiedAddress::from_receivers(anchor.orchard().cloned(), Some(sapling), None, None, None).unwrap().encode(&NETWORK);
+        let o = owns(w["receive"]["uivk"].as_str().unwrap(), &mixed).unwrap();
+        assert_eq!(o.receivers, vec!["orchard", "sapling"]);
+        assert_eq!(o.covered, vec!["sapling"]);
+        let only = UnifiedAddress::decode(&NETWORK, &o.pay_to.unwrap()).unwrap();
+        assert_eq!((only.has_orchard(), only.sapling()), (false, Some(&sapling)));
+    }
+
+    #[test]
+    fn owns_refuses_what_is_not_an_address() {
+        let w = wallets();
+        assert!(matches!(owns(w["receive"]["uivk"].as_str().unwrap(), "utest1notanaddress"), Err(VerifyError::BadAddress(_))));
     }
 
     #[test]

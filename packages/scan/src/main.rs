@@ -3,13 +3,15 @@
 //!     zpay-verify verify <txid> --amount <zat> [--memo <text>] [--min-conf <n>] [--allow-transparent]
 //!         prints {"report":…,"verdict":…,"lightwalletd":…}; exit 0 = paid, 1 = not paid, 2 = could not check
 //!     zpay-verify inspect <txid>...    one JSON report per line (what the key sees, no rules)
+//!     zpay-verify owns <ua>            which receivers of <ua> the key in ZPV_UIVK derives, and a
+//!                                      single-receiver address to pay; exit 0 = covered, 1 = not
 //!     zpay-verify derive               UIVK for the UFVK in ZPV_UFVK
 //!     zpay-verify tip                  current chain height from lightwalletd
 //!
 //! The key comes from ZPV_UIVK (environment only, never an argument, so it stays out of shell
 //! history and process lists). Lightwalletd: ZPV_LWD_URL, default https://testnet.zec.rocks:443.
 
-use zpay_verify::{inspect, lwd, parse_uivk, uivk_from_ufvk, verify, Expect};
+use zpay_verify::{inspect, lwd, owns, parse_uivk, uivk_from_ufvk, verify, Expect};
 
 fn fail(code: i32, msg: impl std::fmt::Display) -> ! {
     eprintln!("error: {msg}");
@@ -26,9 +28,10 @@ fn lwd_url() -> String {
 
 const USAGE: &str = "usage: zpay-verify verify <txid> --amount <zat> [--memo <text>] [--min-conf <n>] [--allow-transparent]
        zpay-verify inspect <txid>...
+       zpay-verify owns <ua>
        zpay-verify derive
        zpay-verify tip
-env:   ZPV_UIVK (verify, inspect), ZPV_UFVK (derive), ZPV_LWD_URL (default https://testnet.zec.rocks:443)";
+env:   ZPV_UIVK (verify, inspect, owns), ZPV_UFVK (derive), ZPV_LWD_URL (default https://testnet.zec.rocks:443)";
 
 #[tokio::main]
 async fn main() {
@@ -72,6 +75,11 @@ async fn main() {
         Some("tip") => {
             let mut c = lwd::connect(&lwd_url()).await.unwrap_or_else(|err| fail(2, err));
             println!("{}", u32::from(lwd::chain_tip(&mut c).await.unwrap_or_else(|err| fail(2, err))));
+        }
+        Some("owns") if args.len() == 2 => {
+            let o = owns(&env("ZPV_UIVK"), &args[1]).unwrap_or_else(|err| fail(2, err));
+            println!("{}", serde_json::to_string(&o).expect("serializable"));
+            std::process::exit(if o.covered.is_empty() { 1 } else { 0 });
         }
         Some("derive") => println!("{}", uivk_from_ufvk(&env("ZPV_UFVK")).unwrap_or_else(|err| fail(2, err))),
         _ => fail(2, USAGE),

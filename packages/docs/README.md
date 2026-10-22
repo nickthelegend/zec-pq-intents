@@ -54,6 +54,7 @@ periodically:                                               log head + previous 
 | a fill claimed by someone who did not make it (e.g. the user, who sees the fill txid) | the claim's ML-DSA key must be one of the verifier's configured solver keys | `FILL_UNKNOWN_SOLVER` |
 | one configured solver claims a fill another solver paid | the fill memo must name the claiming key (only the payer writes the memo) | `FILL_BY_OTHER_SOLVER` |
 | a fill whose memo names no solver (the Oct 20 form), outside the listed Oct 20 intents or with more than one solver key | `pqi1:<hash>:fill:<solver key id>` required | `FILL_NOT_SOLVER_BOUND` |
+| a receive viewing key from another wallet (the user would keep the delivery, have the fill refused, and be refunded too) | `receive_uivk` must derive a shielded receiver of `receive_ua` (`zpay-verify owns`); the solver declines and pays only that receiver | `RECEIVE_KEY_MISMATCH` |
 | fill with the wrong memo or amount | receive UIVK must see `pqi1:<hash>:fill:<solver>` ≥ min_out | `FILL_NOT_CREDITED:…` |
 | fill mined after the deadline | fill height ≤ deadline | `EXPIRED` |
 | escrow not funded (or too little, or late) | escrow UIVK must see `pqi1:<hash>` ≥ pay by the deadline | `NOT_FUNDED:…`, `FUNDED_AFTER_DEADLINE` |
@@ -93,7 +94,10 @@ match the agent's pinned ones.
   cannot change the intent (signature) or claim late (fill height ≤ deadline). Only the configured
   solver keys are paid, and only the one the fill's memo names: only whoever paid the fill wrote
   that memo, so neither the user, an observer, nor another configured solver can claim it (see
-  `docs/JUDGE-2026-10-21.md`). The Oct 20 fills name no solver; they are honoured only as
+  `docs/JUDGE-2026-10-21.md`). Before it delivers, the solver checks that the intent's
+  `receive_uivk` derives a shielded receiver of `receive_ua` and pays only that receiver; the
+  verifier refuses a claim on an intent where it does not (`RECEIVE_KEY_MISMATCH`), so a user
+  cannot keep a delivery its own key hides and be refunded as well. The Oct 20 fills name no solver; they are honoured only as
   legacy single-solver fills, and the SETTLED entry says so.
 - **Board:** holds ciphertext, intent hashes and funding txids.
 - **What ML-KEM protects, and what it does not.** The envelope (receive address, its viewing key,

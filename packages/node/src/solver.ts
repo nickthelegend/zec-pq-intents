@@ -2,8 +2,8 @@
 // escrow is funded (with the escrow's published viewing key), decides on a fee, delivers from its own
 // shielded wallet to the user's receive address with memo pqi1:<hash>:fill:<its key id>, and signs a
 // fill claim with that same key.
-import { keyId, memo, open, signFill, type Envelope, type FillClaim, type KemKey, type SignedIntent, type SigningKey } from '@pqi/protocol';
-import { scan, type ScanResult } from './scan.js';
+import { keyId, memo, open, ProtocolError, signFill, type Envelope, type FillClaim, type KemKey, type SignedIntent, type SigningKey } from '@pqi/protocol';
+import { owns, scan, type ScanResult } from './scan.js';
 import { confirmationsAt, MIN_CONFIRMATIONS } from './verifier.js';
 import { quicksend, type ZingoConfig } from './zingo.js';
 
@@ -25,7 +25,8 @@ export interface SolverConfig {
   minConfirmations?: number;
 }
 
-export type Quote = { accept: true; feeZat: bigint } | { accept: false; reason: string };
+/** `payTo`: the one receiver of the user's receive address that its viewing key derives. */
+export type Quote = { accept: true; feeZat: bigint; payTo: string } | { accept: false; reason: string };
 
 export class Solver {
   constructor(private readonly c: SolverConfig) {}
@@ -35,13 +36,24 @@ export class Solver {
     return open(e, this.c.kem);
   }
 
-  quote(s: SignedIntent, tip: number): Quote {
+  async quote(s: SignedIntent, tip: number): Promise<Quote> {
     const fee = BigInt(s.intent.pay_zat) - BigInt(s.intent.min_out_zat);
     if (fee < this.c.minFeeZat) return { accept: false, reason: `fee ${fee} zat is below ${this.c.minFeeZat}` };
     const left = s.intent.deadline_height - tip;
     const need = this.c.minBlocksLeft ?? MIN_BLOCKS_LEFT;
     if (left < need) return { accept: false, reason: `deadline ${s.intent.deadline_height} is ${left} block(s) away (tip ${tip}); a fill needs ${need} to be mined in time` };
-    return { accept: true, feeZat: fee };
+    const r = await this.receiver(s);
+    if (!r.ok) return { accept: false, reason: r.reason };
+    return { accept: true, feeZat: fee, payTo: r.payTo };
+  }
+
+  /** Where a delivery goes: one shielded receiver of `receive_ua` that `receive_uivk` derives. The
+   *  verifier reads the fill with `receive_uivk`; paying an address that key does not see would let
+   *  the user keep the delivery, have the fill refused, and be refunded too. */
+  async receiver(s: SignedIntent): Promise<{ ok: true; payTo: string } | { ok: false; reason: string }> {
+    const o = await owns(s.intent.receive_uivk, s.intent.receive_ua);
+    if (o.pay_to) return { ok: true, payTo: o.pay_to };
+    return { ok: false, reason: `RECEIVE_KEY_MISMATCH: receive_uivk does not derive ${o.invalid ? `receive_ua (${o.invalid})` : `any shielded receiver of receive_ua (${o.receivers.join(', ') || 'none'})`}` };
   }
 
   /** The escrow funding, as the escrow's viewing key sees it, and at least minConfirmations deep at
@@ -59,12 +71,15 @@ export class Solver {
     return keyId(this.c.sign.publicKey);
   }
 
-  /** Pays the user's receive address, naming this solver in the memo. `memoOverride` exists only to
-   *  stage the wrong-memo attack. */
+  /** Pays the receiver of the user's receive address that its viewing key derives (never another
+   *  receiver of it), naming this solver in the memo. `memoOverride` exists only to stage the
+   *  wrong-memo attack. */
   async deliver(hash: string, s: SignedIntent, memoOverride?: string): Promise<string> {
+    const r = await this.receiver(s);
+    if (!r.ok) throw new ProtocolError('RECEIVE_KEY_MISMATCH', r.reason);
     for (let i = 0; ; i++) {
       try {
-        const [txid] = await quicksend(this.c.zingo, this.c.wallet, [{ address: s.intent.receive_ua, amount: BigInt(s.intent.min_out_zat), memo: memoOverride ?? memo.fill(hash, this.id) }]);
+        const [txid] = await quicksend(this.c.zingo, this.c.wallet, [{ address: r.payTo, amount: BigInt(s.intent.min_out_zat), memo: memoOverride ?? memo.fill(hash, this.id) }]);
         return txid;
       } catch (e) {
         if (!/Insufficient balance/.test((e as Error).message) || i >= 20) throw e;
