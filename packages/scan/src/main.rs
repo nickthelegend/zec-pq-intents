@@ -5,13 +5,14 @@
 //!     zpay-verify inspect <txid>...    one JSON report per line (what the key sees, no rules)
 //!     zpay-verify owns <ua>            which receivers of <ua> the key in ZPV_UIVK derives, and a
 //!                                      single-receiver address to pay; exit 0 = covered, 1 = not
+//!     zpay-verify address <index>      the Orchard receive address of ZPV_UIVK at that diversifier index
 //!     zpay-verify derive               UIVK for the UFVK in ZPV_UFVK
 //!     zpay-verify tip                  current chain height from lightwalletd
 //!
 //! The key comes from ZPV_UIVK (environment only, never an argument, so it stays out of shell
 //! history and process lists). Lightwalletd: ZPV_LWD_URL, default https://testnet.zec.rocks:443.
 
-use zpay_verify::{inspect, lwd, owns, parse_uivk, uivk_from_ufvk, verify, Expect};
+use zpay_verify::{address_at, inspect, lwd, owns, parse_uivk, uivk_from_ufvk, verify, Expect};
 
 fn fail(code: i32, msg: impl std::fmt::Display) -> ! {
     eprintln!("error: {msg}");
@@ -29,9 +30,10 @@ fn lwd_url() -> String {
 const USAGE: &str = "usage: zpay-verify verify <txid> --amount <zat> [--memo <text>] [--min-conf <n>] [--allow-transparent]
        zpay-verify inspect <txid>...
        zpay-verify owns <ua>
+       zpay-verify address <index>
        zpay-verify derive
        zpay-verify tip
-env:   ZPV_UIVK (verify, inspect, owns), ZPV_UFVK (derive), ZPV_LWD_URL (default https://testnet.zec.rocks:443)";
+env:   ZPV_UIVK (verify, inspect, owns, address), ZPV_UFVK (derive), ZPV_LWD_URL (default https://testnet.zec.rocks:443)";
 
 #[tokio::main]
 async fn main() {
@@ -80,6 +82,10 @@ async fn main() {
             let o = owns(&env("ZPV_UIVK"), &args[1]).unwrap_or_else(|err| fail(2, err));
             println!("{}", serde_json::to_string(&o).expect("serializable"));
             std::process::exit(if o.covered.is_empty() { 1 } else { 0 });
+        }
+        Some("address") if args.len() == 2 => {
+            let index = args[1].parse::<u32>().unwrap_or_else(|_| fail(2, "the index must be a whole number below 2^32"));
+            println!("{}", address_at(&env("ZPV_UIVK"), index).unwrap_or_else(|err| fail(2, err)));
         }
         Some("derive") => println!("{}", uivk_from_ufvk(&env("ZPV_UFVK")).unwrap_or_else(|err| fail(2, err))),
         _ => fail(2, USAGE),

@@ -12,11 +12,12 @@
 //                    funding txid once it is known (default: <PQI_AGENT_FILE>.pending.json, mode 0600),
 //                    so a desk that fails after the payment loses nothing: `resubmit` posts it again
 //   PQI_MCP_LOG      one JSON line per call
+import { randomInt } from 'node:crypto';
 import { appendFileSync, chmodSync, existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { fromB64, GENESIS, hexToBytes, keyId, memo, seal, signIntent, signingKeyFromSeed, verifyLog, type Envelope, type LogEntry, type SignedIntent } from '@pqi/protocol';
-import { chainTip, quicksend, scan, SetupRequiredError, zingoConfig } from '@pqi/node';
+import { addressAt, chainTip, quicksend, scan, SetupRequiredError, zingoConfig } from '@pqi/node';
 
 const desk = () => process.env.PQI_DESK_URL ?? 'http://127.0.0.1:8404';
 
@@ -56,7 +57,7 @@ const FEE_BUDGET_ZAT = 15_000;
  *  3-block margin, and a tick and a block of latency. */
 const MIN_DEADLINE_BLOCKS = 10;
 
-type Pending = { intent_hash: string; signed: SignedIntent; envelope: Envelope; funding_txid: string | null; posted: boolean; desk: string; at: string; error?: string };
+type Pending = { intent_hash: string; signed: SignedIntent; envelope: Envelope; funding_txid: string | null; posted: boolean; desk: string; at: string; receive_index: number | null; error?: string };
 const pendingFile = () => process.env.PQI_MCP_PENDING ?? (process.env.PQI_AGENT_FILE ? `${process.env.PQI_AGENT_FILE}.pending.json` : null);
 function readPending(): Record<string, Pending> {
   const f = pendingFile();
@@ -105,18 +106,14 @@ export function createServer(): McpServer {
     'submit_intent',
     {
       title: 'Sign, seal and fund a delivery intent',
-      description: `Signs an intent with the agent’s ML-DSA-65 key, seals it to the solver’s ML-KEM-768 key, saves both (PQI_MCP_PENDING) before paying, funds the escrow with a shielded payment (memo pqi1:<hash>), and posts the sealed envelope to the desk. The solver then delivers min_out_zat to the agent’s receive address once the funding has 3 confirmations. If nothing is delivered by the deadline, the escrow is refunded after a 10-block claim window, minus the ${FEE_BUDGET_ZAT.toLocaleString('en-US')} zat fee budget. If the desk refuses after the payment, the error carries the intent hash, funding txid and envelope, and resubmit posts it again. deadline_blocks is at least ${MIN_DEADLINE_BLOCKS}. Spends real testnet funds.`,
+      description: `Signs an intent with the agent’s ML-DSA-65 key, seals it to the solver’s ML-KEM-768 key, delivers to a new receive address of the agent’s key for every intent (so intents are not linked by their address), saves both (PQI_MCP_PENDING) before paying, funds the escrow with a shielded payment (memo pqi1:<hash>), and posts the sealed envelope to the desk. The solver then delivers min_out_zat to the agent’s receive address once the funding has 3 confirmations. If nothing is delivered by the deadline, the escrow is refunded after a 10-block claim window, minus the ${FEE_BUDGET_ZAT.toLocaleString('en-US')} zat fee budget. If the desk refuses after the payment, the error carries the intent hash, funding txid and envelope, and resubmit posts it again. deadline_blocks is at least ${MIN_DEADLINE_BLOCKS}. Spends real testnet funds.`,
       inputSchema: { pay_zat: z.number().int().positive().max(200_000), min_out_zat: z.number().int().positive(), deadline_blocks: z.number().int().min(MIN_DEADLINE_BLOCKS).max(500), receive_ua: z.string().regex(/^utest1[0-9a-z]+$/).optional() },
     },
     (a) =>
       run('submit_intent', a, async () => {
         const file = process.env.PQI_AGENT_FILE;
         if (!file) throw new SetupRequiredError('PQI_AGENT_FILE');
-        const me = JSON.parse(readFileSync(file, 'utf8')) as { ml_dsa_seed: string; wallet: string; receive_ua: string; receive_uivk: string; refund_ua: string; trust?: { escrow?: string; solver_kem?: string } };
-        // A receive address of this call's own (for example a new diversified address of the same
-        // wallet, so intents are not linked by their address); it must be one receive_uivk derives,
-        // or the solver declines it (RECEIVE_KEY_MISMATCH).
-        const receiveUa = a.receive_ua ?? me.receive_ua;
+        const me = JSON.parse(readFileSync(file, 'utf8')) as { ml_dsa_seed: string; wallet: string; receive_ua: string; receive_uivk: string; refund_ua: string; fresh_receive_address?: boolean; trust?: { escrow?: string; solver_kem?: string } };
         if (!me.trust?.escrow || !me.trust?.solver_kem) throw new SetupRequiredError('PQI_AGENT_FILE trust.escrow and trust.solver_kem', 'the escrow address and solver KEM key id you trust');
         const info = await get<Info>('/api/info');
         // The desk tells us where to pay and whom to seal to; check both against what we trust first.
@@ -125,11 +122,16 @@ export function createServer(): McpServer {
         if (info.mode !== 'live') throw new Error(`the desk is ${info.mode}; it cannot accept intents`);
         if (a.pay_zat - a.min_out_zat < Number(info.min_fee_zat)) throw new Error(`refused before signing: fee ${a.pay_zat - a.min_out_zat} zat is below the solver's ${info.min_fee_zat}`);
         const key = signingKeyFromSeed(hexToBytes(me.ml_dsa_seed));
+        // Each intent is delivered to an address of its own: a new Orchard address of the same receive
+        // key (random diversifier index), unless the call names one or the agent file turns it off.
+        // Whatever address is used must be one receive_uivk derives, or the solver declines it.
+        const receiveIndex = a.receive_ua || me.fresh_receive_address === false ? null : randomInt(1, 2 ** 31);
+        const receiveUa = a.receive_ua ?? (receiveIndex === null ? me.receive_ua : await addressAt(me.receive_uivk, receiveIndex));
         const tip = await chainTip();
         const s = signIntent(key, { escrow: info.escrow.address, pay_zat: String(a.pay_zat), min_out_zat: String(a.min_out_zat), receive_ua: receiveUa, receive_uivk: me.receive_uivk, refund_ua: me.refund_ua, deadline_height: tip + a.deadline_blocks });
         const envelope = seal(s, fromB64(info.solver.kem.pk));
         // Saved before any money moves: whatever fails next, the signed intent and envelope remain.
-        const rec: Pending = { intent_hash: envelope.intent_hash, signed: s, envelope, funding_txid: null, posted: false, desk: desk(), at: new Date().toISOString() };
+        const rec: Pending = { intent_hash: envelope.intent_hash, signed: s, envelope, funding_txid: null, posted: false, desk: desk(), at: new Date().toISOString(), receive_index: receiveIndex };
         savePending(rec);
         const failed = (e: Error) =>
           new Error(JSON.stringify({ error: e.message, intent_hash: rec.intent_hash, funding_txid: rec.funding_txid, envelope, pending_file: pendingFile(), next: rec.funding_txid ? 'call resubmit with this intent_hash once the desk accepts envelopes again' : 'nothing was paid' }));
@@ -142,7 +144,7 @@ export function createServer(): McpServer {
           throw failed(e as Error);
         }
         savePending({ ...rec, posted: true });
-        return { intent_hash: envelope.intent_hash, funding_txid: rec.funding_txid, receive_ua: receiveUa, deadline_height: s.intent.deadline_height, sealed_to_solver_kem: envelope.to, refund_if_unfilled_zat: a.pay_zat - FEE_BUDGET_ZAT };
+        return { intent_hash: envelope.intent_hash, funding_txid: rec.funding_txid, receive_ua: receiveUa, receive_index: receiveIndex, deadline_height: s.intent.deadline_height, sealed_to_solver_kem: envelope.to, refund_if_unfilled_zat: a.pay_zat - FEE_BUDGET_ZAT };
       }),
   );
 

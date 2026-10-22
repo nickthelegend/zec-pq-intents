@@ -101,6 +101,15 @@ export async function owns(uivk: string, ua: string): Promise<Ownership & { inva
   return JSON.parse(out) as Ownership;
 }
 
+/** The receive address of `uivk` at Orchard diversifier `index` (local). Each index is a different
+ *  address the same key sees, so every intent can be delivered to an address of its own. */
+export async function addressAt(uivk: string, index: number): Promise<string> {
+  if (!Number.isSafeInteger(index) || index < 0 || index >= 2 ** 32) throw new Error('the diversifier index must be a whole number below 2^32');
+  const { code, out, err } = await zpv(['address', String(index)], { ZPV_UIVK: uivk });
+  if (code !== 0) throw new Error(`address derivation failed: ${err.replace(/^error: /, '').trim()}`);
+  return out.trim();
+}
+
 /** UFVK → UIVK with the scan binary (env only). */
 export async function uivkFromUfvk(ufvk: string): Promise<string> {
   const { code, out, err } = await zpv(['derive'], { ZPV_UFVK: ufvk });

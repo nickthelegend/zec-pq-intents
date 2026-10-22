@@ -147,6 +147,16 @@ pub struct Ownership {
     pub pay_to: Option<String>,
 }
 
+/// A receive address of `uivk` at Orchard diversifier index `index`: an Orchard-only unified address.
+/// Every index gives an address payments to which the same key sees, and addresses at different
+/// indices cannot be linked to each other without the key, so each intent can use its own.
+pub fn address_at(uivk: &str, index: u32) -> Result<String, VerifyError> {
+    let key = parse_uivk(uivk)?;
+    let ivk = key.orchard().as_ref().ok_or_else(|| VerifyError::BadKey("the key has no Orchard part".into()))?;
+    let ua = UnifiedAddress::from_receivers(Some(ivk.address_at(index)), None, None, None, None).expect("an Orchard receiver");
+    Ok(ua.encode(&NETWORK))
+}
+
 /// Does `uivk` derive the shielded receivers of `ua`? An Orchard receiver is covered when the key
 /// decrypts its diversifier to an index that re-derives the same address; Sapling likewise.
 pub fn owns(uivk: &str, ua: &str) -> Result<Ownership, VerifyError> {
@@ -351,6 +361,19 @@ mod tests {
         assert_ne!(fresh, w["receive"]["address"].as_str().unwrap());
         assert_eq!(owns(w["receive"]["uivk"].as_str().unwrap(), &fresh).unwrap().covered, vec!["orchard"]);
         assert!(owns(w["anchor"]["uivk"].as_str().unwrap(), &fresh).unwrap().covered.is_empty());
+    }
+
+    #[test]
+    fn address_at_gives_distinct_addresses_the_same_key_covers() {
+        let w = wallets();
+        let key = w["receive"]["uivk"].as_str().unwrap();
+        let (a, b) = (address_at(key, 1_000_001).unwrap(), address_at(key, 1_000_002).unwrap());
+        assert_ne!(a, b);
+        assert_ne!(a, w["receive"]["address"].as_str().unwrap());
+        for ua in [&a, &b] {
+            assert_eq!(owns(key, ua).unwrap().covered, vec!["orchard"]);
+            assert!(owns(w["anchor"]["uivk"].as_str().unwrap(), ua).unwrap().covered.is_empty());
+        }
     }
 
     #[test]

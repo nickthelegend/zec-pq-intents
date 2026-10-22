@@ -8,7 +8,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { appendEntry, bytesToHex, hexToBytes, kemKeyFromSeed, keyId, newSigningKey, randomBytes, toB64, type LogEntry } from '@pqi/protocol';
-import { scanBinary } from '@pqi/node';
+import { owns, scanBinary } from '@pqi/node';
 
 const ROOT = resolve(__dirname, '../../..');
 const d = JSON.parse(readFileSync(resolve(ROOT, 'deployments/testnet.json'), 'utf8'));
@@ -124,7 +124,11 @@ describe('pqi-mcp', () => {
       const file = `${agentFile}.pending.json`;
       expect(statSync(file).mode & 0o777).toBe(0o600);
       const saved = JSON.parse(readFileSync(file, 'utf8'));
-      expect(saved[err.intent_hash]).toMatchObject({ funding_txid: null, posted: false, signed: { intent: { escrow: d.wallets.escrow.address, receive_ua: d.wallets.receive.address } }, error: expect.stringMatching(/^zingo-cli quicksend failed/) });
+      expect(saved[err.intent_hash]).toMatchObject({ funding_txid: null, posted: false, receive_index: expect.any(Number), signed: { intent: { escrow: d.wallets.escrow.address, receive_uivk: d.wallets.receive.uivk } }, error: expect.stringMatching(/^zingo-cli quicksend failed/) });
+      // A receive address of its own: not the run's shared one, and one the receive key derives.
+      const fresh = saved[err.intent_hash].signed.intent.receive_ua as string;
+      expect(fresh).not.toBe(d.wallets.receive.address);
+      expect((await owns(d.wallets.receive.uivk, fresh)).covered).toEqual(['orchard']);
       expect(await call('resubmit', { intent_hash: err.intent_hash }, c)).toMatchObject({ isError: true, text: expect.stringMatching(/was never funded/) });
 
       // As if the payment had gone out and then the desk had refused: the saved record now has a
