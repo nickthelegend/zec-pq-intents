@@ -31,6 +31,17 @@ describe('Setup required', () => {
     expect(r.stderr.trim()).toMatch(/^Setup required: PQI_ZINGO_CLI/);
   });
 
+  it('check-anchors refuses --allow-behind for a desk URL (a desk must serve its whole log) and an unknown option, exit 2', () => {
+    const tsx = resolve(__dirname, '../node_modules/.bin/tsx');
+    const env = { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '', PQI_VERIFIER_ID: VERIFIER, PQI_ESCROW_UA: ESCROW };
+    const desk = spawnSync(tsx, [resolve(__dirname, '../src/check-anchors.ts'), 'http://127.0.0.1:9', '--allow-behind'], { env, encoding: 'utf8', timeout: 60_000 });
+    expect(desk.status, desk.stderr).toBe(2);
+    expect(desk.stderr).toMatch(/^Setup required: argument \(--allow-behind is for older record files only; a desk must serve its whole log\)/);
+    const odd = spawnSync(tsx, [resolve(__dirname, '../src/check-anchors.ts'), resolve(ROOT, 'deployments/testnet.json'), '--allow-forks'], { env, encoding: 'utf8', timeout: 60_000 });
+    expect(odd.status, odd.stderr).toBe(2);
+    expect(odd.stderr).toMatch(/unknown option --allow-forks/);
+  });
+
   it('check-anchors with no pinned escrow exits 2: the source supplies the key whose history is read', () => {
     const r = checkAnchors({ PQI_VERIFIER_ID: VERIFIER });
     expect(r.status, r.stderr).toBe(2);

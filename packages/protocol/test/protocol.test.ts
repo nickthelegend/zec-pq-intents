@@ -209,12 +209,16 @@ describe('anchor chain', () => {
     expect(new TextEncoder().encode(memo.anchor(123456789, h, tx(7))).length).toBeLessThanOrEqual(512);
   });
 
-  it('one chain of anchors checks out; anchors past the log’s end are reported as later, not as problems', () => {
+  it('one chain of anchors checks out; a log cut short before the newest anchors fails (LOG_BEHIND_ANCHORS) unless an older record is checked on purpose (allowBehind)', () => {
     const { log, sent } = anchored(6, 2);
     const c = checkAnchors(log, sent);
     expect(c).toMatchObject({ ok: true, problems: [], later: [], unanchored: 1 });
     expect(c.chain.map((a) => a.txid)).toEqual([tx(1), tx(2), tx(3)]);
-    expect(checkAnchors(log.slice(0, 4), sent)).toMatchObject({ ok: true, later: [{ txid: tx(2), seq: 4 }, { txid: tx(3), seq: 7 }] });
+    const later = [{ txid: tx(2), seq: 4 }, { txid: tx(3), seq: 7 }];
+    const cut = checkAnchors(log.slice(0, 4), sent);
+    expect(cut).toMatchObject({ ok: false, later });
+    expect(cut.problems).toEqual([{ kind: 'LOG_BEHIND_ANCHORS', anchors: later, detail: 'the escrow anchored entries up to #7, but this log ends at #3: it was cut short or is out of date' }]);
+    expect(checkAnchors(log.slice(0, 4), sent, { allowBehind: true })).toMatchObject({ ok: true, problems: [], later });
   });
 
   it('two heads anchored after the same anchor is a fork, whichever log is shown; a log that hides an anchor or was not the one anchored is caught', () => {
@@ -263,8 +267,8 @@ describe('anchor chain', () => {
       expect(c.chain.length, `${form}: the chain is one of the three anchors' chains, and the rest are reported`).toBeLessThan(3);
     }
     // The one legacy anchor accepted by default is the Oct 20 anchor, as the root.
-    expect(checkAnchors([], [{ txid: OCT20_LEGACY_ANCHOR, memo: memo.anchor(8, 'ab'.repeat(32)) }]).problems).toEqual([]);
-    expect(checkAnchors([], [{ txid: tx(5), memo: memo.anchor(8, 'ab'.repeat(32)) }]).problems).toEqual([{ kind: 'ANCHOR_LEGACY_LATE', txid: tx(5), seq: 8 }]);
+    expect(checkAnchors([], [{ txid: OCT20_LEGACY_ANCHOR, memo: memo.anchor(8, 'ab'.repeat(32)) }], { allowBehind: true }).problems).toEqual([]);
+    expect(checkAnchors([], [{ txid: tx(5), memo: memo.anchor(8, 'ab'.repeat(32)) }], { allowBehind: true }).problems).toEqual([{ kind: 'ANCHOR_LEGACY_LATE', txid: tx(5), seq: 8 }]);
     // A legacy root and a genesis root: two chains.
     const two = checkAnchors([], [{ txid: OCT20_LEGACY_ANCHOR, memo: memo.anchor(8, 'ab'.repeat(32)) }, { txid: tx(6), memo: memo.anchor(9, 'cd'.repeat(32), GENESIS) }]);
     expect(two.problems.map((p) => p.kind)).toEqual(expect.arrayContaining(['ANCHOR_FORK', 'ANCHOR_ORPHAN']));

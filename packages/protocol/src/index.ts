@@ -347,13 +347,16 @@ export type AnchorProblem =
   | { kind: 'ANCHOR_SEQ_NOT_INCREASING'; txid: string; seq: number; prevSeq: number }
   | { kind: 'ANCHOR_HEAD_MISMATCH'; txid: string; seq: number; detail: string }
   | { kind: 'ANCHOR_NOT_IN_HISTORY'; txid: string; seq: number }
-  | { kind: 'ANCHOR_NOT_IN_LOG'; txid: string; seq: number };
+  | { kind: 'ANCHOR_NOT_IN_LOG'; txid: string; seq: number }
+  | { kind: 'LOG_BEHIND_ANCHORS'; anchors: { txid: string; seq: number }[]; detail: string };
 
 export interface AnchorCheck {
   ok: boolean;
   /** anchors in chain order (oldest first) */
   chain: { txid: string; seq: number; head: string; prev: string | null }[];
-  /** anchors past the end of this log: it is behind, and they cannot be checked against it */
+  /** anchors past the end of this log: it is behind (cut short, or older than the escrow's newest
+   *  anchors), and they cannot be checked against it. A problem (LOG_BEHIND_ANCHORS) unless
+   *  `allowBehind` is set, so a desk cannot hide its latest decisions by serving a shorter log. */
   later: { txid: string; seq: number }[];
   /** log entries after the last anchor this log covers */
   unanchored: number;
@@ -374,10 +377,12 @@ export interface AnchorCheck {
  *    log as an ANCHORED entry naming the same transaction (ANCHOR_HEAD_MISMATCH / ANCHOR_NOT_IN_LOG:
  *    the log shown is not the log anchored, or hides an anchor);
  *  - every ANCHORED entry in the log names a transaction in the history with the same seq, head and
- *    previous anchor (ANCHOR_NOT_IN_HISTORY).
+ *    previous anchor (ANCHOR_NOT_IN_HISTORY);
+ *  - no anchor lies past the end of the log (LOG_BEHIND_ANCHORS: the log was cut short before the
+ *    escrow's newest anchors), unless `allowBehind` is set to check an older record on purpose.
  * The log itself should already have passed verifyLog.
  */
-export function checkAnchors(log: LogEntry[], sent: AnchorSeen[], opts: { legacyRoots?: string[] } = {}): AnchorCheck {
+export function checkAnchors(log: LogEntry[], sent: AnchorSeen[], opts: { legacyRoots?: string[]; allowBehind?: boolean } = {}): AnchorCheck {
   const problems: AnchorProblem[] = [];
   const legacyRoots = opts.legacyRoots ?? [OCT20_LEGACY_ANCHOR];
   const anchors = sent.flatMap((a) => {
@@ -426,6 +431,7 @@ export function checkAnchors(log: LogEntry[], sent: AnchorSeen[], opts: { legacy
     const prevRef = e.refs.prev_anchor_txid ?? null;
     if (!a || a.seq !== Number(e.refs.anchored_seq) || a.head !== e.refs.anchored_head || a.prev !== prevRef) problems.push({ kind: 'ANCHOR_NOT_IN_HISTORY', txid, seq: Number(e.refs.anchored_seq) });
   }
+  if (later.length && !opts.allowBehind) problems.push({ kind: 'LOG_BEHIND_ANCHORS', anchors: later, detail: `the escrow anchored entries up to #${Math.max(...later.map((a) => a.seq))}, but this log ends at #${log.length - 1}: it was cut short or is out of date` });
   const covered = Math.max(-1, ...anchors.filter((a) => a.seq < log.length).map((a) => a.seq));
   return { ok: problems.length === 0, chain, later, unanchored: log.length - 1 - covered, problems };
 }

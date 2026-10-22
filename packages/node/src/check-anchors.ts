@@ -1,8 +1,13 @@
 #!/usr/bin/env node
 // Anchor checker: lists every anchor the escrow sent (view-only wallet from its full viewing key) and
 // checks a log against them: one chain, no fork, every anchor in the log, every anchored head the
-// log's own entry. Exit 0 when it all holds, 1 when it does not, 2 for setup.
-//   pnpm --filter @pqi/node check-anchors <record.json | desk URL>
+// log's own entry, and no anchor past the end of the log (LOG_BEHIND_ANCHORS: a log cut short before
+// the escrow's newest anchors hides the latest decisions). Exit 0 when it all holds, 1 when it does
+// not, 2 for setup.
+//   pnpm --filter @pqi/node check-anchors <record.json | desk URL> [--allow-behind]
+// --allow-behind  check an older record on purpose (e.g. the Oct 20 record after pass 2 anchored
+//                 more): anchors past its end are listed as `later` instead of failing the check.
+//                 Never for a desk URL: a desk must serve the whole log.
 // Env: PQI_VERIFIER_ID  key id of the verifier you trust (required; the source cannot vouch for itself)
 //      PQI_ESCROW_UA    the escrow address you trust (required, or PQI_ESCROW_UFVK): the source
 //                       supplies the full viewing key whose history defines "every anchor the escrow
@@ -57,8 +62,13 @@ async function pinnedEscrowKey(r: Source): Promise<string> {
 }
 
 async function main() {
-  const src = process.argv[2];
+  const args = process.argv.slice(2);
+  const allowBehind = args.includes('--allow-behind');
+  const unknown = args.find((a) => a.startsWith('--') && a !== '--allow-behind');
+  if (unknown) throw new SetupRequiredError('argument', `unknown option ${unknown}`);
+  const src = args.find((a) => !a.startsWith('--'));
   if (!src) throw new SetupRequiredError('argument', 'a record file or a desk URL');
+  if (allowBehind && /^https?:\/\//.test(src)) throw new SetupRequiredError('argument', '--allow-behind is for older record files only; a desk must serve its whole log');
   const pinned = process.env.PQI_VERIFIER_ID;
   if (!pinned || !/^[0-9a-f]{64}$/.test(pinned)) throw new SetupRequiredError('PQI_VERIFIER_ID', 'the key id of the verifier you trust');
   const r = await load(src);
@@ -73,7 +83,7 @@ async function main() {
   const cfg = zingoConfig();
   await openViewWallet(cfg, wallet, ufvk, birthday);
   const sent = await anchorHistory(cfg, wallet);
-  return { entries: r.log.length, anchors_in_escrow_history: sent.length, ...checkAnchors(r.log, sent) };
+  return { entries: r.log.length, anchors_in_escrow_history: sent.length, allow_behind: allowBehind, ...checkAnchors(r.log, sent, { allowBehind }) };
 }
 
 main().then(
