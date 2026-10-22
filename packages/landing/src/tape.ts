@@ -16,6 +16,20 @@ const set = (id: string, text: string, state?: string) => {
   if (state) el.dataset.state = state;
 };
 
+/** The ticker scrolls on its own, so it gets a visible Pause/Play control (hover and focus also
+ *  pause it, but a phone has neither). Without JavaScript the button stays hidden. */
+function tickerControl() {
+  const ticker = document.querySelector<HTMLElement>('.ticker');
+  const button = ticker?.querySelector<HTMLButtonElement>('.ticker-toggle');
+  if (!ticker || !button) return;
+  button.hidden = false;
+  button.addEventListener('click', () => {
+    const paused = ticker.classList.toggle('paused');
+    button.firstChild!.textContent = paused ? 'Play' : 'Pause';
+  });
+}
+tickerControl();
+
 async function main() {
   const rows = [...document.querySelectorAll<HTMLElement>('#tape [data-seq]')];
   const pk = fromB64(r.verifier.pk);

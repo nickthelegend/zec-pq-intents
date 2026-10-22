@@ -55,6 +55,7 @@ const anchorPath = anchors.map((a) => `#${a.refs.anchored_seq}`).join(' → ');
 const day = (iso) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 const ranAt = [d, p2, ...(p3 ? [p3] : [])].map((r) => day(r.ranAt)).join(' + ');
 const pass = (seq) => (seq >= PASS3_FROM ? 'pass 3' : seq >= PASS2_FROM ? 'pass 2' : 'Oct 20');
+const RUNS_WORD = ['one', 'two', 'three', 'four', 'five'][[d, p2, p3].filter(Boolean).length - 1];
 const p3Settled = p3 ? log.find((e) => e.status === 'SETTLED' && e.intent_hash === p3.intent.hash) : null;
 
 const WHY = {
@@ -186,9 +187,10 @@ const html = `<!doctype html>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 
-<div class="ticker" aria-label="Decisions from the two testnet runs">
+<section class="ticker" aria-label="Decisions from the ${RUNS_WORD} testnet runs">
   <div class="ticker-track"><ul>${tickerItems}</ul><ul aria-hidden="true">${tickerItems.replace(/<a /g, '<a tabindex="-1" ')}</ul></div>
-</div>
+  <button type="button" class="ticker-toggle" hidden>Pause<span class="sr-only"> the scrolling decisions</span></button>
+</section>
 
 <header class="bar">
   <a class="brand" href="#main" aria-label="Yaksok, top">${mark}<b>Yaksok</b><span lang="ko">약속</span></a>
@@ -227,7 +229,7 @@ const html = `<!doctype html>
         <thead><tr><th scope="col">Intent</th><th scope="col" class="r">Escrow</th><th scope="col" class="r">Deliver ≥</th><th scope="col" class="r">Solver spread</th><th scope="col" class="r">Deadline</th><th scope="col">Status</th><th scope="col">Payout</th></tr></thead>
         <tbody>${bookRows}</tbody>
       </table>
-      <p class="book-note">The bar under “Deliver ≥” is the share of the escrow the solver must deliver. Solver spread is escrow minus delivery (20,000). A release or a refund pays the escrow minus a 15,000 zat fee budget, so a release is 45,000 and the solver nets 5,000 over what it delivered; a refund returns 45,000 of the 60,000 (the user loses 15,000, a quarter). The part of the fee budget the payout transaction does not spend stays in the escrow wallet, which the verifier holds. A, B and C were funded together in ${tx(d.txs.funding, 'funding')}; D, in pass 2, in ${tx(p2.txs.funding, 'funding')}${p3 ? `; E, by the agent in pass 3, in ${tx(p3.txs.funding, 'funding')}` : ''}.</p>
+      <p class="book-note">The bar under “Deliver ≥” is the share of the escrow the solver must deliver. Solver spread is escrow minus delivery (20,000 on every intent). A release or a refund pays the escrow minus a 15,000 zat fee budget. For A–D (escrow 60,000, deliver 40,000) a release is 45,000 and the solver nets 5,000 over what it delivered; a refund returns 45,000 of the 60,000 (the user loses 15,000, a quarter).${p3 ? ` For E (escrow ${zat(p3.intent.signed.intent.pay_zat)}, deliver ${zat(p3.intent.signed.intent.min_out_zat)}) the release was ${zat(p3Settled.refs.released_zat)}, again 5,000 over the delivery; a refund would have returned ${zat(p3.agent.quote.refund_if_unfilled_zat)} of the ${zat(p3.intent.signed.intent.pay_zat)} (the user loses 15,000, ${Math.round((15_000 / Number(p3.intent.signed.intent.pay_zat)) * 1000) / 10}%).` : ''} The part of the fee budget the payout transaction does not spend stays in the escrow wallet, which the verifier holds. A, B and C were funded together in ${tx(d.txs.funding, 'funding')}; D, in pass 2, in ${tx(p2.txs.funding, 'funding')}${p3 ? `; E, by the agent in pass 3, in ${tx(p3.txs.funding, 'funding')}` : ''}.</p>
       <div class="flow">
         <div><b>Sign</b><p>ML-DSA-65 over the canonical intent; the key id is inside it.</p></div>
         <div><b>Seal</b><p>ML-KEM-768 + HKDF + AES-256-GCM to the solver's key.</p></div>
@@ -333,7 +335,7 @@ PQI_PUBLISHED=deployments/testnet.json \\
       <div class="pb">
         <ul class="plain">
           <li>Not trustless. The verifier holds the escrow and could withhold a payout. It cannot change the record without the signatures, links or anchors showing it.</li>
-          <li>The solver and the verifier read the plaintext intent. One receive address served all four intents (A–D), so those deliveries can be linked${p3 ? '; E, submitted by the agent, got an address of its own' : ''}.</li>
+          <li>The solver and the verifier read the plaintext intent. One receive address served all four intents (A–D), so those deliveries can be linked${p3 ? '; E, submitted by the agent, got an address of its own' : ''}. A new address does not unlink one user’s intents: every settled or refunded entry in the public log names the user’s key id and nonce, and the escrow’s viewing key shows the same refund address on each refund.</li>
           <li>The escrow’s full viewing key is published for auditability: it shows every payout’s recipient and amount, not only the fundings.</li>
           <li>Anchors are periodic, and each names the one before it. Every anchor the escrow sent can be listed, and a second head, an anchor that names none, or one off the chain fails the check; entries after the last anchor are not covered. Funding and fills need 3 confirmations.</li>
           <li>ZEC only, testnet only, a single verifier key, not audited. A portfolio piece: the Zecathon entry is Shielded x402.</li>

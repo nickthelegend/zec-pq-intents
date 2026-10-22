@@ -87,7 +87,16 @@ test.describe('landing', () => {
     await expect(page.locator('table.book th', { hasText: /^Fee$/ })).toHaveCount(0);
     const note = page.locator('.book-note');
     await expect(note).toContainText('the solver nets 5,000');
+    await expect(note).toContainText('For A–D (escrow 60,000, deliver 40,000) a release is 45,000');
     await expect(note).toContainText('a refund returns 45,000 of the 60,000 (the user loses 15,000, a quarter)');
+    if (pass3) {
+      // E's own numbers, from its record: not the A–D figures.
+      const e = pass3.intent.signed.intent;
+      const settledE = pass3.log.find((x: { status: string; intent_hash: string | null }) => x.status === 'SETTLED' && x.intent_hash === pass3.intent.hash);
+      expect(Number(e.pay_zat) - 15_000).toBe(Number(settledE.refs.released_zat));
+      await expect(note).toContainText(`For E (escrow ${zat(e.pay_zat)}, deliver ${zat(e.min_out_zat)}) the release was ${zat(settledE.refs.released_zat)}`);
+      await expect(note).toContainText(`a refund would have returned ${zat(pass3.agent.quote.refund_if_unfilled_zat)} of the ${zat(e.pay_zat)}`);
+    }
     await expect(note).toContainText('stays in the escrow wallet, which the verifier holds');
     await expect(note.locator(`a[href="${EXPLORER + oct20.txs.funding}"]`)).toBeVisible();
     for (const k of LETTERS) await expect(note.locator(`a[href="${EXPLORER + FUNDING[k]}"]`)).toBeVisible();
@@ -128,6 +137,7 @@ test.describe('landing', () => {
     // The privacy limit names outgoing payouts, not only fundings.
     await expect(page.locator('.no')).toContainText('every payout out of the escrow: the recipient and amount of each release and refund');
     await expect(page.locator('section:has(#lim-h)')).toContainText('One receive address served all four intents (A–D)');
+    await expect(page.locator('section:has(#lim-h)')).toContainText('A new address does not unlink one user’s intents: every settled or refunded entry in the public log names the user’s key id and nonce');
     await noHorizontalScroll(page);
   });
 
@@ -208,6 +218,23 @@ test.describe('landing', () => {
     await expect(track).toHaveCSS('animation-play-state', 'paused');
   });
 
+  test('the ticker has a visible Pause/Play control (a phone has no hover) and names the runs it shows', async ({ page }) => {
+    await page.goto(LANDING);
+    const ticker = page.getByRole('region', { name: `Decisions from the ${pass3 ? 'three' : 'two'} testnet runs` });
+    const track = ticker.locator('.ticker-track');
+    await expect(track).toHaveCSS('animation-play-state', 'running');
+    const away = async () => {
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+      await page.mouse.move(5, 700);
+    };
+    await ticker.getByRole('button', { name: 'Pause the scrolling decisions' }).click();
+    await away();
+    await expect(track).toHaveCSS('animation-play-state', 'paused');
+    await ticker.getByRole('button', { name: 'Play the scrolling decisions' }).click();
+    await away();
+    await expect(track).toHaveCSS('animation-play-state', 'running');
+  });
+
   test('“Open the terminal” opens the Yaksok terminal served next to the landing; it verifies 13/13 and links back', async ({ page }) => {
     await page.goto(LANDING);
     await expect(page.getByRole('navigation', { name: 'Links' }).getByRole('link', { name: 'Terminal' })).toHaveAttribute('href', 'terminal/');
@@ -238,6 +265,7 @@ test.describe('landing', () => {
     test('the record still reads: book, tape and refusals are static; the in-tab check says it is waiting for JavaScript', async ({ page }) => {
       await page.goto(LANDING);
       await expect(page.locator('#verify-state')).toHaveText('waiting for JavaScript');
+      await expect(page.locator('.ticker-toggle'), 'a control that cannot work stays hidden').toBeHidden();
       await expect(page.locator('#tape [data-seq]')).toHaveCount(log.length);
       await expect(page.locator('#tape [data-seq] .sigcell').first()).toHaveText('not checked');
       await expect(page.locator('table.book tbody tr')).toHaveCount(LETTERS.length);
