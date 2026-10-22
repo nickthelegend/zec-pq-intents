@@ -1,19 +1,21 @@
 // Real MCP client ↔ pqi-mcp (stdio) ↔ a desk serving the published record over HTTP ↔ live testnet
 // (the anchor memo is re-read through lightwalletd).
 import { spawn, type ChildProcess } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { appendEntry, keyId, newSigningKey, toB64, type LogEntry } from '@pqi/protocol';
+import { appendEntry, bytesToHex, hexToBytes, kemKeyFromSeed, keyId, newSigningKey, randomBytes, toB64, type LogEntry } from '@pqi/protocol';
 import { scanBinary } from '@pqi/node';
 
 const ROOT = resolve(__dirname, '../../..');
 const d = JSON.parse(readFileSync(resolve(ROOT, 'deployments/testnet.json'), 'utf8'));
 const PORT = '8414';
 const FORGED_PORT = '8415';
+const NO_UIVK_PORT = '8416';
+const LIVE_PORT = '8417';
 let desk: ChildProcess;
 let forgedDesk: ChildProcess;
 let client: Client;
@@ -23,11 +25,11 @@ const call = async (name: string, args: Record<string, unknown> = {}, c = client
 };
 const connect = async (extra: Record<string, string>) => {
   const c = new Client({ name: 't', version: '0' });
-  await c.connect(new StdioClientTransport({ command: resolve(__dirname, '../node_modules/.bin/tsx'), args: [resolve(__dirname, '../src/main.ts')], env: { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '', PQI_SCAN_BIN: scanBinary(), PQI_VERIFIER_ID: d.keys.verifier.id, ...extra } }));
+  await c.connect(new StdioClientTransport({ command: resolve(__dirname, '../node_modules/.bin/tsx'), args: [resolve(__dirname, '../src/main.ts')], env: { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '', PQI_SCAN_BIN: scanBinary(), PQI_VERIFIER_ID: d.keys.verifier.id, PQI_ANCHOR_UIVK: d.wallets.anchor.uivk, ...(process.env.PQI_ZINGO_CLI ? { PQI_ZINGO_CLI: process.env.PQI_ZINGO_CLI } : {}), ...extra } }));
   return c;
 };
-const serve = async (record: string, port: string) => {
-  const p = spawn(resolve(ROOT, 'packages/node/node_modules/.bin/tsx'), [resolve(ROOT, 'packages/node/src/serve.ts')], { env: { ...process.env, PQI_PUBLISHED: record, PQI_PORT: port }, stdio: ['ignore', 'pipe', 'inherit'] });
+const serve = async (record: string | null, port: string, env: Record<string, string> = {}) => {
+  const p = spawn(resolve(ROOT, 'packages/node/node_modules/.bin/tsx'), [resolve(ROOT, 'packages/node/src/serve.ts')], { env: { ...process.env, ...(record ? { PQI_PUBLISHED: record } : {}), PQI_PORT: port, ...env }, stdio: ['ignore', 'pipe', 'inherit'] });
   await new Promise<void>((ok, fail) => {
     p.stdout!.on('data', (b) => String(b).includes('pqi desk on') && ok());
     p.on('exit', (c) => fail(new Error(`desk exited ${c}`)));
@@ -58,8 +60,8 @@ afterAll(async () => {
 });
 
 describe('pqi-mcp', () => {
-  it('lists quote, submit_intent, status, verify_log', async () => {
-    expect((await client.listTools()).tools.map((t) => t.name).sort()).toEqual(['quote', 'status', 'submit_intent', 'verify_log']);
+  it('lists quote, resubmit, status, submit_intent, verify_log', async () => {
+    expect((await client.listTools()).tools.map((t) => t.name).sort()).toEqual(['quote', 'resubmit', 'status', 'submit_intent', 'verify_log']);
   });
 
   it('verify_log: every signature and link verifies, and the anchor memo is on-chain and matches', async () => {
@@ -78,13 +80,74 @@ describe('pqi-mcp', () => {
     await Promise.all([c.close(), unpinned.close()]);
   });
 
+  it('verify_log reads the anchor memos only with the anchor key you pinned: unpinned is Setup required, even when the desk serves no key at all', async () => {
+    const noKey = join(mkdtempSync(join(tmpdir(), 'pqi-nokey-')), 'testnet.json');
+    writeFileSync(noKey, JSON.stringify({ ...d, wallets: { ...d.wallets, anchor: { address: d.wallets.anchor.address } } }));
+    const p = await serve(noKey, NO_UIVK_PORT);
+    try {
+      const unpinned = await connect({ PQI_DESK_URL: `http://127.0.0.1:${NO_UIVK_PORT}`, PQI_ANCHOR_UIVK: '' });
+      expect(await call('verify_log', {}, unpinned)).toMatchObject({ isError: true, text: 'Setup required: PQI_ANCHOR_UIVK (the log has 1 anchor(s); their memos are read with the anchor viewing key you trust, not one the desk serves)' });
+      const pinned = await connect({ PQI_DESK_URL: `http://127.0.0.1:${NO_UIVK_PORT}` });
+      const r = JSON.parse((await call('verify_log', {}, pinned)).text);
+      expect(r).toMatchObject({ ok: true, anchor: { txid: d.anchor.txid, memo_on_chain: true, anchors: 1 } });
+      await Promise.all([unpinned.close(), pinned.close()]);
+    } finally {
+      p.kill();
+    }
+  });
+
+  it('submit_intent needs at least 10 blocks before the deadline (3 funding confirmations, the solver’s 3-block margin, latency)', async () => {
+    const r = await client.callTool({ name: 'submit_intent', arguments: { pay_zat: 60_000, min_out_zat: 40_000, deadline_blocks: 6 } }).then((x) => (x as { content: { text: string }[] }).content[0].text, (e: Error) => e.message);
+    expect(r).toMatch(/deadline_blocks/);
+    expect(r).toMatch(/10/);
+    const tools = (await client.listTools()).tools;
+    expect(tools.find((t) => t.name === 'submit_intent')!.description).toMatch(/15,000 zat fee budget/);
+    expect(tools.find((t) => t.name === 'quote')!.description).toMatch(/keeps on a refund too/);
+  });
+
+  it('submit_intent saves the signed intent and envelope before paying; a failed payment leaves them, and resubmit posts a funded one to a live desk', async () => {
+    // A live desk (PQI_STATE) with throwaway keys and no wallets: it accepts envelopes, it can pay nothing.
+    const dir = mkdtempSync(join(tmpdir(), 'pqi-live-'));
+    const seeds = { verifier: bytesToHex(randomBytes(32)), solverSign: bytesToHex(randomBytes(32)), solverKem: bytesToHex(randomBytes(64)) };
+    const kemId = keyId(kemKeyFromSeed(hexToBytes(seeds.solverKem)).publicKey);
+    writeFileSync(join(dir, 'run-state.json'), JSON.stringify({ seeds, addr: { escrow: d.wallets.escrow.address, solver: d.wallets.solver.address, anchor: d.wallets.anchor.address }, uivk: { escrow: d.wallets.escrow.uivk, anchor: d.wallets.anchor.uivk } }), { mode: 0o600 });
+    const live = await serve(null, LIVE_PORT, { PQI_STATE: join(dir, 'run-state.json') });
+    try {
+      const agentFile = join(dir, 'agent.json');
+      writeFileSync(agentFile, JSON.stringify({ ml_dsa_seed: bytesToHex(randomBytes(32)), wallet: '/nonexistent/agent-wallet', receive_ua: d.wallets.receive.address, receive_uivk: d.wallets.receive.uivk, refund_ua: d.wallets.user.address, trust: { escrow: d.wallets.escrow.address, solver_kem: kemId } }));
+      const c = await connect({ PQI_DESK_URL: `http://127.0.0.1:${LIVE_PORT}`, PQI_AGENT_FILE: agentFile });
+      const r = await call('submit_intent', { pay_zat: 60_000, min_out_zat: 40_000, deadline_blocks: 20 }, c);
+      expect(r.isError).toBe(true);
+      const err = JSON.parse(r.text);
+      expect(err).toMatchObject({ error: expect.stringMatching(/^zingo-cli quicksend failed/), intent_hash: expect.stringMatching(/^[0-9a-f]{64}$/), funding_txid: null, envelope: { to: kemId }, pending_file: `${agentFile}.pending.json`, next: 'nothing was paid' });
+      expect(err.envelope.intent_hash).toBe(err.intent_hash);
+      const file = `${agentFile}.pending.json`;
+      expect(statSync(file).mode & 0o777).toBe(0o600);
+      const saved = JSON.parse(readFileSync(file, 'utf8'));
+      expect(saved[err.intent_hash]).toMatchObject({ funding_txid: null, posted: false, signed: { intent: { escrow: d.wallets.escrow.address, receive_ua: d.wallets.receive.address } }, error: expect.stringMatching(/^zingo-cli quicksend failed/) });
+      expect(await call('resubmit', { intent_hash: err.intent_hash }, c)).toMatchObject({ isError: true, text: expect.stringMatching(/was never funded/) });
+
+      // As if the payment had gone out and then the desk had refused: the saved record now has a
+      // funding txid, and resubmit posts the same envelope; the desk takes it.
+      const FUND = bytesToHex(randomBytes(32));
+      writeFileSync(file, JSON.stringify({ ...saved, [err.intent_hash]: { ...saved[err.intent_hash], funding_txid: FUND } }), { mode: 0o600 });
+      const again = JSON.parse((await call('resubmit', { intent_hash: err.intent_hash }, c)).text);
+      expect(again).toMatchObject({ intent_hash: err.intent_hash, funding_txid: FUND, desk: { hash: err.intent_hash, stage: 'received' } });
+      expect(JSON.parse((await call('status', { intent_hash: err.intent_hash }, c)).text)).toMatchObject({ stage: 'received', funding_txid: FUND });
+      expect(JSON.parse(readFileSync(file, 'utf8'))[err.intent_hash].posted).toBe(true);
+      await c.close();
+    } finally {
+      live.kill();
+    }
+  });
+
   it('status and quote from the desk', async () => {
     const a = JSON.parse((await call('status', { intent_hash: d.intents.A.hash })).text);
     expect(a.stage).toBe('settled');
     expect(a.log[0].refs.release_txid).toMatch(/^[0-9a-f]{64}$/);
     const c = JSON.parse((await call('status', { intent_hash: d.intents.C.hash })).text);
     expect(c.log.map((e: { status: string; reason: string | null }) => e.reason ?? e.status)).toEqual(['FILL_NOT_CREDITED:MEMO_MISMATCH+AMOUNT_TOO_LOW', 'EXPIRED', 'REFUNDED']);
-    expect(JSON.parse((await call('quote', { pay_zat: 60_000, min_out_zat: 40_000 })).text)).toMatchObject({ accept: true, fee_zat: 20_000 });
+    expect(JSON.parse((await call('quote', { pay_zat: 60_000, min_out_zat: 40_000 })).text)).toMatchObject({ accept: true, fee_zat: 20_000, refund_if_unfilled_zat: 45_000 });
     expect(JSON.parse((await call('quote', { pay_zat: 50_000, min_out_zat: 40_000 })).text).accept).toBe(false);
   });
 
