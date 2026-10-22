@@ -1,5 +1,17 @@
 # Yaksok — post-quantum intents, settled in shielded ZEC
 
+![The Yaksok terminal re-verifying the testnet log in the browser](docs/img/terminal.png)
+
+**Why you would use it:** the address you receive at is paid from a solver's liquidity, never from
+the wallet you fund with, so the two are not linked by a payment, and the order itself is signed and
+sealed with post-quantum keys, so recording the order book today does not open it later.
+
+**Live demo:** not hosted yet. `pnpm build:site` builds the landing with the terminal at
+`terminal/` as one static folder (`site/`), ready for GitHub Pages once the repo is public; until
+then `pnpm install && pnpm --filter @pqi/dashboard dev` shows the terminal in about a minute.
+**Video:** none current; the only clip (`zec-pq-intents-demo.mp4`, 26 s, Oct 20) is a terminal
+re-verification of the first run and predates this UI and passes 2 and 3.
+
 **Post-quantum intents, settled in shielded ZEC.** An intent is signed with **ML-DSA-65** (FIPS 204)
 and sealed to the solver with **ML-KEM-768** (FIPS 203). The user escrows real testnet ZEC, the
 solver delivers from its own liquidity to the user's receive address, and a verifier releases the
@@ -17,13 +29,23 @@ canonical base64. A second pass closed the rest of its list: fills name their so
 write-ahead and reconciled after a crash, funding and fills need 3 confirmations, and anchors form a
 chain that anyone can check against every anchor the escrow sent. What is still open is listed there.
 
+**Review, Oct 22:** two independent judges found that a user could keep a delivery and be refunded
+too (the receive viewing key was never checked against the receive address), that one bad intent or
+one hung lightwalletd call froze the desk, that a crash after the solver's broadcast could deliver
+twice, that anyone could grow the signed log over HTTP, that legacy-form anchors could hide a fork,
+and that the audit tools trusted keys from the party they audit. All of those are fixed with tests;
+the list, with commits, is at the end of the review file. Pass 3 then ran the agent path live.
+
 ## Live on Zcash testnet
 
 Run of Oct 20, 2026 (`deployments/testnet.json`). Demo-only wallets; their incoming viewing keys
 and the signed intents are published so every decision can be re-checked. Verifier key
 `f60f130579…` (ML-DSA-65), solver KEM key `7dded232ab…` (ML-KEM-768).
 
-Three intents (escrow 60,000 zat → deliver 40,000 zat; a release or refund pays 60,000 − 15,000 fee budget = 45,000 zat), funded together in one shielded transaction:
+Three intents (escrow 60,000 zat → deliver 40,000 zat, a 20,000 zat solver spread; a release or a
+refund pays 60,000 − 15,000 fee budget = 45,000 zat, so the solver nets 5,000 over what it delivered,
+a refunded user gets 45,000 back and loses 15,000, and whatever the payout transaction does not spend
+of the budget stays in the escrow wallet, which the verifier holds), funded together in one shielded transaction:
 **A** (`48a440a6…`) and **B** (`85de1ac4…`) were filled and settled; **C** (`0c9bdfce…`, 12-block
 deadline) was attacked twice and refunded.
 
@@ -113,9 +135,12 @@ MCP server: `node packages/mcp/dist/main.js` (after `pnpm build`) with
 
 - The verifier holds the escrow and is trusted for liveness (it could withhold a payout); it cannot
   fake the record without the signatures, links or anchors showing it.
-- The solver and the verifier see plaintext intents. The escrow viewing key is public, so funding
-  amounts and intent hashes are visible. The run used one receive address for all three intents.
-  The on-chain notes are ECC-encrypted, so a future quantum adversary could link funding and fill.
+- The solver and the verifier see plaintext intents. The escrow's **full** viewing key is public
+  (for auditability), so every funding (amount, intent hash) **and every payout** is visible: each
+  release's and refund's recipient and amount, including the user's refund address next to
+  `pqi1:<hash>:refund`. Intents A–D used one receive address; `submit_intent` now gives each intent
+  a new address of the receive key. The on-chain notes are ECC-encrypted, so a future quantum
+  adversary could link funding and fill.
 - Only the configured solver key that the fill's memo names is paid. The Oct 20 fills name no
   solver and are honoured as legacy single-solver fills, marked so in the log.
 - Anchors are periodic. Each names the previous one, and the escrow's full viewing key is published,

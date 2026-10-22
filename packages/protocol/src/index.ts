@@ -1,6 +1,6 @@
 // zec-pq-intents protocol. Browser- and Node-safe (no node: imports).
 //
-// An intent asks a solver to deliver `min_out_zat` to the user's fresh `receive_ua` before
+// An intent asks a solver to deliver `min_out_zat` to the user's `receive_ua` before
 // `deadline_height`, against `pay_zat` the user escrows. It is
 //   - canonically encoded and hashed (sha256 over "pqi1:intent:" ‖ canonical JSON),
 //   - signed with the user's ML-DSA-65 key (FIPS 204),

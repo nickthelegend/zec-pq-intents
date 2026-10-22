@@ -2,7 +2,7 @@
 
 ## What it is
 
-A **delivery intent**: "deliver at least `min_out_zat` to my fresh address `receive_ua` before block
+A **delivery intent**: "deliver at least `min_out_zat` to my address `receive_ua` before block
 `deadline_height`; I escrow `pay_zat` for it." A solver delivers from its own liquidity, so the
 receiving address is funded by the solver, not by the user's wallet. The verifier then releases the
 escrow to the solver, or refunds the user after the deadline. Testnet has only one asset (TAZ), so
@@ -136,11 +136,15 @@ match the agent's pinned ones.
   elliptic-curve keys: a future quantum adversary holding the chain could read the funding and
   fill memos (`pqi1:<hash>…`) and amounts and link them. This is the gap Zcash's own ML-KEM step
   addresses.
-- **Privacy today:** the escrow's viewing key is published, so anyone can see each funding's
-  amount, time and intent hash. The verifier reads the signed intent, and the published run
-  includes it. The solver and verifier learn amounts and addresses. The demo run used one receive
-  address for all three intents, so those deliveries are linkable. Timing can link a funding and
-  a fill on a quiet testnet.
+- **Privacy today:** the escrow's **full** viewing key is published (for auditability), so anyone
+  can see every funding (amount, time, intent hash) and every payment out of the escrow: each
+  release's recipient (the solver) and amount, each refund's recipient and amount, which is the
+  user's refund address next to its `pqi1:<hash>:refund` memo, and each anchor. The verifier reads
+  the signed intent, and the published runs include them. The solver and verifier learn amounts and
+  addresses. All four live intents of the first two runs (A–D) used one receive address, so those
+  deliveries are linkable; `submit_intent` now delivers each intent to a new address of the same
+  receive key (a random Orchard diversifier index), which only that key links. Timing can link a
+  funding and a fill on a quiet testnet.
 - **Anchors:** the head is anchored periodically, from the escrow, in a memo to the public anchor
   address. Each anchor names the previous anchor's txid, so anchors form one chain. The escrow's
   full viewing key is published, and a view-only wallet made from it lists every payment out of
@@ -167,14 +171,14 @@ match the agent's pinned ones.
 
 | Do | See |
 |---|---|
-| `pnpm --filter @pqi/protocol test` | ML-DSA/ML-KEM sizes, every tamper caught, canonical base64, the log re-verifies, fill memos name the solver, anchor forks caught (16 tests) |
-| `pnpm --filter @pqi/node test` | both published runs re-checked on testnet; fill theft by an outsider or another solver, settle/refund races, the claim window and shallow confirmations refused; a verifier process killed mid-payout reconciles on restart; every anchor the escrow sent checked against the logs; desk board, ticks, refunds and HTTP rules (32 tests) |
+| `pnpm --filter @pqi/protocol test` | ML-DSA/ML-KEM sizes, every tamper caught, canonical base64, the log re-verifies, fill memos name the solver, anchor forks caught, legacy-form anchors cannot hide one (17 tests) |
+| `pnpm --filter @pqi/node test` | both published runs re-checked on testnet; fill theft by an outsider or another solver, settle/refund races, the claim window and shallow confirmations refused; a verifier process killed mid-payout reconciles on restart; every anchor the escrow sent checked against the logs; desk board, ticks, refunds and HTTP rules; the receive key checked; delivery write-ahead after a real kill; unfunded junk leaves no log entry; Setup required and the `check-anchors` pins (57 tests) |
 | `PQI_VERIFIER_ID=f60f130579386479043287fb68c2c1726a0a210be77aee46b355adb1287f1445 PQI_ESCROW_UA=utest1fgwtrf8nq6e2j6w7rwa06k8ggmc5llsk3v7mjjnpy5ywmdfrjzuqfvlm4wpeggn9lq7cutkum7k75v8zqg2rxlg3z0k67lcz3cmcs558 pnpm --filter @pqi/node check-anchors "$PWD/deployments/testnet-pass2.json"` | every anchor the escrow sent (view-only wallet from its published full viewing key, which must derive the escrow you pinned), one chain, checked against the log |
 | open the dashboard | every log entry's ML-DSA-65 signature re-verified in your browser, the chain linked |
 | dashboard → "Change a field" | the intent no longer verifies (`BAD_SIGNATURE`) |
-| `PQI_PUBLISHED=deployments/testnet.json pnpm --filter @pqi/node serve` + MCP `verify_log` with `PQI_VERIFIER_ID=f60f1305…` | ok, entry counts, the anchor memo found on-chain and matching the head, 1 entry after the anchor |
+| `PQI_PUBLISHED=deployments/testnet.json pnpm --filter @pqi/node serve` + MCP `verify_log` with `PQI_VERIFIER_ID=f60f130579386479043287fb68c2c1726a0a210be77aee46b355adb1287f1445` and `PQI_ANCHOR_UIVK` = the record's anchor `uivk` | ok, entry counts, every anchor memo found on-chain, matching the head and linked, 1 entry after the last anchor |
 
 ## Pre-existing work
 
 Ideas from near-pq-confidential-intents (superseded) and the zec-* builds. The scan binary is copied
-from zec-payment-verify-sdk; the zingo-cli wrapper from zec-sealed-bid-auction. Built Oct 20, 2026.
+from zec-payment-verify-sdk; the zingo-cli wrapper from zec-sealed-bid-auction. Built Oct 20–22, 2026.

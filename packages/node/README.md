@@ -11,13 +11,20 @@ The services, as a library and a server.
 | `scan`, `chainTip`, zingo wrapper | viewing-key checks through `packages/scan`; zingo-cli calls that never run `recovery_info` and refuse the treasury wallet path; `sentWithMemo` (a wallet's sent history by memo); `openViewWallet` (a view-only wallet from a full viewing key: it cannot spend) |
 | `anchorHistory` + `check-anchors` | every anchor the escrow sent, from its history (the escrow's full viewing key is published), checked against a log with `checkAnchors`: `PQI_VERIFIER_ID=… PQI_ESCROW_UA=… pnpm --filter @pqi/node check-anchors "$PWD/deployments/testnet-pass2.json"`. The escrow address (or its full viewing key) is pinned: the key the source supplies must derive it, and the source's intents must name it, or the check stops with Setup required (exit 2) before reading any history |
 
-Tests (`pnpm test`, 32): `live.test.ts` 18 (the published runs re-checked on Zcash testnet; a fresh
+Tests (`pnpm test`, 57): `live.test.ts` 18 (the published runs re-checked on Zcash testnet; a fresh
 verifier refuses tampering, wrong key, wrong memo, late fill, replay, nonce reuse, fill theft, a fill
 that names another solver or none, overlapping settle/refund, a refund inside the claim window, and
-waits for 3 confirmations); `desk.test.ts` 5 (junk envelope, the solver's funding depth, two ticks at
-once, refund of a declined intent, HTTP rules); `crash.test.ts` 2 (a verifier process killed with
-SIGKILL after its write-ahead record restarts and finds the Oct 20 release by memo; a record not on
-chain waits for the expiry height); `anchors.test.ts` 5 (every anchor the escrow sent, read from its
-history on testnet, against the logs); `solver.test.ts` 2 (local). Payouts are recorded in the test
-state before each run, or go through a view-only wallet that cannot spend, so no test sends a
-transaction.
+waits for 3 confirmations); `desk.test.ts` 12 (junk envelope, the fee-budget door, the solver's
+funding depth, two ticks at once, refund of a declined intent, one failing item does not stop the
+tick, a late delivery is declined right before sending, a blackholed lightwalletd times out while the
+desk keeps answering, 50 unfunded envelopes leave no log entry, the board cap and unfunded eviction,
+HTTP rules, the Host check); `crash.test.ts` 6 (a verifier killed with SIGKILL after its write-ahead
+record finds the Oct 20 release by memo; a record not on chain waits for the expiry height; the
+solver's balance check; a desk killed after a delivery's write-ahead record sends nothing until it
+would have expired and is not refunded meanwhile; a recorded delivery found in the history is
+adopted); `anchors.test.ts` 5 (every anchor the escrow sent, read from its history on testnet,
+against the logs); `receive-key.test.ts` 4 (`RECEIVE_KEY_MISMATCH` at the solver and the verifier);
+`verifier.test.ts` 4 (the fee floor; nothing between a payout and its entry can lose it; the anchor
+repair); `setup.test.ts` 5 (Setup required without zingo-cli; `check-anchors` pins); `solver.test.ts`
+3 (local). Payouts are recorded in the test state before each run, or go through a view-only wallet
+that cannot spend, or a wallet path that does not exist, so no test sends a transaction.
