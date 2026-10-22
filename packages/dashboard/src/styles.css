@@ -181,5 +181,8 @@ select { height: 38px; padding: 0 10px; background: var(--bg-deep); color: var(-
   .refusals { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {
+  .ticker { overflow-x: auto; }
+  .ticker-track { animation: none; }
+  .ticker-track ul[aria-hidden] { display: none; }
   .tape li { transition: none; }
 }
