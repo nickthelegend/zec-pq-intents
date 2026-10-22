@@ -1,14 +1,17 @@
-// Yaksok terminal: both published testnet runs, re-verified in this tab. Everything shown comes from
-// deployments/testnet.json (Oct 20: intents A-C, entries #0-9) and deployments/testnet-pass2.json
-// (Oct 21: intent D, the same verifier's log continued to #12, a second anchor); every signature,
+// Yaksok terminal: the three published testnet runs, re-verified in this tab. Everything shown comes
+// from deployments/testnet.json (Oct 20: intents A-C, entries #0-9), deployments/testnet-pass2.json
+// (Oct 21: intent D, the same verifier's log continued to #12, a second anchor) and
+// deployments/testnet-pass3.json (Oct 22: intent E submitted by an agent through MCP, a third
+// anchor); every signature,
 // hash, link and anchored head is re-computed here with @pqi/protocol. Values the tab cannot check
 // (an on-chain memo) are labelled as recorded.
 import { useEffect, useMemo, useState } from 'react';
 import { checkAnchors, entryHash, fromB64, GENESIS, intentHash, keyId, verifyIntent, verifyLog, verifySig, type AnchorCheck, type AnchorSeen, type LogEntry, type SignedIntent } from '@pqi/protocol';
 import run from '@deployments/testnet.json';
 import pass2Run from '@deployments/testnet-pass2.json';
+import pass3Run from '@deployments/testnet-pass3.json';
 
-type K = 'A' | 'B' | 'C' | 'D';
+type K = 'A' | 'B' | 'C' | 'D' | 'E';
 type IntentRec = { hash: string; signed: SignedIntent; envelope: { kem_ct: string; ct: string; to: string } };
 type Rec = {
   ranAt: string;
@@ -31,14 +34,25 @@ const p2 = pass2Run as unknown as {
   crash: { signal: string; write_ahead: { amount_zat: string; memo: string; at_height: number }; reconciled_txid: string; escrow_sends_with_release_memo: string[] };
   anchors?: { escrowHistory: AnchorSeen[] };
 };
+/** Pass 3 (Oct 22): an agent's intent E through MCP to a live desk, killed after the fill broadcast. */
+const p3 = pass3Run as unknown as {
+  ranAt: string;
+  log: LogEntry[];
+  intent: IntentRec;
+  txs: { funding: string; fill: string; release: string; anchor: string; previousAnchor: string };
+  agent: { quote: { fee_zat: number; refund_if_unfilled_zat: number }; receive_ua: string; receive_index: number };
+  crash: { signal: string; board_after_kill: { delivering: { at_height: number } }; solver_sends_with_fill_memo: string[] };
+  checks: { verify_log: { ok: boolean; entries: number; anchor: { anchors: number } }; check_anchors: { exit: number; chain: unknown[] } };
+};
 const EXPLORER = 'https://testnet.zcashexplorer.app/transactions/';
 const REPO = 'https://github.com/nickthelegend/zec-pq-intents';
-const LETTERS: K[] = ['A', 'B', 'C', 'D'];
-const INTENTS: Record<K, IntentRec> = { ...r.intents, D: p2.intent };
-const FUNDING: Record<K, string> = { A: r.txs.funding, B: r.txs.funding, C: r.txs.funding, D: p2.txs.funding };
-/** The whole log: Oct 20's #0-9, then pass 2's #10-12 (the tab checks that pass 2 extends it). */
-const LOG = p2.log;
+const LETTERS: K[] = ['A', 'B', 'C', 'D', 'E'];
+const INTENTS: Record<K, IntentRec> = { ...r.intents, D: p2.intent, E: p3.intent };
+const FUNDING: Record<K, string> = { A: r.txs.funding, B: r.txs.funding, C: r.txs.funding, D: p2.txs.funding, E: p3.txs.funding };
+/** The whole log: Oct 20's #0-9, pass 2's #10-12, then pass 3's (the tab checks each extends the last). */
+const LOG = p3.log;
 const PASS2_FROM = r.log.length;
+const PASS3_FROM = p2.log.length;
 const short = (s: string, n = 8) => (s && s.length > n + 1 ? `${s.slice(0, n)}…` : s);
 const zat = (v: string | number) => Number(v).toLocaleString('en-US');
 const letterOf = (h: string | null) => LETTERS.find((k) => INTENTS[k].hash === h) ?? null;
@@ -135,7 +149,7 @@ function Bar({ good, done, n }: { good: number; done: number; n: number }) {
         <div className="cell">
           <small>Runs</small>
           <span>
-            {day(r.ranAt)} + {day(p2.ranAt)}
+            {day(r.ranAt)} + {day(p2.ranAt)} + {day(p3.ranAt)}
           </span>
         </div>
         <div className="cell">
@@ -178,7 +192,7 @@ function Book({ sel, onSel }: { sel: K; onSel: (k: K) => void }) {
     <section className="p s5" aria-labelledby="book-h">
       <div className="ph">
         <h2 id="book-h">Intent book</h2>
-        <span className="meta">zat · 4 intents · 2 runs · pick one</span>
+        <span className="meta">zat · {LETTERS.length} intents · 3 runs · pick one</span>
       </div>
       <div className="book" role="radiogroup" aria-label="Intents">
         <div className="book-head" aria-hidden="true">
@@ -219,9 +233,18 @@ function Book({ sel, onSel }: { sel: K; onSel: (k: K) => void }) {
           </li>
           <li className="ok">
             <b>Funded</b> {zat(i.pay_zat)} zat <Tx id={FUNDING[sel]} label="funding" />
-            {sel === 'D' ? ' · waited for 3 confirmations' : ''}
+            {sel === 'D' || sel === 'E' ? ' · waited for 3 confirmations' : ''}
           </li>
-          {sel === 'D' ? (
+          {sel === 'E' ? (
+            <>
+              <li className="ok">
+                <b>Submitted</b> by an agent through MCP submit_intent, to a new receive address (index {zat(p3.agent.receive_index)})
+              </li>
+              <li className="ok">
+                <b>Killed</b> by {p3.crash.signal} right after the fill broadcast; the restart found <Tx id={p3.txs.fill} label="fill" /> in the solver's history, not sent again
+              </li>
+            </>
+          ) : sel === 'D' ? (
             <>
               <li className="ok">
                 <b>Filled</b> {zat(i.min_out_zat)} zat, memo names the solver key <Tx id={p2.txs.fill} label="fill" />
@@ -296,6 +319,10 @@ function Tape({ checks, error, sel, onSel }: { checks: Check[]; error: string | 
               e.seq === PASS2_FROM ? (
                 <li key="pass2" className="run-sep" aria-hidden="true">
                   Pass 2 · {day(p2.ranAt)} · same verifier key, the log continues
+                </li>
+              ) : e.seq === PASS3_FROM ? (
+                <li key="pass3" className="run-sep" aria-hidden="true">
+                  Pass 3 · {day(p3.ranAt)} · an agent through MCP, same verifier key
                 </li>
               ) : null,
               <li key={e.hash} data-check={checks[i]}>
@@ -412,16 +439,19 @@ type ChainResult = { ok: true; check: AnchorCheck } | { ok: false; problem: stri
  *  verifier key, extends the Oct 20 log entry for entry, and every anchor in the escrow history that
  *  pass 2 recorded forms one chain with the log (protocol checkAnchors). */
 function checkChain(): ChainResult {
-  if (!p2.anchors?.escrowHistory?.length) return { ok: false, problem: 'pass 2 recorded no escrow history to check' };
-  if (p2.keys.verifier.id !== r.keys.verifier.id) return { ok: false, problem: `pass 2 is signed by ${short(p2.keys.verifier.id)}, not ${short(r.keys.verifier.id)}` };
-  const v = verifyLog(p2.log, fromB64(r.keys.verifier.pk));
-  if (!v.ok) return { ok: false, problem: `pass 2 log entry ${v.error?.seq}: ${v.error?.problem}` };
-  const fork = r.log.findIndex((e, i) => p2.log[i]?.hash !== e.hash);
-  if (fork !== -1) return { ok: false, problem: `pass 2 does not extend the Oct 20 log at entry #${fork}` };
-  const check = checkAnchors(p2.log, p2.anchors.escrowHistory);
+  const hist = (p3 as unknown as { anchors?: { escrowHistory: AnchorSeen[] } }).anchors?.escrowHistory;
+  if (!hist?.length) return { ok: false, problem: 'pass 3 recorded no escrow history to check' };
+  const v = verifyLog(p3.log, fromB64(r.keys.verifier.pk));
+  if (!v.ok) return { ok: false, problem: `log entry ${v.error?.seq}: ${v.error?.problem}` };
+  const fork2 = r.log.findIndex((e, i) => p2.log[i]?.hash !== e.hash);
+  if (fork2 !== -1) return { ok: false, problem: `pass 2 does not extend the Oct 20 log at entry #${fork2}` };
+  const fork3 = p2.log.findIndex((e, i) => p3.log[i]?.hash !== e.hash);
+  if (fork3 !== -1) return { ok: false, problem: `pass 3 does not extend the pass-2 log at entry #${fork3}` };
+  const check = checkAnchors(p3.log, hist);
   if (!check.ok) return { ok: false, problem: check.problems.map((x) => x.kind).join(', '), check };
   return { ok: true, check };
 }
+const HISTORY_LEN = (p3 as unknown as { anchors?: { escrowHistory: AnchorSeen[] } }).anchors?.escrowHistory?.length ?? 0;
 
 function AnchorChain() {
   const [res, setRes] = useState<ChainResult | 'checking' | null>(null);
@@ -446,12 +476,12 @@ function AnchorChain() {
       <div className="kv-row chain" aria-live="polite">
         <dt>Both runs</dt>
         {res === null ? (
-          <dd className="faint">pass 2 (Oct 21) log + the {p2.anchors?.escrowHistory?.length ?? 0} anchors it read from the escrow; not checked yet</dd>
+          <dd className="faint">the three runs' log + the {HISTORY_LEN} anchors pass 3 read from the escrow; not checked yet</dd>
         ) : res === 'checking' ? (
-          <dd data-state="checking">checking {p2.log.length} signatures and the links…</dd>
+          <dd data-state="checking">checking {p3.log.length} signatures and the links…</dd>
         ) : res.ok ? (
           <dd data-state="ok">
-            one chain, {res.check.chain.length} anchors, no fork: {res.check.chain.map((a) => `#${a.seq}`).join(' → ')} · {p2.log.length}/{p2.log.length} pass-2 signatures verify
+            one chain, {res.check.chain.length} anchors, no fork: {res.check.chain.map((a) => `#${a.seq}`).join(' → ')} · {p3.log.length}/{p3.log.length} signatures verify
           </dd>
         ) : (
           <dd data-state="bad">does not hold: {res.problem}</dd>
@@ -468,7 +498,7 @@ function AnchorChain() {
           ))
         : null}
       <dt>Escrow history</dt>
-      <dd className="faint">as recorded by pass 2; re-read on-chain by pnpm test and check-anchors (needs lightwalletd, not this tab)</dd>
+      <dd className="faint">as recorded by pass 3; re-read on-chain by pnpm test and check-anchors (needs lightwalletd, not this tab)</dd>
     </>
   );
 }
@@ -629,6 +659,44 @@ function Crash({ onSel }: { onSel: (n: number) => void }) {
   );
 }
 
+/** Pass 3: an agent's intent through MCP, the desk killed after the fill broadcast, audited. */
+function Agent({ onSel }: { onSel: (n: number) => void }) {
+  const settled = LOG.find((e) => e.status === 'SETTLED' && e.intent_hash === p3.intent.hash);
+  return (
+    <section className="p s12" id="agent" aria-labelledby="agent-h">
+      <div className="ph">
+        <h2 id="agent-h">An agent trades through MCP, live</h2>
+        <span className="meta">pass 3 · intent E · {day(p3.ranAt)}</span>
+      </div>
+      <ol className="crash agent">
+        <li>
+          <b>quote</b> accept, spread {zat(p3.agent.quote.fee_zat)} zat; a refund would return {zat(p3.agent.quote.refund_if_unfilled_zat)}
+        </li>
+        <li>
+          <b>submit_intent</b> signed with the agent's own ML-DSA-65 key, saved, funded <Tx id={p3.txs.funding} label="funding" />, posted; a new receive address (index {zat(p3.agent.receive_index)})
+        </li>
+        <li>
+          <b>Killed</b> {p3.crash.signal} right after the solver's fill broadcast (write-ahead at block {zat(p3.crash.board_after_kill.delivering.at_height)})
+        </li>
+        <li>
+          <b>Found, not resent</b> the restart found <Tx id={p3.txs.fill} label="fill" /> in the solver's history; sent {p3.crash.solver_sends_with_fill_memo.length === 1 ? 'once' : `${p3.crash.solver_sends_with_fill_memo.length} times`}
+        </li>
+        <li>
+          <b>Settled</b> released <Tx id={p3.txs.release} label="release" />{' '}
+          {settled ? (
+            <button className="linkish" onClick={() => onSel(settled.seq)}>
+              log #{settled.seq} · open in the inspector
+            </button>
+          ) : null}
+        </li>
+        <li>
+          <b>Audited</b> verify_log over MCP {p3.checks.verify_log.ok ? 'ok' : 'failed'} ({p3.checks.verify_log.entries} entries, {p3.checks.verify_log.anchor.anchors} anchors); check-anchors exit {p3.checks.check_anchors.exit}, {p3.checks.check_anchors.chain.length} anchors in one chain
+        </li>
+      </ol>
+    </section>
+  );
+}
+
 export function App() {
   const { checks, error } = useLogCheck(LOG);
   const [intent, setIntent] = useState<K>('A');
@@ -656,10 +724,11 @@ export function App() {
         <Console />
         <Refusals onSel={pick} />
         <Crash onSel={pick} />
+        <Agent onSel={pick} />
       </main>
       <footer className="foot">
         <span>MIT · Copyright (c) 2026 Nivesh Gajengi</span>
-        <span>run records: deployments/testnet.json + testnet-pass2.json</span>
+        <span>run records: deployments/testnet.json, testnet-pass2.json, testnet-pass3.json</span>
         <span>post-quantum at the intent layer; Zcash spends stay ECC</span>
         <span>testnet · not audited</span>
       </footer>

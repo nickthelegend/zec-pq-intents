@@ -215,3 +215,6 @@ select { height: 38px; padding: 0 10px; background: var(--bg-deep); color: var(-
   .acts { gap: 6px; }
   .acts .btn { padding: 0 10px; }
 }
+.crash.agent { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 1200px) { .crash.agent { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .crash.agent { grid-template-columns: 1fr; } }
