@@ -105,6 +105,12 @@ export class Desk {
       this.save();
       return item.note;
     }
+    // A delivery that may have gone out is settled first: no refund (and no new send) while it might
+    // still be mined, since a mined fill must be claimable.
+    if (item.stage === 'funded' && item.delivering) {
+      const pending = await this.reconcileDelivery(item, tip);
+      if (pending !== null) return pending;
+    }
     if (OPEN.includes(item.stage) && item.stage !== 'filled' && tip > s.intent.deadline_height + this.c.verifier.claimWindow) return this.refund(item, s);
     if (item.stage === 'received') {
       if (item.firstSeen === undefined) {
@@ -146,14 +152,6 @@ export class Desk {
    *  built then has expired. Before every send the quote is run again at this tip, so a resumed or
    *  retried delivery that could no longer be mined by the deadline is declined (then refunded). */
   private async deliver(item: BoardItem, s: SignedIntent, tip: number): Promise<string> {
-    if (item.delivering) {
-      const found = (await this.c.solver.sentWithMemo(item.delivering.memo)).filter((t) => t.status !== 'failed');
-      if (found.length) return this.filled(item, found[0].txid, `filled ${found[0].txid} (found in the solver's history by its memo after a restart; not sent again)`);
-      const expires = item.delivering.at_height + 1 + TX_EXPIRY_BLOCKS;
-      if (tip <= expires) return `DELIVERY_UNRECONCILED: a delivery was being sent at height ${item.delivering.at_height} when the process stopped and is not in the solver's history; a transaction sent then could be mined until height ${expires} (tip ${tip}), so it is not sent again before then`;
-      delete item.delivering; // provably never mined: safe to send
-      this.save();
-    }
     if (item.retryAfter !== undefined && tip < item.retryAfter) return `waiting for the solver's balance until block ${item.retryAfter}`;
     const q = await this.c.solver.quote(s, tip);
     if (!q.accept) {
@@ -185,6 +183,20 @@ export class Desk {
     this.items = this.items.filter((i) => i !== item);
     this.save();
     return result;
+  }
+
+  /** A write-ahead delivery record left by a stopped process: its txid if the solver's history shows
+   *  the memo (the item is then filled), a reason while a transaction sent then could still be mined,
+   *  or null once it provably never was (the record is dropped). */
+  private async reconcileDelivery(item: BoardItem, tip: number): Promise<string | null> {
+    const rec = item.delivering!;
+    const found = (await this.c.solver.sentWithMemo(rec.memo)).filter((t) => t.status !== 'failed');
+    if (found.length) return this.filled(item, found[0].txid, `filled ${found[0].txid} (found in the solver's history by its memo after a restart; not sent again)`);
+    const expires = rec.at_height + 1 + TX_EXPIRY_BLOCKS;
+    if (tip <= expires) return `DELIVERY_UNRECONCILED: a delivery was being sent at height ${rec.at_height} when the process stopped and is not in the solver's history; a transaction sent then could be mined until height ${expires} (tip ${tip}), so it is not sent again, and the escrow not refunded, before then`;
+    delete item.delivering; // provably never mined: safe to send, or to refund
+    this.save();
+    return null;
   }
 
   private filled(item: BoardItem, txid: string, result: string): string {

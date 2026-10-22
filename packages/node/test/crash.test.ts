@@ -127,7 +127,7 @@ describe('the solver’s delivery is write-ahead, with a real process kill', () 
     // Restart. The solver's history (here the escrow's view-only wallet stands in for it) has no such
     // memo, and a transaction built at that height could still be mined: nothing is sent.
     const [r] = await deskAt(dir, signSeed, kemSeed, VIEW).tick();
-    expect(r.result).toMatch(new RegExp(`^DELIVERY_UNRECONCILED: a delivery was being sent at height ${left.delivering!.at_height} .* could be mined until height ${left.delivering!.at_height + 1 + TX_EXPIRY_BLOCKS} .*so it is not sent again before then$`));
+    expect(r.result).toMatch(new RegExp(`^DELIVERY_UNRECONCILED: a delivery was being sent at height ${left.delivering!.at_height} .* could be mined until height ${left.delivering!.at_height + 1 + TX_EXPIRY_BLOCKS} .*so it is not sent again, and the escrow not refunded, before then$`));
     expect(readBoard(dir)[0]).toMatchObject({ stage: 'funded', fillTxid: null, delivering: left.delivering });
 
     // Recorded long enough ago that it can no longer be mined: the record is dropped, the quote is
@@ -138,6 +138,19 @@ describe('the solver’s delivery is write-ahead, with a real process kill', () 
     const after = readBoard(dir)[0];
     expect(after).toMatchObject({ stage: 'funded', fillTxid: null, failures: 1 });
     expect(after.delivering!.at_height).toBeGreaterThanOrEqual(tip);
+  });
+
+  it('past the deadline and the claim window, an intent whose delivery may have gone out is not refunded while that delivery could still be mined', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pqi-deliver-'));
+    const [signSeed, kemSeed] = [bytesToHex(randomBytes(32)), bytesToHex(randomBytes(64))];
+    const tip = await chainTip();
+    const it0 = funded(tip - 200, kemSeed); // due 100 blocks ago
+    writeFileSync(join(dir, 'board.json'), JSON.stringify([{ ...it0, delivering: { memo: memo.fill(it0.hash, 'ee'.repeat(32)), pay_to: W.receive.address, amount_zat: '40000', at_height: tip - 105, at: new Date().toISOString() } }]));
+    const desk = deskAt(dir, signSeed, kemSeed, VIEW);
+    const [r] = await desk.tick();
+    expect(r.result).toMatch(/^DELIVERY_UNRECONCILED: .*and the escrow not refunded, before then$/);
+    expect(desk.items).toHaveLength(1);
+    expect(desk.items[0]).toMatchObject({ stage: 'funded', fillTxid: null });
   });
 
   it('a delivery record whose memo the wallet’s history shows is adopted with that txid, and nothing is sent', async () => {
