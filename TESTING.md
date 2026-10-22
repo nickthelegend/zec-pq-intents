@@ -40,3 +40,21 @@ Independent check of the ML-DSA-65 implementation (`@noble/post-quantum` 0.6.1):
 `pnpm --filter @pqi/examples pass2` — the Oct 21 pass-2 run (intent D, the kill after the release
 broadcast, the second solver's claim, the chained anchor); `deployments/testnet-pass2.json`.
 The dashboard and the landing re-verify all 10 entries in the browser and recompute the anchored head (Oct 21, 1280 and 375 px; screenshots in `grokbot/shots/yaksok/`).
+
+## Browser E2E (Google Chrome, not part of `pnpm test`)
+
+`pnpm test:e2e` starts the stack (`e2e/stack.sh`: landing :4183, the terminal via `vite preview`
+:5181, read-only desks over `deployments/testnet.json` :8404 and `testnet-pass2.json` :8405, all on
+127.0.0.1, stopped by PID afterwards) and runs Playwright in the installed Google Chrome at 1280×800
+and 375×812, with video, trace and screenshots. It covers the landing tape printing as each signature
+verifies, every tape row and every "log #n · open in the inspector" refusal opened fully on screen,
+the intent book, the anchor head and the two-run anchor chain, the attack console codes, every link
+against the record and the repo, reduced motion, the landing without JavaScript, the desk reads
+against both records, the write refusals (415, 413, 400, 503 Setup required, no CORS, blocked from
+another origin) and Setup required when the desk has no record.
+
+| Oct 22 run | desktop | mobile |
+|---|---|---|
+| passed | 22 | 17 |
+| skipped | 0 | 5 (4 HTTP-only desk tests run once, on desktop; hover has no phone equivalent) |
+| failed | 0 | 0 |

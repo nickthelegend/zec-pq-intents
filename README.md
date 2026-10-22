@@ -79,6 +79,7 @@ Needs Node 22+, pnpm 10, Rust 1.89 (pinned in `packages/scan`).
 pnpm install
 pnpm test                                    # 57 tests + doc: protocol 16, scan 3 + doc, node 32, mcp 6 (node and mcp read Zcash testnet)
 pnpm --filter @pqi/dashboard dev             # http://localhost:5181
+pnpm test:e2e                                # Google Chrome E2E: landing, terminal, desks (TESTING.md)
 PQI_PUBLISHED=deployments/testnet.json pnpm --filter @pqi/node serve    # read-only desk for the MCP server
 # MCP server: node packages/mcp/dist/main.js with PQI_VERIFIER_ID=f60f1305… (verify_log needs the key you trust)
 PQI_VERIFIER_ID=f60f1305… pnpm --filter @pqi/node check-anchors deployments/testnet-pass2.json   # every anchor the escrow sent, one chain
