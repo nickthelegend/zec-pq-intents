@@ -7,8 +7,8 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { bytesToHex, keyId, memo, newSigningKey, randomBytes, signFill, signingKeyFromSeed, hexToBytes, type LogEntry, type SignedIntent } from '@pqi/protocol';
-import { chainTip, openViewWallet, TX_EXPIRY_BLOCKS, Verifier, zingoConfig, type VerifierState } from '../src/index.js';
+import { bytesToHex, keyId, memo, newKemKey, newSigningKey, randomBytes, signFill, signIntent, signingKeyFromSeed, hexToBytes, type LogEntry, type SignedIntent } from '@pqi/protocol';
+import { chainTip, openViewWallet, Solver, spendable, TX_EXPIRY_BLOCKS, Verifier, zingoConfig, type VerifierState } from '../src/index.js';
 
 const d = JSON.parse(readFileSync(resolve(__dirname, '../../../deployments/testnet.json'), 'utf8'));
 const I = d.intents as Record<'A' | 'B' | 'C', { hash: string; signed: SignedIntent }>;
@@ -77,3 +77,14 @@ describe('write-ahead payouts, with a real process kill', () => {
     expect(after.log).toHaveLength(0);
   });
 });
+
+describe('the solver takes on only what its wallet can pay', () => {
+  it('declines min_out above its spendable balance (read with zingo-cli; here the view-only wallet stands in for the solver’s)', async () => {
+    const have = await spendable(zingoConfig(), VIEW);
+    const solver = new Solver({ sign: newSigningKey(), kem: newKemKey(), wallet: VIEW, ua: W.solver.address, escrowUivk: W.escrow.uivk, zingo: zingoConfig(), minFeeZat: 15_000n });
+    const ask = (min_out: bigint) => signIntent(newSigningKey(), { escrow: W.escrow.address, pay_zat: String(min_out + 20_000n), min_out_zat: String(min_out), receive_ua: W.receive.address, receive_uivk: W.receive.uivk, refund_ua: W.user.address, deadline_height: 5_000_000 });
+    expect(await solver.capacity(ask(have + 1n))).toEqual({ ok: false, reason: `min_out ${have + 1n} zat is above the solver's spendable balance ${have} zat` });
+    if (have > 0n) expect(await solver.capacity(ask(have))).toEqual({ ok: true });
+  });
+});
+

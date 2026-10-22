@@ -99,7 +99,7 @@ async function main() {
   await mined(st.uivk.user, st.tx.fund, 'fund');
 
   const verifier = new Verifier({ key: verifierKey, escrowWallet: W('escrow'), escrowUa: st.addr.escrow, escrowUivk: st.uivk.escrow, solvers: [keyId(solverSign.publicKey)], zingo: cfg, statePath: resolve(DEMO, 'verifier-state.json'), tip: chainTip });
-  const solver = new Solver({ sign: solverSign, kem: solverKem, wallet: W('solver'), ua: st.addr.solver, escrowUivk: st.uivk.escrow, zingo: cfg, minFeeZat: 15_000n });
+  const solver = new Solver({ sign: solverSign, kem: solverKem, wallet: W('solver'), ua: st.addr.solver, escrowUivk: st.uivk.escrow, zingo: cfg, minFeeZat: 15_000n, balanceRetries: 20 });
   const desk = new Desk({ boardPath: resolve(DEMO, 'board.json'), solver, verifier, tip: chainTip, info: {} });
 
   // ---- intents ----

@@ -58,8 +58,8 @@ function live(statePath: string) {
   const vKey = signingKeyFromSeed(hexToBytes(st.seeds.verifier));
   const sKey = signingKeyFromSeed(hexToBytes(st.seeds.solverSign));
   const kKey = kemKeyFromSeed(hexToBytes(st.seeds.solverKem));
-  const verifier = new Verifier({ key: vKey, escrowWallet: resolve(demo, 'wallets/escrow'), escrowUa: st.addr.escrow, escrowUivk: st.uivk.escrow, solvers: [keyId(sKey.publicKey)], zingo: cfg, statePath: resolve(demo, 'verifier-state.json'), tip: chainTip });
-  const solver = new Solver({ sign: sKey, kem: kKey, wallet: resolve(demo, 'wallets/solver'), ua: st.addr.solver, escrowUivk: st.uivk.escrow, zingo: cfg, minFeeZat: 15_000n });
+  const verifier = new Verifier({ key: vKey, escrowWallet: resolve(demo, 'wallets/escrow'), escrowUa: st.addr.escrow, escrowUivk: st.uivk.escrow, solvers: [keyId(sKey.publicKey)], zingo: cfg, statePath: resolve(demo, 'verifier-state.json'), tip: chainTip, balanceRetries: 0 });
+  const solver = new Solver({ sign: sKey, kem: kKey, wallet: resolve(demo, 'wallets/solver'), ua: st.addr.solver, escrowUivk: st.uivk.escrow, zingo: cfg, minFeeZat: 15_000n, balanceRetries: 0 });
   const info = {
     mode: 'live',
     escrow: { address: st.addr.escrow, uivk: st.uivk.escrow },

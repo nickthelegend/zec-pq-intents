@@ -7,7 +7,7 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { keyId, ProtocolError, toB64, type Envelope, type FillClaim, type SignedIntent } from '@pqi/protocol';
-import type { Solver } from './solver.js';
+import { InsufficientBalanceError, type Solver } from './solver.js';
 import type { Verifier } from './verifier.js';
 
 export type Stage = 'received' | 'declined' | 'funded' | 'filled' | 'settled' | 'refunded' | 'rejected' | 'refund_refused';
@@ -23,6 +23,10 @@ export interface BoardItem {
   fillTxid: string | null;
   claim: FillClaim | null;
   postedAt: string;
+  /** errors a tick hit on this item (each is also in `note`); the tick moves on to the next item */
+  failures?: number;
+  /** the solver's wallet could not fund the delivery yet: not tried again before this height */
+  retryAfter?: number;
 }
 
 export interface DeskConfig {
@@ -63,9 +67,9 @@ export class Desk {
     return item;
   }
 
-  /** Advances one item as far as the chain allows now. Returns what happened. */
-  async step(item: BoardItem): Promise<string> {
-    const tip = await this.c.tip();
+  /** Advances one item as far as the chain allows at `tip`. Returns what happened. */
+  async step(item: BoardItem, tip?: number): Promise<string> {
+    tip ??= await this.c.tip();
     let s: SignedIntent;
     try {
       s = this.c.solver.open(item.envelope);
@@ -80,19 +84,31 @@ export class Desk {
       const f = await this.c.solver.funded(item.hash, s, item.fundingTxid, tip);
       if (!f.ok) return `waiting for funding: ${f.reasons.join(', ')}`;
       const q = await this.c.solver.quote(s, tip);
-      if (!q.accept) {
+      const room = q.accept ? await this.c.solver.capacity(s) : null;
+      if (!q.accept || !room!.ok) {
         item.stage = 'declined';
-        item.note = q.reason;
+        item.note = q.accept ? (room as { reason: string }).reason : q.reason;
         this.save();
-        return q.reason;
+        return item.note;
       }
       item.stage = 'funded';
       this.save();
     }
     if (item.stage === 'funded') {
-      item.fillTxid = await this.c.solver.deliver(item.hash, s);
+      if (item.retryAfter !== undefined && tip < item.retryAfter) return `waiting for the solver's balance until block ${item.retryAfter}`;
+      try {
+        item.fillTxid = await this.c.solver.deliver(item.hash, s);
+      } catch (e) {
+        if (!(e instanceof InsufficientBalanceError)) throw e;
+        item.retryAfter = tip + 1;
+        item.note = `waiting for the solver's balance: ${e.message}`;
+        this.save();
+        return item.note;
+      }
+      delete item.retryAfter;
       item.claim = this.c.solver.claim(item.hash, item.fillTxid);
       item.stage = 'filled';
+      item.note = null;
       this.save();
       return `filled ${item.fillTxid}`;
     }
@@ -119,12 +135,22 @@ export class Desk {
 
   private ticking: Promise<{ hash: string; result: string }[]> | null = null;
 
-  /** One pass over the open intents. A call while a pass is running gets that pass's result. */
+  /** One pass over the open intents, at one chain tip. An error on one item is written to its note
+   *  and the pass goes on to the next, so one bad intent or one failed call cannot stop refunds and
+   *  settlements of the others. A call while a pass is running gets that pass's result. */
   tick(): Promise<{ hash: string; result: string }[]> {
     this.ticking ??= (async () => {
+      const tip = await this.c.tip();
       const out = [];
       for (const i of this.items.filter((x) => OPEN.includes(x.stage))) {
-        out.push({ hash: i.hash, result: await this.step(i) });
+        try {
+          out.push({ hash: i.hash, result: await this.step(i, tip) });
+        } catch (e) {
+          i.failures = (i.failures ?? 0) + 1;
+          i.note = `error: ${(e as Error).message}`;
+          this.save();
+          out.push({ hash: i.hash, result: i.note });
+        }
       }
       return out;
     })().finally(() => (this.ticking = null));

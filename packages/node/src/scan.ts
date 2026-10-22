@@ -42,18 +42,32 @@ export function scanBinary(env: Record<string, string | undefined> = process.env
   return found;
 }
 
-/** Runs zpay-verify with `env` (keys go in the environment only). Exit 0 and 1 are verdicts. */
+/** How long one zpay-verify call may take before it is killed (PQI_SCAN_TIMEOUT_MS, default 90 s;
+ *  the binary itself gives up connecting after 10 s and on a request after 60 s). */
+export const scanTimeoutMs = (env: Record<string, string | undefined> = process.env) => {
+  const ms = Number(env.PQI_SCAN_TIMEOUT_MS ?? 90_000);
+  return Number.isSafeInteger(ms) && ms > 0 ? ms : 90_000;
+};
+
+/** Runs zpay-verify with `env` (keys go in the environment only), asynchronously, so a slow or
+ *  unreachable lightwalletd never blocks the process. Exit 0 and 1 are verdicts. A call that runs
+ *  past scanTimeoutMs() is killed and rejected. */
 async function zpv(args: string[], env: Record<string, string>): Promise<{ code: number | null; out: string; err: string }> {
   const full: Record<string, string> = { PATH: process.env.PATH ?? '', ...env };
   if (process.env.PQI_LWD_URL) full.ZPV_LWD_URL = process.env.PQI_LWD_URL;
+  const ms = scanTimeoutMs();
   return new Promise((res, rej) => {
     const p = spawn(scanBinary(), args, { env: full });
     let out = '';
     let err = '';
+    const timer = setTimeout(() => {
+      p.kill('SIGKILL');
+      rej(new Error(`zpay-verify ${args[0]} timed out after ${ms} ms (lightwalletd ${full.ZPV_LWD_URL ?? 'https://testnet.zec.rocks:443'})`));
+    }, ms);
     p.stdout.on('data', (d) => (out += d));
     p.stderr.on('data', (d) => (err += d));
-    p.on('error', rej);
-    p.on('close', (c) => res({ code: c, out, err }));
+    p.on('error', (e) => (clearTimeout(timer), rej(e)));
+    p.on('close', (c) => (clearTimeout(timer), res({ code: c, out, err })));
   });
 }
 
@@ -89,14 +103,16 @@ export async function owns(uivk: string, ua: string): Promise<Ownership & { inva
 
 /** UFVK → UIVK with the scan binary (env only). */
 export async function uivkFromUfvk(ufvk: string): Promise<string> {
-  const { execFileSync } = await import('node:child_process');
-  return execFileSync(scanBinary(), ['derive'], { env: { PATH: process.env.PATH ?? '', ZPV_UFVK: ufvk } }).toString().trim();
+  const { code, out, err } = await zpv(['derive'], { ZPV_UFVK: ufvk });
+  if (code !== 0) throw new Error(`derive failed: ${err.replace(/^error: /, '').trim()}`);
+  return out.trim();
 }
 
-/** Current chain height from lightwalletd. */
+/** Current chain height from lightwalletd (asynchronous, with the scan timeout). */
 export async function chainTip(): Promise<number> {
-  const { execFileSync } = await import('node:child_process');
-  const env: Record<string, string> = { PATH: process.env.PATH ?? '' };
-  if (process.env.PQI_LWD_URL) env.ZPV_LWD_URL = process.env.PQI_LWD_URL;
-  return Number(execFileSync(scanBinary(), ['tip'], { env }).toString().trim());
+  const { code, out, err } = await zpv(['tip'], {});
+  if (code !== 0) throw new Error(`chain tip: ${err.replace(/^error: /, '').trim()}`);
+  const h = Number(out.trim());
+  if (!Number.isSafeInteger(h) || h <= 0) throw new Error(`chain tip: lightwalletd answered ${JSON.stringify(out.trim().slice(0, 40))}, not a block height`);
+  return h;
 }

@@ -5,10 +5,21 @@
 import { keyId, memo, open, ProtocolError, signFill, type Envelope, type FillClaim, type KemKey, type SignedIntent, type SigningKey } from '@pqi/protocol';
 import { owns, scan, type ScanResult } from './scan.js';
 import { confirmationsAt, MIN_CONFIRMATIONS } from './verifier.js';
-import { quicksend, type ZingoConfig } from './zingo.js';
+import { quicksend, spendable, type ZingoConfig } from './zingo.js';
 
 /** Blocks a fill needs to be mined by the deadline with room to spare (testnet blocks are ~75 s). */
 export const MIN_BLOCKS_LEFT = 3;
+/** The furthest deadline the solver takes on: an intent it accepts holds its liquidity until then. */
+export const MAX_BLOCKS_AHEAD = 1000;
+
+/** The wallet cannot fund a payment yet (notes not spendable, or not enough). zingo-cli fails this
+ *  while proposing, before anything is built or broadcast, so trying again later is safe. */
+export class InsufficientBalanceError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InsufficientBalanceError';
+  }
+}
 
 export interface SolverConfig {
   sign: SigningKey;
@@ -23,6 +34,11 @@ export interface SolverConfig {
   minBlocksLeft?: number;
   /** default MIN_CONFIRMATIONS: the escrow funding must be this deep before the solver delivers */
   minConfirmations?: number;
+  /** default MAX_BLOCKS_AHEAD: decline an intent whose deadline is further away than this */
+  maxBlocksAhead?: number;
+  /** how many times deliver() waits a minute and retries "Insufficient balance" (default 0: throw
+   *  InsufficientBalanceError at once, so a desk tick never sleeps; the desk retries next block) */
+  balanceRetries?: number;
 }
 
 /** `payTo`: the one receiver of the user's receive address that its viewing key derives. */
@@ -42,9 +58,18 @@ export class Solver {
     const left = s.intent.deadline_height - tip;
     const need = this.c.minBlocksLeft ?? MIN_BLOCKS_LEFT;
     if (left < need) return { accept: false, reason: `deadline ${s.intent.deadline_height} is ${left} block(s) away (tip ${tip}); a fill needs ${need} to be mined in time` };
+    const most = this.c.maxBlocksAhead ?? MAX_BLOCKS_AHEAD;
+    if (left > most) return { accept: false, reason: `deadline ${s.intent.deadline_height} is ${left} blocks away (tip ${tip}); this solver takes deadlines up to ${most} blocks ahead` };
     const r = await this.receiver(s);
     if (!r.ok) return { accept: false, reason: r.reason };
     return { accept: true, feeZat: fee, payTo: r.payTo };
+  }
+
+  /** Can the solver's wallet pay `min_out_zat` now? Reads its spendable balance (zingo-cli). */
+  async capacity(s: SignedIntent): Promise<{ ok: true } | { ok: false; reason: string }> {
+    const have = await spendable(this.c.zingo, this.c.wallet);
+    const need = BigInt(s.intent.min_out_zat);
+    return have >= need ? { ok: true } : { ok: false, reason: `min_out ${need} zat is above the solver's spendable balance ${have} zat` };
   }
 
   /** Where a delivery goes: one shielded receiver of `receive_ua` that `receive_uivk` derives. The
@@ -77,12 +102,14 @@ export class Solver {
   async deliver(hash: string, s: SignedIntent, memoOverride?: string): Promise<string> {
     const r = await this.receiver(s);
     if (!r.ok) throw new ProtocolError('RECEIVE_KEY_MISMATCH', r.reason);
+    const retries = this.c.balanceRetries ?? 0;
     for (let i = 0; ; i++) {
       try {
         const [txid] = await quicksend(this.c.zingo, this.c.wallet, [{ address: r.payTo, amount: BigInt(s.intent.min_out_zat), memo: memoOverride ?? memo.fill(hash, this.id) }]);
         return txid;
       } catch (e) {
-        if (!/Insufficient balance/.test((e as Error).message) || i >= 20) throw e;
+        if (!/Insufficient balance/.test((e as Error).message)) throw e;
+        if (i >= retries) throw new InsufficientBalanceError((e as Error).message);
         await new Promise((r) => setTimeout(r, 60_000));
       }
     }

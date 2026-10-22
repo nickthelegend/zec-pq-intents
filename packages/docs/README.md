@@ -58,6 +58,7 @@ periodically:                                               log head + previous 
 | fill with the wrong memo or amount | receive UIVK must see `pqi1:<hash>:fill:<solver>` ≥ min_out | `FILL_NOT_CREDITED:…` |
 | fill mined after the deadline | fill height ≤ deadline | `EXPIRED` |
 | escrow not funded (or too little, or late) | escrow UIVK must see `pqi1:<hash>` ≥ pay by the deadline | `NOT_FUNDED:…`, `FUNDED_AFTER_DEADLINE` |
+| an intent paying no more than the 15,000 zat fee budget (a payout of it would be zero or negative) | `pay_zat` > 15,000 | `PAY_BELOW_FEE_BUDGET` |
 | refund before the deadline | tip > deadline | `NOT_EXPIRED_YET` |
 | refund inside the claim window (a fill mined by the deadline may still be claimed) | tip > deadline + 10 | `CLAIM_WINDOW_OPEN` |
 | a signature or key in a second base64 spelling | canonical base64 only | `BAD_ENCODING` |
@@ -75,9 +76,14 @@ expired (120 blocks on this testnet), so it can never be mined later, and only t
 
 **Desk rules.** An envelope is opened when it is posted. If it does not open with the solver's key to
 a signed intent with that hash, it is refused and never takes the hash's place on the board. One
-tick runs at a time. An intent that is declined, rejected or never filled is refunded by the
-verifier once the deadline and the claim window have passed. The solver declines intents with
-fewer than 3 blocks left. POSTs need an `application/json` body of at most 64 KiB, so a page on
+tick runs at a time, at one chain tip; an error on one intent (a failed wallet call, a timeout) is
+written to that intent's note with a failure count and the tick goes on to the next, so one bad
+intent cannot stop the others' settlements and refunds. Every lightwalletd call is asynchronous
+and killed after `PQI_SCAN_TIMEOUT_MS` (90 s), so the desk keeps answering while the chain is slow.
+A delivery the solver's wallet cannot fund yet is tried again from the next block, not slept on
+inside the tick. An intent that is declined, rejected or never filled is refunded by the verifier
+once the deadline and the claim window have passed. The solver declines intents with fewer than 3
+blocks left, a deadline more than 1,000 blocks ahead, or `min_out` above its spendable balance. POSTs need an `application/json` body of at most 64 KiB, so a page on
 another site cannot trigger them. Reads stay open (CORS `*`).
 
 **Agents.** `verify_log` needs the verifier key id you trust (`PQI_VERIFIER_ID`), so the desk cannot

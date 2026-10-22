@@ -158,8 +158,14 @@ export class Verifier {
         return txid;
       } catch (e) {
         // "Insufficient balance" fails while proposing, before anything is built or broadcast, so it is
-        // safe to try again in this process. Any other failure keeps the write-ahead record.
-        if (!/Insufficient balance/.test((e as Error).message) || i >= retries) throw e;
+        // safe to try again. Any other failure keeps the write-ahead record.
+        if (!/Insufficient balance/.test((e as Error).message)) throw e;
+        if (i >= retries) {
+          // Nothing went out: drop the record and come back later instead of sleeping here.
+          delete sending[key];
+          this.save();
+          return { status: 'PENDING', reason: `PAYOUT_WAITING_FOR_BALANCE: ${key} (${(e as Error).message})` };
+        }
         await new Promise((r) => setTimeout(r, 60_000));
       }
     }
@@ -221,6 +227,8 @@ export class Verifier {
     const firstUse = this.state.nonces[s.intent.user]?.[s.intent.nonce];
     if (firstUse && firstUse !== hash) return this.reject(hash, 'NONCE_REUSED', { funding_txid: fundingTxid, first_use: firstUse });
     if (s.intent.escrow !== this.c.escrowUa) return this.reject(hash, 'WRONG_ESCROW', { funding_txid: fundingTxid });
+    // A release or refund pays pay_zat - FEE_BUDGET_ZAT; at or below the budget there is nothing to pay.
+    if (BigInt(s.intent.pay_zat) <= FEE_BUDGET_ZAT) return this.reject(hash, 'PAY_BELOW_FEE_BUDGET', { funding_txid: fundingTxid, pay_zat: s.intent.pay_zat, fee_budget_zat: FEE_BUDGET_ZAT.toString() });
     // A fill is read with receive_uivk; if that key does not derive receive_ua, a delivery to
     // receive_ua would be invisible here, refused, and the escrow refunded on top of it.
     if (!forRefund && !(await owns(s.intent.receive_uivk, s.intent.receive_ua)).pay_to) return this.reject(hash, 'RECEIVE_KEY_MISMATCH', { funding_txid: fundingTxid });
