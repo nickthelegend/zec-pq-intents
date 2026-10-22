@@ -1,7 +1,7 @@
 // Anchor chain: the verifier's anchors name the previous anchor, and every anchor the escrow ever sent
 // is read from its own history on Zcash testnet (a view-only wallet from the escrow's published full
 // viewing key), so a log that hides an anchor, or is not the log that was anchored, is caught.
-import { spawnSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -78,21 +78,25 @@ describe('pass 3 in the escrow’s history (Zcash testnet)', () => {
 });
 
 describe('check-anchors on the published records (Zcash testnet, the escrow pinned)', () => {
+  /** The CLI as a child process (async, so the test worker keeps answering while it syncs). */
   const run = (record: string, ...flags: string[]) =>
-    spawnSync(resolve(__dirname, '../node_modules/.bin/tsx'), [resolve(__dirname, '../src/check-anchors.ts'), resolve(__dirname, '../../../deployments', record), ...flags], {
-      env: { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '', PQI_VERIFIER_ID: d.keys.verifier.id, PQI_ESCROW_UA: W.escrow.address, PQI_HISTORY_WALLET: VIEW, ...(process.env.PQI_ZINGO_CLI ? { PQI_ZINGO_CLI: process.env.PQI_ZINGO_CLI } : {}) },
-      encoding: 'utf8',
-      timeout: 600_000,
+    new Promise<{ status: number | null; stdout: string; stderr: string }>((done) => {
+      execFile(
+        resolve(__dirname, '../node_modules/.bin/tsx'),
+        [resolve(__dirname, '../src/check-anchors.ts'), resolve(__dirname, '../../../deployments', record), ...flags],
+        { env: { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '', PQI_VERIFIER_ID: d.keys.verifier.id, PQI_ESCROW_UA: W.escrow.address, PQI_HISTORY_WALLET: VIEW, ...(process.env.PQI_ZINGO_CLI ? { PQI_ZINGO_CLI: process.env.PQI_ZINGO_CLI } : {}) }, encoding: 'utf8', timeout: 600_000, maxBuffer: 16 * 1024 * 1024 },
+        (err, stdout, stderr) => done({ status: err ? ((err as { code?: number }).code ?? null) : 0, stdout, stderr }),
+      );
     });
 
-  it('the newest record (pass 3) exits 0; the Oct 20 record is behind the escrow’s anchors and exits 1 with LOG_BEHIND_ANCHORS, or 0 with --allow-behind', () => {
-    const p3 = run('testnet-pass3.json');
+  it('the newest record (pass 3) exits 0; the Oct 20 record is behind the escrow’s anchors and exits 1 with LOG_BEHIND_ANCHORS, or 0 with --allow-behind', async () => {
+    const p3 = await run('testnet-pass3.json');
     expect(p3.status, p3.stderr).toBe(0);
     expect(JSON.parse(p3.stdout)).toMatchObject({ ok: true, later: [], problems: [] });
-    const oct20 = run('testnet.json');
+    const oct20 = await run('testnet.json');
     expect(oct20.status, oct20.stderr).toBe(1);
     expect(JSON.parse(oct20.stdout).problems).toEqual([expect.objectContaining({ kind: 'LOG_BEHIND_ANCHORS' })]);
-    const older = run('testnet.json', '--allow-behind');
+    const older = await run('testnet.json', '--allow-behind');
     expect(older.status, older.stderr).toBe(0);
     expect(JSON.parse(older.stdout)).toMatchObject({ ok: true, allow_behind: true, later: expect.arrayContaining([{ txid: p2.txs.anchor, seq: 11 }]) });
   }, 900_000);
