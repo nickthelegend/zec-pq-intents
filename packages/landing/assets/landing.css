@@ -226,3 +226,18 @@ td.wrap { white-space: normal; }
 .refusals .ref:last-child:nth-child(4n + 3) { grid-column: span 2; }
 @media (max-width: 1100px) { .refusals .ref:last-child:nth-child(4n + 3) { grid-column: auto; } .refusals .ref:last-child:nth-child(2n + 1) { grid-column: span 2; } }
 @media (max-width: 760px) { .refusals .ref:last-child:nth-child(2n + 1) { grid-column: auto; } }
+/* the agent path: six steps, three across */
+.flow.agent { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.flow.agent div:nth-child(3n) { border-right: 0; }
+.flow.agent div:nth-child(-n + 3) { border-bottom: 1px solid var(--line); }
+@media (max-width: 1100px) {
+  .flow.agent { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .flow.agent div { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .flow.agent div:nth-child(2n) { border-right: 0; }
+  .flow.agent div:nth-last-child(-n + 2) { border-bottom: 0; }
+}
+@media (max-width: 760px) {
+  .flow.agent { grid-template-columns: 1fr; }
+  .flow.agent div { border-right: 0; border-bottom: 1px solid var(--line); }
+  .flow.agent div:last-child { border-bottom: 0; }
+}

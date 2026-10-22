@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 // Builds the landing from the published runs, so every number and hash on the page comes from
-// deployments/testnet.json (Oct 20: intents A-C, entries #0-9) and deployments/testnet-pass2.json
-// (Oct 21: intent D, the same verifier's log continued to #12, a second anchor):
+// deployments/testnet.json (Oct 20: intents A-C, entries #0-9), deployments/testnet-pass2.json
+// (Oct 21: intent D, the same verifier's log continued to #12, a second anchor) and, when present,
+// deployments/testnet-pass3.json (Oct 22: intent E submitted by an agent through MCP, the log
+// continued, a third anchor):
 //   index.html      the page (static; readable without JavaScript)
 //   src/run.json    the log + verifier key + anchors the tape re-checks
 //   assets/tape.js  src/tape.ts bundled with @pqi/protocol (esbuild)
 // Usage: node packages/landing/build.mjs
 import { execFileSync } from 'node:child_process';
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -20,6 +22,14 @@ if (p2.keys.verifier.id !== d.keys.verifier.id) throw new Error('pass 2 is signe
 d.log.forEach((e, i) => {
   if (p2.log[i]?.hash !== e.hash) throw new Error(`pass 2 does not extend the Oct 20 log at entry #${i}`);
 });
+const P3_PATH = join(root, 'deployments/testnet-pass3.json');
+const p3 = existsSync(P3_PATH) ? JSON.parse(readFileSync(P3_PATH, 'utf8')) : null;
+if (p3) {
+  if (p3.keys.verifier.id !== d.keys.verifier.id) throw new Error('pass 3 is signed by another verifier key');
+  p2.log.forEach((e, i) => {
+    if (p3.log[i]?.hash !== e.hash) throw new Error(`pass 3 does not extend the pass-2 log at entry #${i}`);
+  });
+}
 const EXPLORER = 'https://testnet.zcashexplorer.app/transactions/';
 const REPO = 'https://github.com/nickthelegend/zec-pq-intents';
 const TESTS = JSON.parse(readFileSync(join(here, 'tests.json'), 'utf8'));
@@ -29,21 +39,23 @@ const short = (h, n = 8) => `${h.slice(0, n)}…`;
 const zat = (v) => Number(v).toLocaleString('en-US');
 const b64len = (s) => Buffer.from(s, 'base64').length;
 const tx = (id, label) => (id ? `<a class="tx" href="${EXPLORER}${id}" target="_blank" rel="noopener" aria-label="${esc(label ?? 'transaction')} ${short(id)} on the Zcash testnet explorer">${short(id)}</a>` : '<span class="muted">none</span>');
-const intents = { ...d.intents, D: p2.intent };
+const intents = { ...d.intents, D: p2.intent, ...(p3 ? { E: p3.intent } : {}) };
 const LETTERS = Object.keys(intents);
 const letter = Object.fromEntries(Object.entries(intents).map(([k, v]) => [v.hash, k]));
 const subject = (e) => (e.intent_hash ? (letter[e.intent_hash] ? `Intent ${letter[e.intent_hash]}` : `intent ${short(e.intent_hash, 6)}`) : 'log head');
 const firstTx = (refs) => Object.entries(refs).find(([k]) => /(release|refund|anchor|fill)_txid$/.test(k)) ?? Object.entries(refs).find(([k]) => k.endsWith('_txid'));
-const log = p2.log;
+const log = (p3 ?? p2).log;
 const PASS2_FROM = d.log.length;
+const PASS3_FROM = p3 ? p2.log.length : Infinity;
 const count = (s) => log.filter((e) => e.status === s).length;
 const anchors = log.filter((e) => e.status === 'ANCHORED');
 const anchorEntry = anchors[anchors.length - 1];
 const anchoredSeq = Number(anchorEntry.refs.anchored_seq);
 const anchorPath = anchors.map((a) => `#${a.refs.anchored_seq}`).join(' → ');
 const day = (iso) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-const ranAt = `${day(d.ranAt)} + ${day(p2.ranAt)}`;
-const pass = (seq) => (seq >= PASS2_FROM ? 'pass 2' : 'Oct 20');
+const ranAt = [d, p2, ...(p3 ? [p3] : [])].map((r) => day(r.ranAt)).join(' + ');
+const pass = (seq) => (seq >= PASS3_FROM ? 'pass 3' : seq >= PASS2_FROM ? 'pass 2' : 'Oct 20');
+const p3Settled = p3 ? log.find((e) => e.status === 'SETTLED' && e.intent_hash === p3.intent.hash) : null;
 
 const WHY = {
   2: 'The solver "filled" C with the wrong memo and too little',
@@ -62,6 +74,10 @@ const LABEL = {
   11: 'released once, after a SIGKILL right after the broadcast',
   12: 'head of entries 0–11; names the #8 anchor',
 };
+if (p3) {
+  LABEL[p3Settled.seq] = 'the agent’s intent (MCP): fill found after a SIGKILL, released once';
+  for (const a of log.filter((e) => e.status === 'ANCHORED' && e.seq >= PASS3_FROM)) LABEL[a.seq] = `head of entries 0–${a.refs.anchored_seq}; names the previous anchor`;
+}
 
 // ---------- pieces ----------
 const tickerItems = log
@@ -97,7 +113,7 @@ const tapeRows = log
   .map((e) => {
     const t = firstTx(e.refs);
     const what = e.status === 'REJECTED' ? `${esc(WHY[e.seq] ?? subject(e))} <code>${esc(e.reason)}</code>` : `${esc(subject(e))}: ${esc(LABEL[e.seq] ?? e.status.toLowerCase())}`;
-    const sep = e.seq === PASS2_FROM ? `<li class="run-sep" aria-hidden="true">Pass 2 · ${day(p2.ranAt)} · same verifier key, the log continues</li>` : '';
+    const sep = e.seq === PASS2_FROM ? `<li class="run-sep" aria-hidden="true">Pass 2 · ${day(p2.ranAt)} · same verifier key, the log continues</li>` : e.seq === PASS3_FROM ? `<li class="run-sep" aria-hidden="true">Pass 3 · ${day(p3.ranAt)} · an agent through MCP, same verifier key</li>` : '';
     return `${sep}<li data-seq="${e.seq}"><span class="seq">#${e.seq}</span><span class="blk">${zat(e.at_height)}</span><span class="st st-${e.status.toLowerCase()}">${e.status}</span><span class="what" title="${esc(what.replace(/<[^>]+>/g, ''))}">${what}</span><span class="txc">${t ? `<span class="muted">${t[0].replace('_txid', '')}</span> ${tx(t[1], t[0].replace('_txid', ''))}` : ''}</span><span class="sigcell">not checked</span></li>`;
   })
   .join('');
@@ -115,6 +131,19 @@ const refusals = log
     `<div class="ref tested"><code>RECEIVE_KEY_MISMATCH</code><p>A receive viewing key from another wallet, so the user could keep the delivery and be refunded too.</p><small>tested on the run’s keys · not a live entry</small></div>`,
   ])
   .join('');
+
+const agentSteps = p3
+  ? [
+      ['quote', `<code>quote</code> → accept, spread ${zat(p3.agent.quote.fee_zat)} zat, a refund would return ${zat(p3.agent.quote.refund_if_unfilled_zat)}.`],
+      ['submit_intent', `Signed E with the agent’s own ML-DSA-65 key, saved it, funded ${tx(p3.txs.funding, 'funding')} and posted the envelope; delivered to a new receive address (index ${zat(p3.agent.receive_index)}), not one A–D used.`],
+      ['Killed', `The desk got ${esc(p3.crash.signal)} right after the solver’s fill broadcast, with its write-ahead record at block ${zat(p3.crash.board_after_kill.delivering.at_height)} and no txid saved.`],
+      ['Found, not resent', `On restart the solver’s history held the fill memo in ${tx(p3.txs.fill, 'fill')}; it was adopted, sent ${p3.crash.solver_sends_with_fill_memo.length === 1 ? 'once' : `${p3.crash.solver_sends_with_fill_memo.length} times`}.`],
+      ['Settled', `log #${p3Settled.seq}: released ${zat(p3Settled.refs.released_zat)} zat ${tx(p3.txs.release, 'release')}; the next anchor ${tx(p3.txs.anchor, 'anchor')} names pass 2’s.`],
+      ['Audited', `<code>verify_log</code> over MCP: ${p3.checks.verify_log.ok ? 'ok' : 'failed'}, ${p3.checks.verify_log.entries} entries, ${p3.checks.verify_log.anchor.anchors} anchors; <code>check-anchors</code> with the escrow pinned: exit ${p3.checks.check_anchors.exit}, ${p3.checks.check_anchors.chain.length} anchors in one chain.`],
+    ]
+      .map(([h, p]) => `<div><b>${h}</b><p>${p}</p></div>`)
+      .join('')
+  : '';
 
 const crash = p2.crash;
 const crashSteps = [
@@ -193,12 +222,12 @@ const html = `<!doctype html>
     </section>
 
     <section class="p s7" aria-labelledby="book-h">
-      <div class="ph"><h2 id="book-h">Intent book</h2><span class="meta">zat · ${LETTERS.length} intents · 2 runs</span></div>
+      <div class="ph"><h2 id="book-h">Intent book</h2><span class="meta">zat · ${LETTERS.length} intents · ${p3 ? 3 : 2} runs</span></div>
       <table class="book stack">
         <thead><tr><th scope="col">Intent</th><th scope="col" class="r">Escrow</th><th scope="col" class="r">Deliver ≥</th><th scope="col" class="r">Solver spread</th><th scope="col" class="r">Deadline</th><th scope="col">Status</th><th scope="col">Payout</th></tr></thead>
         <tbody>${bookRows}</tbody>
       </table>
-      <p class="book-note">The bar under “Deliver ≥” is the share of the escrow the solver must deliver. Solver spread is escrow minus delivery (20,000). A release or a refund pays the escrow minus a 15,000 zat fee budget, so a release is 45,000 and the solver nets 5,000 over what it delivered; a refund returns 45,000 of the 60,000 (the user loses 15,000, a quarter). The part of the fee budget the payout transaction does not spend stays in the escrow wallet, which the verifier holds. A, B and C were funded together in ${tx(d.txs.funding, 'funding')}; D, in pass 2, in ${tx(p2.txs.funding, 'funding')}.</p>
+      <p class="book-note">The bar under “Deliver ≥” is the share of the escrow the solver must deliver. Solver spread is escrow minus delivery (20,000). A release or a refund pays the escrow minus a 15,000 zat fee budget, so a release is 45,000 and the solver nets 5,000 over what it delivered; a refund returns 45,000 of the 60,000 (the user loses 15,000, a quarter). The part of the fee budget the payout transaction does not spend stays in the escrow wallet, which the verifier holds. A, B and C were funded together in ${tx(d.txs.funding, 'funding')}; D, in pass 2, in ${tx(p2.txs.funding, 'funding')}${p3 ? `; E, by the agent in pass 3, in ${tx(p3.txs.funding, 'funding')}` : ''}.</p>
       <div class="flow">
         <div><b>Sign</b><p>ML-DSA-65 over the canonical intent; the key id is inside it.</p></div>
         <div><b>Seal</b><p>ML-KEM-768 + HKDF + AES-256-GCM to the solver's key.</p></div>
@@ -240,7 +269,12 @@ const html = `<!doctype html>
       <div class="flow crash">${crashSteps}</div>
     </section>
 
-    <section class="p s6" aria-labelledby="prim-h">
+${p3 ? `    <section class="p s12" id="agent" aria-labelledby="agent-h">
+      <div class="ph"><h2 id="agent-h">An agent trades through MCP, live</h2><span class="meta">pass 3 · intent E · ${day(p3.ranAt)}</span></div>
+      <div class="flow crash agent">${agentSteps}</div>
+    </section>
+
+` : ''}    <section class="p s6" aria-labelledby="prim-h">
       <div class="ph"><h2 id="prim-h">Primitives</h2><span class="meta">bytes measured from intent A</span></div>
       <table class="stack">
         <thead><tr><th scope="col">Primitive</th><th scope="col">Standard</th><th scope="col" class="r">Bytes</th><th scope="col">Used for</th></tr></thead>
@@ -266,8 +300,10 @@ const html = `<!doctype html>
       <div class="pb">
 <pre><b>verify_log</b>     the desk vs your pinned verifier key;
                every hash, link, signature, anchor memo
-<b>submit_intent</b>  sign, seal, fund: pinned escrow + KEM key only
-               (tested on its refusals; see the README for live runs)
+<b>submit_intent</b>  sign, seal, save, fund, post: pinned escrow
+               + KEM key only; a new receive address each time${p3 ? `
+               (ran live: intent E, pass 3)` : ''}
+<b>resubmit</b>       post a saved, funded intent again
 <b>status</b>         an intent's stage and signed entries
 <b>quote</b>          the fee vs the solver's published minimum</pre>
       </div>
@@ -297,7 +333,7 @@ PQI_PUBLISHED=deployments/testnet.json \\
       <div class="pb">
         <ul class="plain">
           <li>Not trustless. The verifier holds the escrow and could withhold a payout. It cannot change the record without the signatures, links or anchors showing it.</li>
-          <li>The solver and the verifier read the plaintext intent. One receive address served all four intents (A–D), so those deliveries can be linked.</li>
+          <li>The solver and the verifier read the plaintext intent. One receive address served all four intents (A–D), so those deliveries can be linked${p3 ? '; E, submitted by the agent, got an address of its own' : ''}.</li>
           <li>The escrow’s full viewing key is published for auditability: it shows every payout’s recipient and amount, not only the fundings.</li>
           <li>Anchors are periodic, and each names the one before it. Every anchor the escrow sent can be listed, and a second head, an anchor that names none, or one off the chain fails the check; entries after the last anchor are not covered. Funding and fills need 3 confirmations.</li>
           <li>ZEC only, testnet only, a single verifier key, not audited. A portfolio piece: the Zecathon entry is Shielded x402.</li>
@@ -310,7 +346,8 @@ PQI_PUBLISHED=deployments/testnet.json \\
 <footer class="foot">
   <span>MIT · Copyright (c) 2026 Nivesh Gajengi</span>
   <a href="${REPO}/blob/main/deployments/testnet.json">Run record (Oct 20)</a>
-  <a href="${REPO}/blob/main/deployments/testnet-pass2.json">Pass 2 (Oct 21)</a>
+  <a href="${REPO}/blob/main/deployments/testnet-pass2.json">Pass 2 (Oct 21)</a>${p3 ? `
+  <a href="${REPO}/blob/main/deployments/testnet-pass3.json">Pass 3 (Oct 22)</a>` : ''}
   <a href="${REPO}/blob/main/docs/JUDGE-2026-10-21.md">Review</a>
   <span>Zcash testnet · not audited</span>
 </footer>

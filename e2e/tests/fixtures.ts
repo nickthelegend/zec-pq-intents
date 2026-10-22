@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test as base, expect, type Locator, type Page } from '@playwright/test';
 
@@ -6,6 +6,14 @@ export * from './urls';
 export const root = resolve(import.meta.dirname, '../..');
 export const oct20 = JSON.parse(readFileSync(resolve(root, 'deployments/testnet.json'), 'utf8'));
 export const pass2 = JSON.parse(readFileSync(resolve(root, 'deployments/testnet-pass2.json'), 'utf8'));
+const P3 = resolve(root, 'deployments/testnet-pass3.json');
+/** Pass 3 (Oct 22, the agent path), when it has been recorded. */
+export const pass3 = existsSync(P3) ? JSON.parse(readFileSync(P3, 'utf8')) : null;
+/** The newest record: its log holds every entry of the runs before it. */
+export const latest = pass3 ?? pass2;
+/** Every intent shown: A-C (Oct 20), D (pass 2), E (pass 3). */
+export const INTENTS = { ...oct20.intents, D: pass2.intent, ...(pass3 ? { E: pass3.intent } : {}) } as Record<string, { hash: string; signed: { intent: Record<string, string | number> } }>;
+export const FUNDING: Record<string, string> = { A: oct20.txs.funding, B: oct20.txs.funding, C: oct20.txs.funding, D: pass2.txs.funding, ...(pass3 ? { E: pass3.txs.funding } : {}) };
 export const EXPLORER = 'https://testnet.zcashexplorer.app/transactions/';
 export const REPO = 'https://github.com/nickthelegend/zec-pq-intents';
 export const zat = (n: number | string) => Number(n).toLocaleString('en-US');

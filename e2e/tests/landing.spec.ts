@@ -4,16 +4,17 @@
 // from the two records (Oct 20 and pass 2, whose log continues the Oct 20 log).
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { EXPLORER, LANDING, REPO, expect, isMobile, noHorizontalScroll, oct20, pass2, root, short, test, topInView, zat } from './fixtures';
+import { EXPLORER, FUNDING, INTENTS, LANDING, REPO, expect, isMobile, latest, noHorizontalScroll, oct20, pass2, pass3, root, short, test, topInView, zat } from './fixtures';
 
 type E = { seq: number; status: string; reason: string | null; hash: string; intent_hash: string | null; at_height: number; refs: Record<string, string> };
-/** The whole log: Oct 20's #0-9 continued by pass 2 to #12 (same verifier key). */
-const log = pass2.log as E[];
+/** The whole log: Oct 20's #0-9 continued by pass 2 to #12 and by pass 3 (same verifier key). */
+const log = latest.log as E[];
 const anchors = log.filter((e) => e.status === 'ANCHORED');
-const INTENTS = { ...oct20.intents, D: pass2.intent } as Record<string, { hash: string; signed: { intent: Record<string, string | number> } }>;
+const anchorPath = anchors.map((a) => `#${a.refs.anchored_seq}`).join(' → ');
+const LETTERS = Object.keys(INTENTS);
 
 test.describe('landing', () => {
-  test('ticker and run header come from the two records (13 entries, 2 anchors)', async ({ page }) => {
+  test('ticker and run header come from the records (every entry, every anchor)', async ({ page }) => {
     await page.goto(LANDING);
     await expect(page).toHaveTitle(/Yaksok/);
     const first = page.locator('.ticker-track ul').first().locator('li');
@@ -23,16 +24,16 @@ test.describe('landing', () => {
     if (isMobile(test.info().project.name)) {
       await expect(cells).toBeHidden();
     } else {
-      expect(log.length).toBe(13);
+      expect(log.length).toBeGreaterThanOrEqual(13);
       await expect(cells).toContainText(`${log.length} entries`);
-      await expect(cells).toContainText('Oct 20 + Oct 21');
-      await expect(cells).toContainText(`${anchors.length} · #8 → #11`);
+      await expect(cells).toContainText(pass3 ? 'Oct 20 + Oct 21 + Oct 22' : 'Oct 20 + Oct 21');
+      await expect(cells).toContainText(`${anchors.length} · ${anchorPath}`);
       await expect(cells).toContainText(short(oct20.keys.verifier.id));
     }
     await noHorizontalScroll(page);
   });
 
-  test('the attestation log prints entry by entry as each signature is re-checked in the tab (13/13), then both anchored heads match and the second anchor names the first', async ({ page }) => {
+  test('the attestation log prints entry by entry as each signature is re-checked in the tab, then every anchored head matches and each anchor names the one before', async ({ page }) => {
     await page.addInitScript(() => {
       (window as unknown as { __counts: string[] }).__counts = [];
       document.addEventListener('DOMContentLoaded', () => {
@@ -52,24 +53,26 @@ test.describe('landing', () => {
       await expect(rows.nth(i)).toContainText(log[i].status);
       if (log[i].reason) await expect(rows.nth(i)).toContainText(log[i].reason!);
     }
-    // It printed one entry at a time: every count from 1/13 to 13/13 was shown on the way.
+    // It printed one entry at a time: every count from 1/N to N/N was shown on the way.
     const counts = await page.evaluate(() => (window as unknown as { __counts: string[] }).__counts);
     for (let k = 1; k <= log.length; k++) expect(counts).toContain(`${k}/${log.length}`);
     // Pass 2 starts after the Oct 20 entries, marked in the tape.
-    await expect(page.locator('#tape .run-sep')).toHaveText(/Pass 2 · Oct 21/);
-    await expect(page.locator('#tape .run-sep + [data-seq]')).toHaveAttribute('data-seq', String(oct20.log.length));
-    await expect(page.locator('#anchor-check')).toHaveText('#8 and #11 match (recomputed here) · #11 names #8');
+    await expect(page.locator('#tape .run-sep').first()).toHaveText(/Pass 2 · Oct 21/);
+    await expect(page.locator('#tape .run-sep + [data-seq]').first()).toHaveAttribute('data-seq', String(oct20.log.length));
+    if (pass3) await expect(page.locator('#tape .run-sep').nth(1)).toHaveText(/Pass 3 · Oct 22 · an agent through MCP/);
+    const seqs = anchors.map((a) => `#${a.refs.anchored_seq}`);
+    await expect(page.locator('#anchor-check')).toHaveText(`${seqs.join(' and ')} match (recomputed here) · ${seqs.slice(1).map((s, i) => `${s} names ${seqs[i]}`).join(', ')}`);
     await expect(page.locator('#anchor-check')).toHaveAttribute('data-state', 'ok');
     await expect(page.locator('#verify-bar i')).toBeVisible();
     await page.locator('#tape').screenshot({ path: test.info().outputPath('tape-verified.png') });
     await noHorizontalScroll(page);
   });
 
-  test('intent book: A–D match the records, payout links point at the release/refund transactions, the spread and fee budget are spelled out', async ({ page }) => {
+  test('intent book: every intent matches the records, payout links point at the release/refund transactions, the spread and fee budget are spelled out', async ({ page }) => {
     await page.goto(LANDING);
     const rows = page.locator('table.book tbody tr');
-    await expect(rows).toHaveCount(4);
-    for (const [i, k] of ['A', 'B', 'C', 'D'].entries()) {
+    await expect(rows).toHaveCount(LETTERS.length);
+    for (const [i, k] of LETTERS.entries()) {
       const it = INTENTS[k];
       const fin = log.find((e) => e.intent_hash === it.hash && (e.status === 'SETTLED' || e.status === 'REFUNDED'))!;
       const row = rows.nth(i);
@@ -87,7 +90,7 @@ test.describe('landing', () => {
     await expect(note).toContainText('a refund returns 45,000 of the 60,000 (the user loses 15,000, a quarter)');
     await expect(note).toContainText('stays in the escrow wallet, which the verifier holds');
     await expect(note.locator(`a[href="${EXPLORER + oct20.txs.funding}"]`)).toBeVisible();
-    await expect(note.locator(`a[href="${EXPLORER + pass2.txs.funding}"]`)).toBeVisible();
+    for (const k of LETTERS) await expect(note.locator(`a[href="${EXPLORER + FUNDING[k]}"]`)).toBeVisible();
     await noHorizontalScroll(page);
   });
 
@@ -99,7 +102,7 @@ test.describe('landing', () => {
     await expect(refs).toHaveCount(rejected.length + 4);
     for (const [i, e] of rejected.entries()) {
       await expect(refs.nth(i).locator('code')).toHaveText(e.reason!);
-      await expect(refs.nth(i).locator('small')).toContainText(`log #${e.seq} · ${e.seq >= oct20.log.length ? 'pass 2' : 'Oct 20'}`);
+      await expect(refs.nth(i).locator('small')).toContainText(`log #${e.seq} · ${e.seq >= pass2.log.length ? 'pass 3' : e.seq >= oct20.log.length ? 'pass 2' : 'Oct 20'}`);
     }
     const other = page.locator('.refusals .ref', { has: page.locator('code', { hasText: /^FILL_BY_OTHER_SOLVER$/ }) });
     await expect(other.locator('small')).toContainText('log #10 · pass 2');
@@ -125,6 +128,26 @@ test.describe('landing', () => {
     // The privacy limit names outgoing payouts, not only fundings.
     await expect(page.locator('.no')).toContainText('every payout out of the escrow: the recipient and amount of each release and refund');
     await expect(page.locator('section:has(#lim-h)')).toContainText('One receive address served all four intents (A–D)');
+    await noHorizontalScroll(page);
+  });
+
+  test('pass 3: the agent’s intent E through MCP — quote, submit_intent to a new address, the desk killed after the fill broadcast, the fill found and not resent, settled, audited', async ({ page }) => {
+    test.skip(!pass3, 'pass 3 not recorded');
+    const p3 = pass3!;
+    await page.goto(LANDING);
+    const agent = page.locator('#agent');
+    await agent.scrollIntoViewIfNeeded();
+    await expect(agent.locator('h2')).toHaveText('An agent trades through MCP, live');
+    await expect(agent).toContainText(`a new receive address (index ${zat(p3.agent.receive_index)}), not one A–D used`);
+    expect([oct20.intents.A, oct20.intents.B, oct20.intents.C, pass2.intent].map((i: { signed: { intent: { receive_ua: string } } }) => i.signed.intent.receive_ua)).not.toContain(p3.agent.receive_ua);
+    await expect(agent).toContainText(`got SIGKILL right after the solver’s fill broadcast, with its write-ahead record at block ${zat(p3.crash.board_after_kill.delivering.at_height)}`);
+    await expect(agent).toContainText('it was adopted, sent once');
+    expect(p3.crash.solver_sends_with_fill_memo).toEqual([p3.txs.fill]);
+    for (const t of [p3.txs.funding, p3.txs.fill, p3.txs.release, p3.txs.anchor]) await expect(agent.locator(`a[href="${EXPLORER + t}"]`)).toBeVisible();
+    await expect(agent).toContainText(`verify_log over MCP: ok, ${p3.checks.verify_log.entries} entries, ${p3.checks.verify_log.anchor.anchors} anchors`);
+    await expect(agent).toContainText(`check-anchors with the escrow pinned: exit 0, ${p3.checks.check_anchors.chain.length} anchors in one chain`);
+    await expect(page.locator('section:has(#mcp-h)')).toContainText('(ran live: intent E, pass 3)');
+    await agent.screenshot({ path: test.info().outputPath('agent-path.png') });
     await noHorizontalScroll(page);
   });
 
@@ -155,7 +178,7 @@ test.describe('landing', () => {
       } else if (href.startsWith(EXPLORER)) {
         const txid = href.slice(EXPLORER.length);
         expect(txid, href).toMatch(/^[0-9a-f]{64}$/);
-        expect(record.includes(txid), `${txid} is in deployments/testnet.json or testnet-pass2.json`).toBe(true);
+        expect(record.includes(txid) || JSON.stringify(pass3).includes(txid), `${txid} is in a run record`).toBe(true);
         expect(blank && rel.includes('noopener'), `${href} opens in a new tab with noopener`).toBe(true);
       } else if (href === 'terminal/') {
         const r = await page.request.get(new URL(href, LANDING).toString());
@@ -217,7 +240,7 @@ test.describe('landing', () => {
       await expect(page.locator('#verify-state')).toHaveText('waiting for JavaScript');
       await expect(page.locator('#tape [data-seq]')).toHaveCount(log.length);
       await expect(page.locator('#tape [data-seq] .sigcell').first()).toHaveText('not checked');
-      await expect(page.locator('table.book tbody tr')).toHaveCount(4);
+      await expect(page.locator('table.book tbody tr')).toHaveCount(LETTERS.length);
       await expect(page.locator('#crash')).toContainText('Paid once');
       await noHorizontalScroll(page);
     });
