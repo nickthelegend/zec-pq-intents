@@ -68,6 +68,9 @@ describe('pqi-mcp', () => {
     const r = JSON.parse((await call('verify_log')).text);
     expect(r).toMatchObject({ ok: true, entries: 10, counts: { SETTLED: 2, REJECTED: 6, REFUNDED: 1, ANCHORED: 1 }, verifier: d.keys.verifier.id });
     expect(r.anchor).toMatchObject({ txid: d.anchor.txid, memo_on_chain: true, anchored_head_matches_log: true, anchored_through: 8, entries_after_anchor: 1, anchors: 1, chain_links: true });
+    // What it cannot see is said: a log cut short before the newest anchors is check-anchors' job.
+    expect(r.anchor.truncation).toMatch(/^not detectable here: .* check-anchors <desk URL> fails it \(LOG_BEHIND_ANCHORS\)$/);
+    expect((await client.listTools()).tools.find((t) => t.name === 'verify_log')!.description).toMatch(/cannot tell whether the desk cut its log short/);
   });
 
   it('verify_log: a desk serving a log signed by a key other than the pinned one fails; no pin is Setup required', async () => {
@@ -105,7 +108,7 @@ describe('pqi-mcp', () => {
     expect(tools.find((t) => t.name === 'quote')!.description).toMatch(/keeps on a refund too/);
   });
 
-  it('submit_intent saves the signed intent and envelope before paying; a failed payment leaves them, and resubmit posts a funded one to a live desk', async () => {
+  it('submit_intent saves the signed intent and envelope before paying; a payment whose outcome is unknown says so (not "nothing was paid"), and resubmit looks the funding up by memo, then posts a funded one to a live desk', async () => {
     // A live desk (PQI_STATE) with throwaway keys and no wallets: it accepts envelopes, it can pay nothing.
     const dir = mkdtempSync(join(tmpdir(), 'pqi-live-'));
     const seeds = { verifier: bytesToHex(randomBytes(32)), solverSign: bytesToHex(randomBytes(32)), solverKem: bytesToHex(randomBytes(64)) };
@@ -119,17 +122,33 @@ describe('pqi-mcp', () => {
       const r = await call('submit_intent', { pay_zat: 60_000, min_out_zat: 40_000, deadline_blocks: 20 }, c);
       expect(r.isError).toBe(true);
       const err = JSON.parse(r.text);
-      expect(err).toMatchObject({ error: expect.stringMatching(/^zingo-cli quicksend failed/), intent_hash: expect.stringMatching(/^[0-9a-f]{64}$/), funding_txid: null, envelope: { to: kemId }, pending_file: `${agentFile}.pending.json`, next: 'nothing was paid' });
+      // zingo-cli failed on a wallet it cannot open: not one of the failures that prove nothing was
+      // broadcast, so the funding is looked up by its memo, and that history cannot be read either.
+      expect(err).toMatchObject({ error: expect.stringMatching(/^zingo-cli quicksend failed/), intent_hash: expect.stringMatching(/^[0-9a-f]{64}$/), funding_txid: null, envelope: { to: kemId }, pending_file: `${agentFile}.pending.json`, next: expect.stringMatching(/^outcome unknown: the funding may have been broadcast and the wallet history cannot be read \(zingo-cli value_transfers failed/) });
+      expect(err.next).toMatch(/call resubmit with this intent_hash, which looks the funding up by its memo before posting$/);
       expect(err.envelope.intent_hash).toBe(err.intent_hash);
       const file = `${agentFile}.pending.json`;
       expect(statSync(file).mode & 0o777).toBe(0o600);
       const saved = JSON.parse(readFileSync(file, 'utf8'));
-      expect(saved[err.intent_hash]).toMatchObject({ funding_txid: null, posted: false, receive_index: expect.any(Number), signed: { intent: { escrow: d.wallets.escrow.address, receive_uivk: d.wallets.receive.uivk } }, error: expect.stringMatching(/^zingo-cli quicksend failed/) });
+      expect(saved[err.intent_hash]).toMatchObject({ funding_txid: null, funding_outcome: 'unknown', wallet: '/nonexistent/agent-wallet', posted: false, receive_index: expect.any(Number), signed: { intent: { escrow: d.wallets.escrow.address, receive_uivk: d.wallets.receive.uivk } }, error: expect.stringMatching(/^zingo-cli quicksend failed/) });
       // A receive address of its own: not the run's shared one, and one the receive key derives.
       const fresh = saved[err.intent_hash].signed.intent.receive_ua as string;
       expect(fresh).not.toBe(d.wallets.receive.address);
       expect((await owns(d.wallets.receive.uivk, fresh)).covered).toEqual(['orchard']);
-      expect(await call('resubmit', { intent_hash: err.intent_hash }, c)).toMatchObject({ isError: true, text: expect.stringMatching(/was never funded/) });
+      expect(await call('resubmit', { intent_hash: err.intent_hash }, c)).toMatchObject({ isError: true, text: expect.stringMatching(/^funding outcome unknown for [0-9a-f]{64}: no funding txid was recorded and the wallet history cannot be read \(zingo-cli value_transfers failed.*nothing was posted$/) });
+
+      // No zingo-cli at all: nothing can have been sent, and the error says so.
+      const noCli = await connect({ PQI_DESK_URL: `http://127.0.0.1:${LIVE_PORT}`, PQI_AGENT_FILE: agentFile, PQI_ZINGO_CLI: '/nonexistent/zingo-cli' });
+      const none = JSON.parse((await call('submit_intent', { pay_zat: 60_000, min_out_zat: 40_000, deadline_blocks: 20 }, noCli)).text);
+      expect(none).toMatchObject({ error: expect.stringMatching(/^Setup required: PQI_ZINGO_CLI/), funding_txid: null, next: 'nothing was paid' });
+      await noCli.close();
+
+      // A receive address the agent's receive key does not derive (the anchor wallet's) is refused
+      // before anything is signed, saved or paid: the solver would decline it after the funding.
+      const before = Object.keys(JSON.parse(readFileSync(`${agentFile}.pending.json`, 'utf8'))).length;
+      const other = await call('submit_intent', { pay_zat: 60_000, min_out_zat: 40_000, deadline_blocks: 20, receive_ua: d.wallets.anchor.address }, c);
+      expect(other).toMatchObject({ isError: true, text: `RECEIVE_KEY_MISMATCH: refused before signing or paying: ${d.wallets.anchor.address} is not an address of the agent's receive_uivk, so the solver would decline it after the funding; nothing was paid` });
+      expect(Object.keys(JSON.parse(readFileSync(`${agentFile}.pending.json`, 'utf8')))).toHaveLength(before);
 
       // As if the payment had gone out and then the desk had refused: the saved record now has a
       // funding txid, and resubmit posts the same envelope; the desk takes it.
