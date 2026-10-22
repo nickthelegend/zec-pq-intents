@@ -47,6 +47,8 @@ const p3 = pass3Run as unknown as {
 const EXPLORER = 'https://testnet.zcashexplorer.app/transactions/';
 const REPO = 'https://github.com/nickthelegend/zec-pq-intents';
 const LETTERS: K[] = ['A', 'B', 'C', 'D', 'E'];
+/** How many published runs the page shows, in words. */
+const RUNS = 'three';
 const INTENTS: Record<K, IntentRec> = { ...r.intents, D: p2.intent, E: p3.intent };
 const FUNDING: Record<K, string> = { A: r.txs.funding, B: r.txs.funding, C: r.txs.funding, D: p2.txs.funding, E: p3.txs.funding };
 /** The whole log: Oct 20's #0-9, pass 2's #10-12, then pass 3's (the tab checks each extends the last). */
@@ -119,13 +121,18 @@ function Ticker() {
       {e.status === 'REJECTED' ? <code>{e.reason?.split(':')[0]}</code> : e.status === 'ANCHORED' ? `head ${short(e.refs.anchored_head)}` : `${subject(e.intent_hash)} · ${zat(e.refs.released_zat ?? e.refs.refunded_zat)} zat`}
     </li>
   ));
+  const [paused, setPaused] = useState(false);
   return (
-    <div className="ticker" aria-label="Decisions from the two testnet runs">
+    <section className={`ticker${paused ? ' paused' : ''}`} aria-label={`Decisions from the ${RUNS} testnet runs`}>
       <div className="ticker-track">
         <ul>{items}</ul>
         <ul aria-hidden="true">{items}</ul>
       </div>
-    </div>
+      <button type="button" className="ticker-toggle" data-paused={paused} onClick={() => setPaused((p) => !p)}>
+        {paused ? 'Play' : 'Pause'}
+        <span className="sr-only"> the scrolling decisions</span>
+      </button>
+    </section>
   );
 }
 
@@ -194,7 +201,16 @@ function Book({ sel, onSel }: { sel: K; onSel: (k: K) => void }) {
         <h2 id="book-h">Intent book</h2>
         <span className="meta">zat · {LETTERS.length} intents · 3 runs · pick one</span>
       </div>
-      <div className="book" role="radiogroup" aria-label="Intents">
+      <div className="book" role="radiogroup" aria-label="Intents" onKeyDown={(e) => {
+        // One tab stop for the group; the arrow keys (and Home/End) move the selection, as radios do.
+        const i = LETTERS.indexOf(sel);
+        const next = { ArrowDown: i + 1, ArrowRight: i + 1, ArrowUp: i - 1, ArrowLeft: i - 1, Home: 0, End: LETTERS.length - 1 }[e.key];
+        if (next === undefined) return;
+        e.preventDefault();
+        const k = LETTERS[(next + LETTERS.length) % LETTERS.length];
+        onSel(k);
+        (e.currentTarget.querySelector(`[data-letter="${k}"]`) as HTMLElement | null)?.focus();
+      }}>
         <div className="book-head" aria-hidden="true">
           <span>Intent</span>
           <span className="r">Escrow</span>
@@ -208,7 +224,7 @@ function Book({ sel, onSel }: { sel: K; onSel: (k: K) => void }) {
           const st = f ? f.status.toLowerCase() : 'open';
           const ratio = Number(x.signed.intent.min_out_zat) / Number(x.signed.intent.pay_zat);
           return (
-            <button key={k} role="radio" aria-checked={sel === k} className={`book-row ${st}${sel === k ? ' on' : ''}`} onClick={() => onSel(k)}>
+            <button key={k} role="radio" aria-checked={sel === k} tabIndex={sel === k ? 0 : -1} data-letter={k} className={`book-row ${st}${sel === k ? ' on' : ''}`} onClick={() => onSel(k)}>
               <span>
                 <span className="letter">{k}</span>
                 {short(x.hash)}

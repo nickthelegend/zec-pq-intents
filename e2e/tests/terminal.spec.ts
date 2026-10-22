@@ -219,6 +219,44 @@ test.describe('terminal', () => {
     await noHorizontalScroll(page);
   });
 
+  test('the ticker has a visible Pause/Play control (touch and keyboard too) and names the runs it shows; the intent book is one tab stop moved with the arrow keys', async ({ page }) => {
+    await page.goto(TERMINAL);
+    const ticker = page.getByRole('region', { name: `Decisions from the ${pass3 ? 'three' : 'two'} testnet runs` });
+    await expect(ticker).toBeVisible();
+    const track = ticker.locator('.ticker-track');
+    await expect(track).toHaveCSS('animation-play-state', 'running');
+    const away = async () => {
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+      await page.mouse.move(5, 700);
+    };
+    await ticker.getByRole('button', { name: 'Pause the scrolling decisions' }).click();
+    await away();
+    await expect(track).toHaveCSS('animation-play-state', 'paused');
+    await ticker.getByRole('button', { name: 'Play the scrolling decisions' }).click();
+    await away();
+    await expect(track).toHaveCSS('animation-play-state', 'running');
+
+    const book = page.getByRole('radiogroup', { name: 'Intents' });
+    const radios = book.getByRole('radio');
+    await expect(radios).toHaveCount(LETTERS.length);
+    await expect(book.locator('[role="radio"][tabindex="0"]')).toHaveCount(1);
+    await expect(book.locator('[role="radio"][tabindex="-1"]')).toHaveCount(LETTERS.length - 1);
+    await radios.nth(0).focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(radios.nth(1)).toBeFocused();
+    await expect(radios.nth(1)).toHaveAttribute('aria-checked', 'true');
+    await expect(radios.nth(0)).toHaveAttribute('tabindex', '-1');
+    await page.keyboard.press('End');
+    await expect(radios.nth(LETTERS.length - 1)).toBeFocused();
+    await expect(radios.nth(LETTERS.length - 1)).toHaveAttribute('aria-checked', 'true');
+    await page.keyboard.press('ArrowDown');
+    await expect(radios.nth(0)).toBeFocused();
+    await page.keyboard.press('ArrowUp');
+    await expect(radios.nth(LETTERS.length - 1)).toHaveAttribute('aria-checked', 'true');
+    await page.keyboard.press('Home');
+    await expect(radios.nth(0)).toHaveAttribute('aria-checked', 'true');
+  });
+
   test('every control labelled "log" works; links go to the repo and the explorer', async ({ page }) => {
     await page.goto(TERMINAL);
     await page.keyboard.press('Tab');
