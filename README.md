@@ -1,16 +1,45 @@
 # Yaksok — post-quantum intents, settled in shielded ZEC
 
-![The Yaksok terminal re-verifying the testnet log in the browser](docs/img/terminal.png)
+Post-quantum intents for agents, settled in shielded ZEC: an order is signed with ML-DSA-65 and
+sealed with ML-KEM-768, a solver delivers from its own liquidity, and every decision is a signed,
+hash-chained, memo-anchored log entry anyone can re-verify. A private OTC delivery desk on Zcash
+testnet, run live three times, the third by an agent through MCP.
 
-**Why you would use it:** the address you receive at is paid from a solver's liquidity, never from
-the wallet you fund with, so the two are not linked by a payment, and the order itself is signed and
-sealed with post-quantum keys, so recording the order book today does not open it later.
+**Live demo:** not hosted yet. The repo is not public; once it is, `pnpm build:site` produces one
+static folder (`site/`: the landing, with the terminal at `terminal/`) for GitHub Pages. Until then
+the 60-second command below shows the same terminal locally.
+**Video:** none current. The only clip (`zec-pq-intents-demo.mp4`, 26 s, Oct 20) re-verifies the
+first run in a terminal and predates this UI and passes 2 and 3.
 
-**Live demo:** not hosted yet. `pnpm build:site` builds the landing with the terminal at
-`terminal/` as one static folder (`site/`), ready for GitHub Pages once the repo is public; until
-then `pnpm install && pnpm --filter @pqi/dashboard dev` shows the terminal in about a minute.
-**Video:** none current; the only clip (`zec-pq-intents-demo.mp4`, 26 s, Oct 20) is a terminal
-re-verification of the first run and predates this UI and passes 2 and 3.
+![The Yaksok terminal: five intents, the attestation tape 15/15 verified in the browser](docs/img/terminal.png)
+
+## What is live (Zcash testnet)
+
+| Run | What happened | Key transaction |
+|---|---|---|
+| Pass 1, Oct 20 (`deployments/testnet.json`) | intents A–C funded in one shielded tx; A and B filled and settled; six attacks refused with signed entries; C refunded; the log head anchored in a memo | anchor [`a7d96038…`](https://testnet.zcashexplorer.app/transactions/a7d960386f2d8dc926003e700b15bcc761b6e72419765ea6f958a85d73a65a73) |
+| Pass 2, Oct 21 (`testnet-pass2.json`) | intent D; a second solver's claim refused; the verifier killed (SIGKILL) right after the release broadcast, reconciled on restart, paid once; an anchor naming pass 1's | release [`c0557316…`](https://testnet.zcashexplorer.app/transactions/c0557316e0378e65a3d63b2996a139b88dff37f8bfe2e1ce5f3af32e8fca0db1) |
+| Pass 3, Oct 22 (`testnet-pass3.json`) | an agent calls MCP `quote` and `submit_intent` (intent E, its own key, a new receive address); the desk is killed right after the fill broadcast and the restart finds the fill instead of resending it; E settles; an anchor naming pass 2's; `verify_log` and `check-anchors` pass | release [`6b63f403…`](https://testnet.zcashexplorer.app/transactions/6b63f403ceaf79c436edb8a9457133c97ad9ff1998a5f3254b57dd469876599a) |
+
+**Tampered, replayed, expired or wrong-key intents get a signed refusal, never a payout** (entries
+of the published log, each ML-DSA-65 signed and re-verified in your browser):
+
+- tampered (A's `min_out` changed after signing) → `BAD_SIGNATURE`, log #3
+- replayed (A again after it settled) → `ALREADY_SETTLED`, log #4; A's nonce in a new intent → `NONCE_REUSED`, log #5
+- expired (a correct fill of C mined after its deadline) → `EXPIRED`, log #7
+- wrong key (signed by another ML-DSA key but naming the user) → `WRONG_KEY`, log #6
+- a fill with the wrong memo → `FILL_NOT_CREDITED`, log #2; a claim by a solver the fill does not name → `FILL_BY_OTHER_SOLVER`, log #10
+
+**See it in 60 seconds** (Node 22+ and pnpm 10; nothing to build first):
+
+```sh
+pnpm install && pnpm --filter @pqi/dashboard dev     # the Yaksok terminal on http://localhost:5181
+```
+
+The terminal re-verifies every ML-DSA-65 signature of all three testnet runs (15 entries) in your
+browser, recomputes every anchored head, and lets you tamper with an intent and watch it fail.
+
+## What it is
 
 **Post-quantum intents, settled in shielded ZEC.** An intent is signed with **ML-DSA-65** (FIPS 204)
 and sealed to the solver with **ML-KEM-768** (FIPS 203). The user escrows real testnet ZEC, the
@@ -22,23 +51,9 @@ Zcash spends stay elliptic-curve based: this is post-quantum **at the intent lay
 primitives Zcash's roadmap introduces later (ML-KEM with Tachyon). Not trustless: the verifier holds
 the escrow (see [docs](packages/docs/README.md)).
 
-**Review, Oct 21:** [`docs/JUDGE-2026-10-21.md`](docs/JUDGE-2026-10-21.md) found that any key could
-claim a solver's fill and that settle and refund could both pay. Both are fixed with tests, along
-with the claim window, the desk's board, ticks, refunds and HTTP rules, the MCP trust pins and
-canonical base64. A second pass closed the rest of its list: fills name their solver, payouts are
-write-ahead and reconciled after a crash, funding and fills need 3 confirmations, and anchors form a
-chain that anyone can check against every anchor the escrow sent. What is still open is listed there.
+## Every log entry, run by run
 
-**Review, Oct 22:** two independent judges found that a user could keep a delivery and be refunded
-too (the receive viewing key was never checked against the receive address), that one bad intent or
-one hung lightwalletd call froze the desk, that a crash after the solver's broadcast could deliver
-twice, that anyone could grow the signed log over HTTP, that legacy-form anchors could hide a fork,
-and that the audit tools trusted keys from the party they audit. All of those are fixed with tests;
-the list, with commits, is at the end of the review file. Pass 3 then ran the agent path live.
-
-## Live on Zcash testnet
-
-Run of Oct 20, 2026 (`deployments/testnet.json`). Demo-only wallets; their incoming viewing keys
+Pass 1, Oct 20, 2026 (`deployments/testnet.json`). Demo-only wallets; their incoming viewing keys
 and the signed intents are published so every decision can be re-checked. Verifier key
 `f60f130579…` (ML-DSA-65), solver KEM key `7dded232ab…` (ML-KEM-768).
 
@@ -80,6 +95,27 @@ signed by another ML-DSA key but naming the user; #7 a correct fill of C mined a
 The anchor memo `pqi1:anchor:8:<head>` was found on-chain with the anchor's viewing key and equals
 the recomputed head of entries 0–8. Every payout was re-read with the recipient's viewing key.
 
+### Pass 3 (Oct 22): an agent trades through MCP, live
+
+Same verifier key and escrow; the log continues to entry 14 (`deployments/testnet-pass3.json`,
+`pnpm --filter @pqi/mcp pass3`). An MCP client called `quote` (accept, 20,000 zat spread) and
+`submit_intent`, which signed intent **E** (`f5af85c4…`) with the agent's own ML-DSA-65 key, sent it
+to a new receive address of the agent's receive key, saved it, funded the escrow
+[`3ba64090…`](https://testnet.zcashexplorer.app/transactions/3ba6409028ebb04a0331be9b9564245b4553aa9b847dec1ce21eb0532a1d3ac1) (40,000 zat) and posted the
+sealed envelope to a live desk over HTTP. The desk was killed with SIGKILL right after the solver
+broadcast the fill [`0ef36c7f…`](https://testnet.zcashexplorer.app/transactions/0ef36c7f68e08f1a825d5985df6b9a7efbf89f906f3e2d5f72a98caa97364b0a) (20,000 zat,
+memo naming the solver key), with its write-ahead record on disk and no txid saved. On restart it
+found the fill memo in the solver's history and adopted that txid; the solver's history shows the
+fill memo once, so nothing was sent twice.
+
+| # | Entry | What happened |
+|---|---|---|
+| 13 | SETTLED | E released [`6b63f403…`](https://testnet.zcashexplorer.app/transactions/6b63f403ceaf79c436edb8a9457133c97ad9ff1998a5f3254b57dd469876599a) (25,000 zat = 40,000 − 15,000 fee budget) |
+| 14 | ANCHORED | anchor [`7b1ce3f2…`](https://testnet.zcashexplorer.app/transactions/7b1ce3f29e9fc14239fab38fba9d0286b2dab327f465d43f959c3d22f9766f4f) of the head through #13, naming pass 2's anchor `694a94c7…` |
+
+Then `verify_log` over MCP returned ok for all 15 entries and 3 anchors, and `check-anchors` with
+the escrow pinned exited 0 with the three anchors in one chain (#8 → #11 → #13).
+
 ## Packages
 
 | Package | What |
@@ -87,23 +123,15 @@ the recomputed head of entries 0–8. Every payout was re-read with the recipien
 | [`packages/protocol`](packages/protocol) | canonical intents, ML-DSA-65 signatures, ML-KEM-768 + AES-256-GCM envelopes, fill attestations, signed hash-chained log (browser-safe) |
 | [`packages/node`](packages/node) | verifier (escrow, checks, payouts, log), solver (open, quote, deliver, claim), desk (board + state machine + HTTP), live/published server |
 | [`packages/scan`](packages/scan) | `zpay-verify` (copy): viewing-key checks of every funding, fill, payout and anchor; `tip` |
-| [`packages/mcp`](packages/mcp) | `pqi-mcp`: `quote`, `submit_intent`, `status`, `verify_log` |
-| [`packages/examples`](packages/examples) | the resumable live runs above (`run-live`, `pass2`) |
+| [`packages/mcp`](packages/mcp) | `pqi-mcp`: `quote`, `submit_intent`, `resubmit`, `status`, `verify_log`; `pnpm --filter @pqi/mcp pass3` is the pass-3 run |
+| [`packages/examples`](packages/examples) | the resumable live runs of pass 1 and 2 (`run-live`, `pass2`) |
 | [`packages/dashboard`](packages/dashboard) | the Yaksok terminal: intent book, attestation tape re-verified in the browser, inspector, anchor, attack console |
 | [`packages/docs`](packages/docs) | protocol, rejections, trust model, roadmap sources |
 | [`packages/landing`](packages/landing) | one-page landing generated from the run record; its tape re-verifies in the browser too |
 
 ## Run it
 
-**See it in 60 seconds** (Node 22+ and pnpm 10 only; nothing to build first):
-
-```sh
-pnpm install && pnpm --filter @pqi/dashboard dev     # the Yaksok terminal on http://localhost:5181
-```
-
-The terminal re-verifies every ML-DSA-65 signature of both testnet runs in your browser.
-
-**Everything else** needs Rust 1.89 (pinned in `packages/scan`) for the `zpay-verify` viewing-key
+The 60-second path is at the top. **Everything else** needs Rust 1.89 (pinned in `packages/scan`) for the `zpay-verify` viewing-key
 checker, and **zingo-cli** for the wallet calls (`check-anchors`, the live desk, and the node tests
 that read the escrow's history or a wallet balance). Build zingo-cli from
 [zingolib](https://github.com/zingolabs/zingolib) at commit `0a5cb69ab` (the commit the runs used):
@@ -123,7 +151,7 @@ node packages/landing/build.mjs              # regenerate the landing from deplo
 PQI_PUBLISHED=deployments/testnet.json pnpm --filter @pqi/node serve    # read-only desk on 127.0.0.1:8404
 PQI_VERIFIER_ID=f60f130579386479043287fb68c2c1726a0a210be77aee46b355adb1287f1445 \
 PQI_ESCROW_UA=utest1fgwtrf8nq6e2j6w7rwa06k8ggmc5llsk3v7mjjnpy5ywmdfrjzuqfvlm4wpeggn9lq7cutkum7k75v8zqg2rxlg3z0k67lcz3cmcs558 \
-  pnpm --filter @pqi/node check-anchors "$PWD/deployments/testnet-pass2.json"  # every anchor the escrow sent, one chain
+  pnpm --filter @pqi/node check-anchors "$PWD/deployments/testnet-pass3.json"  # every anchor the escrow sent, one chain, none past the log's end
 PQI_FUNDER_WALLET=<demo wallet> pnpm --filter @pqi/examples run-live    # a new live run
 ```
 
@@ -139,19 +167,51 @@ MCP server: `node packages/mcp/dist/main.js` (after `pnpm build`) with
   (for auditability), so every funding (amount, intent hash) **and every payout** is visible: each
   release's and refund's recipient and amount, including the user's refund address next to
   `pqi1:<hash>:refund`. Intents A–D used one receive address; `submit_intent` now gives each intent
-  a new address of the receive key. The on-chain notes are ECC-encrypted, so a future quantum
-  adversary could link funding and fill.
+  a new address of the receive key (an Orchard-type receiver; on this NU7 testnet the payments to it
+  land in the Ironwood pool, as `zpay-verify inspect` of E's fill shows). That does **not** make one
+  user's intents unlinkable: every SETTLED or REFUNDED entry in the public log names the user's
+  ML-DSA key id and nonce, and the same refund address shows on every refund. A per-intent key and
+  refund address would be needed for that. The on-chain notes are ECC-encrypted, so a future
+  quantum adversary could link funding and fill.
 - Only the configured solver key that the fill's memo names is paid. The Oct 20 fills name no
   solver and are honoured as legacy single-solver fills, marked so in the log.
 - Anchors are periodic. Each names the previous one, and the escrow's full viewing key is published,
   so every anchor can be listed; a second head, an anchor in the old form that names no predecessor
   (other than the Oct 20 root), or any anchor off the one chain fails `check-anchors`, if someone
-  runs it.
-  Entries after the last anchor are not covered.
+  runs it. A log cut short before the escrow's newest anchors fails it too (`LOG_BEHIND_ANCHORS`;
+  `--allow-behind` checks an older record on purpose). Entries after the last anchor are not covered.
 - Funding and fills need 3 confirmations; a deeper reorg is not handled. A payout interrupted by a
   crash is reconciled from the escrow's history; if that history cannot be read, the verifier stops
   rather than pay (`PAYOUT_UNRECONCILED`).
-- Only ZEC on testnet: delivery intents, no cross-asset leg.
+- It is a private OTC delivery desk, not a market: one configured solver quotes, ZEC to ZEC (testnet
+  has one asset), no cross-asset leg and no competing quotes. The 20,000 zat spread is a testnet fee
+  budget: 15,000 of it pays the release or refund transaction (what the payout does not spend stays
+  in the escrow wallet), and the solver nets 5,000. A refund therefore costs the user 15,000 (25% of
+  a 60,000 escrow, 37.5% of E's 40,000). Two solvers quoting sealed bids on one intent is not built.
 - Testnet only, not audited, single verifier key. Portfolio piece; the Zecathon entry is Shielded x402.
+
+## Security reviews
+
+**Review, Oct 21:** [`docs/JUDGE-2026-10-21.md`](docs/JUDGE-2026-10-21.md) found that any key could
+claim a solver's fill and that settle and refund could both pay. Both are fixed with tests, along
+with the claim window, the desk's board, ticks, refunds and HTTP rules, the MCP trust pins and
+canonical base64. A second pass closed the rest of its list: fills name their solver, payouts are
+write-ahead and reconciled after a crash, funding and fills need 3 confirmations, and anchors form a
+chain that anyone can check against every anchor the escrow sent. What is still open is listed there.
+
+**Review, Oct 22:** two independent judges found that a user could keep a delivery and be refunded
+too (the receive viewing key was never checked against the receive address), that one bad intent or
+one hung lightwalletd call froze the desk, that a crash after the solver's broadcast could deliver
+twice, that anyone could grow the signed log over HTTP, that legacy-form anchors could hide a fork,
+and that the audit tools trusted keys from the party they audit. All of those are fixed with tests;
+the list, with commits, is at the end of the review file. Pass 3 then ran the agent path live.
+
+**Review after pass 3, Oct 22:** two more judges found that a momentary shortfall in the solver's
+spendable balance declined a funded intent for good, that a fill lightwalletd did not return was
+refused at once and the user then refunded while the fill could still be mined, that a deposit
+failing a settlement check (too little, another escrow, a reused nonce) could never be refunded,
+that `check-anchors` passed a log cut short before the newest anchors, and that `submit_intent`
+said "nothing was paid" when a timed-out send's outcome was unknown and paid for a `receive_ua` the
+solver would decline. Each is fixed with a test that failed before the fix (TESTING.md).
 
 MIT — Copyright (c) 2026 Nivesh Gajengi.

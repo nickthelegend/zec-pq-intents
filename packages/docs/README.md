@@ -143,8 +143,11 @@ match the agent's pinned ones.
   the signed intent, and the published runs include them. The solver and verifier learn amounts and
   addresses. All four live intents of the first two runs (A–D) used one receive address, so those
   deliveries are linkable; `submit_intent` now delivers each intent to a new address of the same
-  receive key (a random Orchard diversifier index), which only that key links. Timing can link a
-  funding and a fill on a quiet testnet.
+  receive key (an Orchard-type receiver at a random diversifier index; on this NU7 testnet the
+  payments to it land in the Ironwood pool, as `zpay-verify inspect` of E's fill shows), which only
+  that key links. That does not unlink one user's intents: every SETTLED or REFUNDED entry in the
+  public log names the user's key id and nonce, and every refund shows the same refund address.
+  Timing can link a funding and a fill on a quiet testnet.
 - **Anchors:** the head is anchored periodically, from the escrow, in a memo to the public anchor
   address. Each anchor names the previous anchor's txid, so anchors form one chain. The escrow's
   full viewing key is published, and a view-only wallet made from it lists every payment out of
@@ -171,9 +174,9 @@ match the agent's pinned ones.
 
 | Do | See |
 |---|---|
-| `pnpm --filter @pqi/protocol test` | ML-DSA/ML-KEM sizes, every tamper caught, canonical base64, the log re-verifies, fill memos name the solver, anchor forks caught, legacy-form anchors cannot hide one (17 tests) |
-| `pnpm --filter @pqi/node test` | both published runs re-checked on testnet; fill theft by an outsider or another solver, settle/refund races, the claim window and shallow confirmations refused; a verifier process killed mid-payout reconciles on restart; every anchor the escrow sent checked against the logs; desk board, ticks, refunds and HTTP rules; the receive key checked; delivery write-ahead after a real kill; unfunded junk leaves no log entry; Setup required and the `check-anchors` pins (57 tests) |
-| `PQI_VERIFIER_ID=f60f130579386479043287fb68c2c1726a0a210be77aee46b355adb1287f1445 PQI_ESCROW_UA=utest1fgwtrf8nq6e2j6w7rwa06k8ggmc5llsk3v7mjjnpy5ywmdfrjzuqfvlm4wpeggn9lq7cutkum7k75v8zqg2rxlg3z0k67lcz3cmcs558 pnpm --filter @pqi/node check-anchors "$PWD/deployments/testnet-pass2.json"` | every anchor the escrow sent (view-only wallet from its published full viewing key, which must derive the escrow you pinned), one chain, checked against the log |
+| `pnpm --filter @pqi/protocol test` | ML-DSA/ML-KEM sizes, every tamper caught, canonical base64, the log re-verifies, fill memos name the solver, anchor forks caught, legacy-form anchors cannot hide one, a log cut short before the newest anchors fails (17 tests) |
+| `pnpm --filter @pqi/node test` | the three published runs re-checked on testnet; fill theft by an outsider or another solver, settle/refund races, the claim window and shallow confirmations refused; a verifier process killed mid-payout reconciles on restart; every anchor the escrow sent checked against the logs; desk board, ticks, refunds and HTTP rules; the receive key checked; delivery write-ahead after a real kill; unfunded junk leaves no log entry; Setup required and the `check-anchors` pins; a short solver balance retried, a fill not yet found kept pending, deposits that fail a check refunded (67 tests) |
+| `PQI_VERIFIER_ID=f60f130579386479043287fb68c2c1726a0a210be77aee46b355adb1287f1445 PQI_ESCROW_UA=utest1fgwtrf8nq6e2j6w7rwa06k8ggmc5llsk3v7mjjnpy5ywmdfrjzuqfvlm4wpeggn9lq7cutkum7k75v8zqg2rxlg3z0k67lcz3cmcs558 pnpm --filter @pqi/node check-anchors "$PWD/deployments/testnet-pass3.json"` | every anchor the escrow sent (view-only wallet from its published full viewing key, which must derive the escrow you pinned), one chain, checked against the log, none past its end (an older record needs `--allow-behind`) |
 | open the dashboard | every log entry's ML-DSA-65 signature re-verified in your browser, the chain linked |
 | dashboard → "Change a field" | the intent no longer verifies (`BAD_SIGNATURE`) |
 | `PQI_PUBLISHED=deployments/testnet.json pnpm --filter @pqi/node serve` + MCP `verify_log` with `PQI_VERIFIER_ID=f60f130579386479043287fb68c2c1726a0a210be77aee46b355adb1287f1445` and `PQI_ANCHOR_UIVK` = the record's anchor `uivk` | ok, entry counts, every anchor memo found on-chain, matching the head and linked, 1 entry after the last anchor |
