@@ -211,3 +211,18 @@ td.wrap { white-space: normal; }
   .ticker-track ul[aria-hidden] { display: none; }
   .js .tape li, .meter i { transition: none; }
 }
+
+/* pass separator in the tape, crash card */
+.tape li.run-sep { display: block; padding: 7px 16px; font: 500 10.5px/1.3 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--copper); background: var(--bg); }
+.js .tape li.run-sep { opacity: 1; }
+.flow.crash { margin-top: 0; border-top: 0; }
+.flow.crash p { color: var(--text); }
+.flow.crash code { color: var(--muted); font-size: 12px; }
+@media (max-width: 760px) {
+  .flow.crash { grid-template-columns: 1fr; }
+  .flow.crash div { border-right: 0; border-bottom: 1px solid var(--line); }
+  .flow.crash div:last-child { border-bottom: 0; }
+}
+.refusals .ref:last-child:nth-child(4n + 3) { grid-column: span 2; }
+@media (max-width: 1100px) { .refusals .ref:last-child:nth-child(4n + 3) { grid-column: auto; } .refusals .ref:last-child:nth-child(2n + 1) { grid-column: span 2; } }
+@media (max-width: 760px) { .refusals .ref:last-child:nth-child(2n + 1) { grid-column: auto; } }

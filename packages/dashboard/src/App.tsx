@@ -1,32 +1,52 @@
-// Yaksok terminal: the published testnet run, re-verified in this tab. Everything shown comes from
-// deployments/testnet.json (the anchor chain also reads testnet-pass2.json); every signature, hash, link and the anchored head are re-computed here
-// with @pqi/protocol. Values the tab cannot check (an on-chain memo) are labelled as recorded.
+// Yaksok terminal: both published testnet runs, re-verified in this tab. Everything shown comes from
+// deployments/testnet.json (Oct 20: intents A-C, entries #0-9) and deployments/testnet-pass2.json
+// (Oct 21: intent D, the same verifier's log continued to #12, a second anchor); every signature,
+// hash, link and anchored head is re-computed here with @pqi/protocol. Values the tab cannot check
+// (an on-chain memo) are labelled as recorded.
 import { useEffect, useMemo, useState } from 'react';
 import { checkAnchors, entryHash, fromB64, GENESIS, intentHash, keyId, verifyIntent, verifyLog, verifySig, type AnchorCheck, type AnchorSeen, type LogEntry, type SignedIntent } from '@pqi/protocol';
 import run from '@deployments/testnet.json';
 import pass2Run from '@deployments/testnet-pass2.json';
 
-type K = 'A' | 'B' | 'C';
+type K = 'A' | 'B' | 'C' | 'D';
+type IntentRec = { hash: string; signed: SignedIntent; envelope: { kem_ct: string; ct: string; to: string } };
 type Rec = {
   ranAt: string;
   keys: Record<string, { scheme: string; id: string; pk: string }>;
   txs: { funding: string; wrongMemoFill: string; lateFill: string; fills: Record<string, string> };
-  intents: Record<K, { hash: string; signed: SignedIntent; envelope: { kem_ct: string; ct: string; to: string } }>;
+  intents: Record<'A' | 'B' | 'C', IntentRec>;
   attacks: { decisions: Record<string, number>; reuse: SignedIntent; forgedAsUser: SignedIntent };
   log: LogEntry[];
 };
 const r = run as unknown as Rec;
-/** Pass 2 (Oct 21): the same verifier's log continued from entry 9, and the escrow's sent anchors as that run read them. */
-const p2 = pass2Run as unknown as { ranAt: string; keys: { verifier: { id: string; pk: string } }; log: LogEntry[]; anchors?: { escrowHistory: AnchorSeen[] } };
+/** Pass 2 (Oct 21): the same verifier's log continued from entry 10, intent D, the kill after D's
+ *  release broadcast, and the escrow's sent anchors as that run read them. */
+const p2 = pass2Run as unknown as {
+  ranAt: string;
+  keys: { verifier: { id: string; pk: string } };
+  log: LogEntry[];
+  intent: IntentRec;
+  txs: { funding: string; fill: string; release: string; anchor: string; previousAnchor: string };
+  theft: { status: string; reason: string; seq: number; solver: string };
+  crash: { signal: string; write_ahead: { amount_zat: string; memo: string; at_height: number }; reconciled_txid: string; escrow_sends_with_release_memo: string[] };
+  anchors?: { escrowHistory: AnchorSeen[] };
+};
 const EXPLORER = 'https://testnet.zcashexplorer.app/transactions/';
 const REPO = 'https://github.com/nickthelegend/zec-pq-intents';
-const LETTERS: K[] = ['A', 'B', 'C'];
+const LETTERS: K[] = ['A', 'B', 'C', 'D'];
+const INTENTS: Record<K, IntentRec> = { ...r.intents, D: p2.intent };
+const FUNDING: Record<K, string> = { A: r.txs.funding, B: r.txs.funding, C: r.txs.funding, D: p2.txs.funding };
+/** The whole log: Oct 20's #0-9, then pass 2's #10-12 (the tab checks that pass 2 extends it). */
+const LOG = p2.log;
+const PASS2_FROM = r.log.length;
 const short = (s: string, n = 8) => (s && s.length > n + 1 ? `${s.slice(0, n)}…` : s);
 const zat = (v: string | number) => Number(v).toLocaleString('en-US');
-const letterOf = (h: string | null) => LETTERS.find((k) => r.intents[k].hash === h) ?? null;
+const letterOf = (h: string | null) => LETTERS.find((k) => INTENTS[k].hash === h) ?? null;
 const subject = (h: string | null) => (h ? (letterOf(h) ? `Intent ${letterOf(h)}` : `intent ${short(h, 6)}`) : 'log head');
-const anchorEntry = r.log.find((e) => e.status === 'ANCHORED') ?? null;
+const ANCHORS = LOG.filter((e) => e.status === 'ANCHORED');
+const anchorEntry = ANCHORS[ANCHORS.length - 1] ?? null;
 const anchoredSeq = anchorEntry ? Number(anchorEntry.refs.anchored_seq) : null;
+const day = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 
 const Tx = ({ id, label }: { id?: string; label: string }) =>
   id ? (
@@ -78,7 +98,7 @@ const Mark = () => (
 );
 
 function Ticker() {
-  const items = r.log.map((e) => (
+  const items = LOG.map((e) => (
     <li key={e.seq}>
       <b>#{e.seq}</b>
       <span className={`st st-${e.status.toLowerCase()}`}>{e.status}</span>
@@ -86,7 +106,7 @@ function Ticker() {
     </li>
   ));
   return (
-    <div className="ticker" aria-label="Decisions from the testnet run">
+    <div className="ticker" aria-label="Decisions from the two testnet runs">
       <div className="ticker-track">
         <ul>{items}</ul>
         <ul aria-hidden="true">{items}</ul>
@@ -113,8 +133,10 @@ function Bar({ good, done, n }: { good: number; done: number; n: number }) {
           </span>
         </div>
         <div className="cell">
-          <small>Run</small>
-          <span>{new Date(r.ranAt).toISOString().replace('T', ' ').slice(0, 16)} UTC</span>
+          <small>Runs</small>
+          <span>
+            {day(r.ranAt)} + {day(p2.ranAt)}
+          </span>
         </div>
         <div className="cell">
           <small>Signatures</small>
@@ -140,9 +162,9 @@ function Bar({ good, done, n }: { good: number; done: number; n: number }) {
 }
 
 function Book({ sel, onSel }: { sel: K; onSel: (k: K) => void }) {
-  const it = r.intents[sel];
+  const it = INTENTS[sel];
   const i = it.signed.intent;
-  const entries = r.log.filter((e) => e.intent_hash === it.hash);
+  const entries = LOG.filter((e) => e.intent_hash === it.hash);
   const fin = entries.find((e) => e.status === 'SETTLED' || e.status === 'REFUNDED');
   const kemCt = fromB64(it.envelope.kem_ct).length;
   const ct = fromB64(it.envelope.ct).length;
@@ -150,7 +172,7 @@ function Book({ sel, onSel }: { sel: K; onSel: (k: K) => void }) {
     <section className="p s5" aria-labelledby="book-h">
       <div className="ph">
         <h2 id="book-h">Intent book</h2>
-        <span className="meta">zat · pick one</span>
+        <span className="meta">zat · 4 intents · 2 runs · pick one</span>
       </div>
       <div className="book" role="radiogroup" aria-label="Intents">
         <div className="book-head" aria-hidden="true">
@@ -161,8 +183,8 @@ function Book({ sel, onSel }: { sel: K; onSel: (k: K) => void }) {
           <span>Status</span>
         </div>
         {LETTERS.map((k) => {
-          const x = r.intents[k];
-          const f = r.log.find((e) => e.intent_hash === x.hash && (e.status === 'SETTLED' || e.status === 'REFUNDED'));
+          const x = INTENTS[k];
+          const f = LOG.find((e) => e.intent_hash === x.hash && (e.status === 'SETTLED' || e.status === 'REFUNDED'));
           const st = f ? f.status.toLowerCase() : 'open';
           const ratio = Number(x.signed.intent.min_out_zat) / Number(x.signed.intent.pay_zat);
           return (
@@ -190,9 +212,22 @@ function Book({ sel, onSel }: { sel: K; onSel: (k: K) => void }) {
             <b>Sealed</b> ML-KEM-768 ct {zat(kemCt)} B + AES-GCM {zat(ct)} B to solver KEM {short(it.envelope.to)}
           </li>
           <li className="ok">
-            <b>Funded</b> {zat(i.pay_zat)} zat <Tx id={r.txs.funding} label="funding" />
+            <b>Funded</b> {zat(i.pay_zat)} zat <Tx id={FUNDING[sel]} label="funding" />
+            {sel === 'D' ? ' · waited for 3 confirmations' : ''}
           </li>
-          {sel === 'C' ? (
+          {sel === 'D' ? (
+            <>
+              <li className="ok">
+                <b>Filled</b> {zat(i.min_out_zat)} zat, memo names the solver key <Tx id={p2.txs.fill} label="fill" />
+              </li>
+              <li className="bad">
+                <b>Claim</b> by a second configured solver refused: FILL_BY_OTHER_SOLVER (#{p2.theft.seq})
+              </li>
+              <li className="ok">
+                <b>Killed</b> by {p2.crash.signal} right after the release broadcast; the restart found it by memo
+              </li>
+            </>
+          ) : sel === 'C' ? (
             <>
               <li className="bad">
                 <b>Fill</b> wrong memo <Tx id={r.txs.wrongMemoFill} label="wrong-memo fill" /> not credited
@@ -230,15 +265,16 @@ function Book({ sel, onSel }: { sel: K; onSel: (k: K) => void }) {
 
 function Tape({ checks, error, sel, onSel }: { checks: Check[]; error: string | null; sel: number; onSel: (n: number) => void }) {
   const done = checks.filter((c) => c !== 'pending').length;
+  const N = LOG.length;
   return (
     <section className="p s7" aria-labelledby="tape-h">
       <div className="ph">
         <h2 id="tape-h">Attestation tape</h2>
         <span className="meta" aria-live="polite">
-          {error ? `check failed: ${error}` : done < r.log.length ? `verifying ${done}/${r.log.length}…` : `${checks.filter((c) => c === 'ok').length}/${r.log.length} signatures verify`}
+          {error ? `check failed: ${error}` : done < N ? `verifying ${done}/${N}…` : `${checks.filter((c) => c === 'ok').length}/${N} signatures verify`}
         </span>
       </div>
-      {r.log.length === 0 ? (
+      {N === 0 ? (
         <p className="pb faint">This run has no log entries, so there is nothing to verify.</p>
       ) : (
         <>
@@ -250,7 +286,12 @@ function Tape({ checks, error, sel, onSel }: { checks: Check[]; error: string | 
             <span>Sig</span>
           </div>
           <ol className="tape">
-            {r.log.map((e, i) => (
+            {LOG.map((e, i) => [
+              e.seq === PASS2_FROM ? (
+                <li key="pass2" className="run-sep" aria-hidden="true">
+                  Pass 2 · {day(p2.ranAt)} · same verifier key, the log continues
+                </li>
+              ) : null,
               <li key={e.hash} data-check={checks[i]}>
                 <button className={sel === i ? 'on' : ''} aria-pressed={sel === i} onClick={() => onSel(i)}>
                   <span className="seq">#{e.seq}</span>
@@ -262,8 +303,8 @@ function Tape({ checks, error, sel, onSel }: { checks: Check[]; error: string | 
                   </span>
                   <span className="sig">{checks[i] === 'ok' ? 'sig ok' : checks[i] === 'bad' ? 'fails' : '…'}</span>
                 </button>
-              </li>
-            ))}
+              </li>,
+            ])}
           </ol>
         </>
       )}
@@ -314,28 +355,39 @@ function Anchor({ allOk }: { allOk: boolean }) {
       </section>
     );
   }
-  const headOk = r.log[anchoredSeq]?.hash === anchorEntry.refs.anchored_head;
+  // Every anchored head is the log's own entry at its seq, recomputed here.
+  const headOk = ANCHORS.every((a) => LOG[Number(a.refs.anchored_seq)]?.hash === a.refs.anchored_head);
+  const seqs = ANCHORS.map((a) => `#${a.refs.anchored_seq}`);
   return (
     <section className="p s4" aria-labelledby="anc-h">
       <div className="ph">
-        <h2 id="anc-h">Anchor and keys</h2>
-        <span className="meta">memo pqi1:anchor:{anchoredSeq}</span>
+        <h2 id="anc-h">Anchors and keys</h2>
+        <span className="meta">{ANCHORS.length} anchors · memo pqi1:anchor</span>
       </div>
       <dl className="kv pb">
-        <dt>Anchored head</dt>
-        <dd title={anchorEntry.refs.anchored_head}>
-          #{anchoredSeq} {short(anchorEntry.refs.anchored_head, 12)}
+        <dt>Anchored heads</dt>
+        <dd>
+          {ANCHORS.map((a, i) => (
+            <span key={a.seq} title={a.refs.anchored_head}>
+              {i ? ' · ' : ''}#{a.refs.anchored_seq} {short(a.refs.anchored_head, 8)}
+            </span>
+          ))}
         </dd>
         <dt>Head check</dt>
-        <dd data-state={headOk && allOk ? 'ok' : headOk ? 'checking' : 'bad'}>{headOk ? `equals entry #${anchoredSeq} (recomputed here)` : 'does not match the log'}</dd>
-        <dt>Anchor tx</dt>
+        <dd data-state={headOk && allOk ? 'ok' : headOk ? 'checking' : 'bad'}>{headOk ? `${seqs.join(' and ')} equal the log's entries (recomputed here)` : 'an anchored head does not match the log'}</dd>
+        <dt>Anchor txs</dt>
         <dd>
-          <Tx id={anchorEntry.refs.anchor_txid} label="anchor" />
+          {ANCHORS.map((a, i) => (
+            <span key={a.seq}>
+              {i ? ' → ' : ''}
+              <Tx id={a.refs.anchor_txid} label={`anchor of #${a.refs.anchored_seq}`} />
+            </span>
+          ))}
         </dd>
-        <dt>Memo on-chain</dt>
-        <dd className="faint">found by the run script; re-read by pnpm test (needs lightwalletd, not this tab)</dd>
+        <dt>Memos on-chain</dt>
+        <dd className="faint">found by the runs; re-read by pnpm test and check-anchors (needs lightwalletd, not this tab)</dd>
         <dt>After the anchor</dt>
-        <dd>{r.log.length - 1 - anchoredSeq} entry, not yet anchored</dd>
+        <dd>{LOG.length - 1 - anchoredSeq} entry (#{anchorEntry.seq}, the anchor itself)</dd>
         <AnchorChain />
         <dt>Verifier</dt>
         <dd title={r.keys.verifier.id}>ML-DSA-65 {short(r.keys.verifier.id, 12)}</dd>
@@ -508,17 +560,18 @@ const ATTACK: Record<string, string> = {
   nonceReuse: 'a new intent reusing A’s nonce',
   wrongKey: 'an intent signed by another key, naming the user',
   expired: 'C filled correctly, after its deadline',
+  otherSolver: 'a second configured solver claims D’s fill; the memo names the first (pass 2)',
 };
 
 function Refusals({ onSel }: { onSel: (n: number) => void }) {
-  const rows = Object.entries(r.attacks.decisions)
-    .map(([k, seq]) => ({ k, e: r.log[seq] }))
+  const rows = [...Object.entries(r.attacks.decisions), ['otherSolver', p2.theft.seq] as [string, number]]
+    .map(([k, seq]) => ({ k, e: LOG[seq] }))
     .filter(({ e }) => e?.status === 'REJECTED');
   return (
     <section className="p s12" aria-labelledby="ref-h">
       <div className="ph">
         <h2 id="ref-h">Refused on testnet</h2>
-        <span className="meta" title="Each refusal is a signed log entry. Also tested: FILL_UNKNOWN_SOLVER, FILL_NOT_SOLVER_BOUND, CLAIM_WINDOW_OPEN. FILL_BY_OTHER_SOLVER is entry 10 of the Oct 21 pass-2 run (deployments/testnet-pass2.json).">each one a signed log entry · tested too: FILL_UNKNOWN_SOLVER, FILL_NOT_SOLVER_BOUND, CLAIM_WINDOW_OPEN · FILL_BY_OTHER_SOLVER: pass 2</span>
+        <span className="meta" title="Each refusal is a signed log entry, #2-7 from the Oct 20 run and #10 from pass 2. Also tested, not live entries: FILL_UNKNOWN_SOLVER, FILL_NOT_SOLVER_BOUND, CLAIM_WINDOW_OPEN, RECEIVE_KEY_MISMATCH.">each one a signed log entry · tested too: FILL_UNKNOWN_SOLVER, FILL_NOT_SOLVER_BOUND, CLAIM_WINDOW_OPEN, RECEIVE_KEY_MISMATCH</span>
       </div>
       {rows.length === 0 ? (
         <p className="pb faint">No refusals were recorded in this run.</p>
@@ -537,8 +590,41 @@ function Refusals({ onSel }: { onSel: (n: number) => void }) {
   );
 }
 
+/** Pass 2's kill: the verifier stopped right after broadcasting D's release and reconciled it. */
+function Crash({ onSel }: { onSel: (n: number) => void }) {
+  const c = p2.crash;
+  const settled = LOG.find((e) => e.refs.release_txid === c.reconciled_txid);
+  return (
+    <section className="p s12" id="crash" aria-labelledby="crash-h">
+      <div className="ph">
+        <h2 id="crash-h">Killed mid-release, reconciled, paid once</h2>
+        <span className="meta">pass 2 · intent D · live on testnet</span>
+      </div>
+      <ol className="crash">
+        <li>
+          <b>Write-ahead</b> recipient, {zat(c.write_ahead.amount_zat)} zat and memo <code>pqi1:{short(p2.intent.hash, 6)}:release</code> saved (fsync) at block {zat(c.write_ahead.at_height)}
+        </li>
+        <li>
+          <b>Killed</b> the release was broadcast, then {c.signal} before its txid was saved
+        </li>
+        <li>
+          <b>Reconciled</b> the restart found that memo in the escrow's history in <Tx id={c.reconciled_txid} label="release" /> and settled with it{' '}
+          {settled ? (
+            <button className="linkish" onClick={() => onSel(settled.seq)}>
+              log #{settled.seq} · open in the inspector
+            </button>
+          ) : null}
+        </li>
+        <li>
+          <b>Paid once</b> the escrow sent {c.escrow_sends_with_release_memo.length} transaction with that memo
+        </li>
+      </ol>
+    </section>
+  );
+}
+
 export function App() {
-  const { checks, error } = useLogCheck(r.log);
+  const { checks, error } = useLogCheck(LOG);
   const [intent, setIntent] = useState<K>('A');
   const [entry, setEntry] = useState(0);
   const good = checks.filter((c) => c === 'ok').length;
@@ -555,18 +641,19 @@ export function App() {
         Skip to content
       </a>
       <Ticker />
-      <Bar good={good} done={done} n={r.log.length} />
+      <Bar good={good} done={done} n={LOG.length} />
       <main id="main" className="grid">
         <Book sel={intent} onSel={setIntent} />
         <Tape checks={checks} error={error} sel={entry} onSel={pick} />
-        <Inspector e={r.log[entry]} check={checks[entry] ?? 'pending'} />
-        <Anchor allOk={done === r.log.length && good === r.log.length} />
+        <Inspector e={LOG[entry]} check={checks[entry] ?? 'pending'} />
+        <Anchor allOk={done === LOG.length && good === LOG.length} />
         <Console />
         <Refusals onSel={pick} />
+        <Crash onSel={pick} />
       </main>
       <footer className="foot">
         <span>MIT · Copyright (c) 2026 Nivesh Gajengi</span>
-        <span>run record: deployments/testnet.json</span>
+        <span>run records: deployments/testnet.json + testnet-pass2.json</span>
         <span>post-quantum at the intent layer; Zcash spends stay ECC</span>
         <span>testnet · not audited</span>
       </footer>

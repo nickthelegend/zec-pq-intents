@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-// Builds the landing from the published run, so every number and hash on the page comes from
-// deployments/testnet.json:
+// Builds the landing from the published runs, so every number and hash on the page comes from
+// deployments/testnet.json (Oct 20: intents A-C, entries #0-9) and deployments/testnet-pass2.json
+// (Oct 21: intent D, the same verifier's log continued to #12, a second anchor):
 //   index.html      the page (static; readable without JavaScript)
-//   src/run.json    the log + verifier key the tape re-checks
+//   src/run.json    the log + verifier key + anchors the tape re-checks
 //   assets/tape.js  src/tape.ts bundled with @pqi/protocol (esbuild)
 // Usage: node packages/landing/build.mjs
 import { execFileSync } from 'node:child_process';
@@ -13,23 +14,36 @@ import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '../..');
 const d = JSON.parse(readFileSync(join(root, 'deployments/testnet.json'), 'utf8'));
+const p2 = JSON.parse(readFileSync(join(root, 'deployments/testnet-pass2.json'), 'utf8'));
+// Pass 2 continues the Oct 20 log under the same verifier key (the tab re-checks every signature).
+if (p2.keys.verifier.id !== d.keys.verifier.id) throw new Error('pass 2 is signed by another verifier key');
+d.log.forEach((e, i) => {
+  if (p2.log[i]?.hash !== e.hash) throw new Error(`pass 2 does not extend the Oct 20 log at entry #${i}`);
+});
 const EXPLORER = 'https://testnet.zcashexplorer.app/transactions/';
 const REPO = 'https://github.com/nickthelegend/zec-pq-intents';
-const TESTS = { protocol: 16, scan: '3 + doc', node: 32, mcp: 6, total: '57 + doc' };
+const TESTS = JSON.parse(readFileSync(join(here, 'tests.json'), 'utf8'));
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const short = (h, n = 8) => `${h.slice(0, n)}…`;
 const zat = (v) => Number(v).toLocaleString('en-US');
 const b64len = (s) => Buffer.from(s, 'base64').length;
 const tx = (id, label) => (id ? `<a class="tx" href="${EXPLORER}${id}" target="_blank" rel="noopener" aria-label="${esc(label ?? 'transaction')} ${short(id)} on the Zcash testnet explorer">${short(id)}</a>` : '<span class="muted">none</span>');
-const letter = Object.fromEntries(Object.entries(d.intents).map(([k, v]) => [v.hash, k]));
+const intents = { ...d.intents, D: p2.intent };
+const LETTERS = Object.keys(intents);
+const letter = Object.fromEntries(Object.entries(intents).map(([k, v]) => [v.hash, k]));
 const subject = (e) => (e.intent_hash ? (letter[e.intent_hash] ? `Intent ${letter[e.intent_hash]}` : `intent ${short(e.intent_hash, 6)}`) : 'log head');
 const firstTx = (refs) => Object.entries(refs).find(([k]) => /(release|refund|anchor|fill)_txid$/.test(k)) ?? Object.entries(refs).find(([k]) => k.endsWith('_txid'));
-const log = d.log;
+const log = p2.log;
+const PASS2_FROM = d.log.length;
 const count = (s) => log.filter((e) => e.status === s).length;
-const anchorEntry = log.find((e) => e.status === 'ANCHORED');
+const anchors = log.filter((e) => e.status === 'ANCHORED');
+const anchorEntry = anchors[anchors.length - 1];
 const anchoredSeq = Number(anchorEntry.refs.anchored_seq);
-const ranAt = new Date(d.ranAt).toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
+const anchorPath = anchors.map((a) => `#${a.refs.anchored_seq}`).join(' → ');
+const day = (iso) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+const ranAt = `${day(d.ranAt)} + ${day(p2.ranAt)}`;
+const pass = (seq) => (seq >= PASS2_FROM ? 'pass 2' : 'Oct 20');
 
 const WHY = {
   2: 'The solver "filled" C with the wrong memo and too little',
@@ -38,8 +52,16 @@ const WHY = {
   5: 'A new intent reusing A’s nonce',
   6: 'Signed by another ML-DSA key, naming the user',
   7: 'A correct fill of C, mined after its deadline',
+  10: 'A second configured solver claimed D’s fill; its memo names the first',
 };
-const LABEL = { 0: 'filled, escrow released', 1: 'filled, escrow released', 8: 'escrow back to the user', 9: `head of entries 0–${anchoredSeq} in a shielded memo` };
+const LABEL = {
+  0: 'filled, escrow released',
+  1: 'filled, escrow released',
+  8: 'escrow back to the user',
+  9: 'head of entries 0–8 in a shielded memo',
+  11: 'released once, after a SIGKILL right after the broadcast',
+  12: 'head of entries 0–11; names the #8 anchor',
+};
 
 // ---------- pieces ----------
 const tickerItems = log
@@ -51,9 +73,9 @@ const tickerItems = log
   .concat([`<li><b>VERIFIER</b> ML-DSA-65 ${short(d.keys.verifier.id)}</li>`, `<li><b>SOLVER KEM</b> ML-KEM-768 ${short(d.keys.solverKem.id)}</li>`])
   .join('');
 
-const bookRows = ['A', 'B', 'C']
+const bookRows = LETTERS
   .map((k) => {
-    const it = d.intents[k];
+    const it = intents[k];
     const i = it.signed.intent;
     const fin = log.find((e) => e.intent_hash === it.hash && (e.status === 'SETTLED' || e.status === 'REFUNDED'));
     const st = fin ? fin.status.toLowerCase() : 'open';
@@ -63,7 +85,7 @@ const bookRows = ['A', 'B', 'C']
       <td class="lead" data-l="Intent"><span class="letter">${k}</span>${short(it.hash)}</td>
       <td class="r" data-l="Escrow">${zat(i.pay_zat)}</td>
       <td class="r depth" style="--d:${ratio}" data-l="Deliver ≥">${zat(i.min_out_zat)}</td>
-      <td class="r" data-l="Fee">${zat(Number(i.pay_zat) - Number(i.min_out_zat))}</td>
+      <td class="r" data-l="Solver spread">${zat(Number(i.pay_zat) - Number(i.min_out_zat))}</td>
       <td class="r" data-l="Deadline">${zat(i.deadline_height)}</td>
       <td data-l="Status"><span class="st st-${st}">${st}</span></td>
       <td data-l="${fin?.status === 'REFUNDED' ? 'Refund' : 'Release'}">${tx(settleTx, fin?.status === 'REFUNDED' ? 'refund' : 'release')}</td>
@@ -75,7 +97,8 @@ const tapeRows = log
   .map((e) => {
     const t = firstTx(e.refs);
     const what = e.status === 'REJECTED' ? `${esc(WHY[e.seq] ?? subject(e))} <code>${esc(e.reason)}</code>` : `${esc(subject(e))}: ${esc(LABEL[e.seq] ?? e.status.toLowerCase())}`;
-    return `<li data-seq="${e.seq}"><span class="seq">#${e.seq}</span><span class="blk">${zat(e.at_height)}</span><span class="st st-${e.status.toLowerCase()}">${e.status}</span><span class="what" title="${esc(what.replace(/<[^>]+>/g, ''))}">${what}</span><span class="txc">${t ? `<span class="muted">${t[0].replace('_txid', '')}</span> ${tx(t[1], t[0].replace('_txid', ''))}` : ''}</span><span class="sigcell">not checked</span></li>`;
+    const sep = e.seq === PASS2_FROM ? `<li class="run-sep" aria-hidden="true">Pass 2 · ${day(p2.ranAt)} · same verifier key, the log continues</li>` : '';
+    return `${sep}<li data-seq="${e.seq}"><span class="seq">#${e.seq}</span><span class="blk">${zat(e.at_height)}</span><span class="st st-${e.status.toLowerCase()}">${e.status}</span><span class="what" title="${esc(what.replace(/<[^>]+>/g, ''))}">${what}</span><span class="txc">${t ? `<span class="muted">${t[0].replace('_txid', '')}</span> ${tx(t[1], t[0].replace('_txid', ''))}` : ''}</span><span class="sigcell">not checked</span></li>`;
   })
   .join('');
 
@@ -83,12 +106,24 @@ const refusals = log
   .filter((e) => e.status === 'REJECTED')
   .map((e) => {
     const t = firstTx(e.refs);
-    return `<div class="ref"><code>${esc(e.reason)}</code><p>${esc(WHY[e.seq])}</p><small>log #${e.seq}${t ? ` · ${t[0].replace('_txid', '')} ${tx(t[1], t[0].replace('_txid', ''))}` : ''}</small></div>`;
+    return `<div class="ref"><code>${esc(e.reason)}</code><p>${esc(WHY[e.seq])}</p><small>log #${e.seq} · ${pass(e.seq)}${t ? ` · ${t[0].replace('_txid', '')} ${tx(t[1], t[0].replace('_txid', ''))}` : ''}</small></div>`;
   })
   .concat([
-    `<div class="ref tested"><code>FILL_UNKNOWN_SOLVER</code><p>Someone other than the solver claims its real fill, to take the escrow.</p><small>tested on A’s real fill · not in the Oct 20 run</small></div>`,
-    `<div class="ref tested"><code>CLAIM_WINDOW_OPEN</code><p>A refund asked for inside the 10 blocks after the deadline, when the solver may still claim.</p><small>tested on C · not in the Oct 20 run</small></div>`,
+    `<div class="ref tested"><code>FILL_UNKNOWN_SOLVER</code><p>Someone other than the solver claims its real fill, to take the escrow.</p><small>tested on A’s real fill · not a live entry</small></div>`,
+    `<div class="ref tested"><code>FILL_NOT_SOLVER_BOUND</code><p>A fill whose memo names no solver, with two solver keys configured: paid to neither.</p><small>tested on A’s Oct 20 fill · not a live entry</small></div>`,
+    `<div class="ref tested"><code>CLAIM_WINDOW_OPEN</code><p>A refund asked for inside the 10 blocks after the deadline, when the solver may still claim.</p><small>tested on C · not a live entry</small></div>`,
+    `<div class="ref tested"><code>RECEIVE_KEY_MISMATCH</code><p>A receive viewing key from another wallet, so the user could keep the delivery and be refunded too.</p><small>tested on the run’s keys · not a live entry</small></div>`,
   ])
+  .join('');
+
+const crash = p2.crash;
+const crashSteps = [
+  ['Write-ahead', `Before paying D’s release, the verifier saved (fsync) the recipient, ${zat(crash.write_ahead.amount_zat)} zat and memo <code>pqi1:${short(p2.intent.hash, 6)}:release</code> at block ${zat(crash.write_ahead.at_height)}.`],
+  ['Killed', `The release was broadcast and the desk process got ${esc(crash.signal)} before it could save the txid.`],
+  ['Reconciled', `On restart the escrow’s history already held that memo in ${tx(crash.reconciled_txid, 'release')}, so the verifier waited for it to be mined and settled with it (log #${log.find((e) => e.refs.release_txid === crash.reconciled_txid).seq}).`],
+  ['Paid once', `The escrow sent ${crash.escrow_sends_with_release_memo.length} transaction with that memo: ${crash.escrow_sends_with_release_memo.map((t) => tx(t, 'release')).join(', ')}.`],
+]
+  .map(([h, p]) => `<div><b>${h}</b><p>${p}</p></div>`)
   .join('');
 
 const A = d.intents.A;
@@ -122,7 +157,7 @@ const html = `<!doctype html>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 
-<div class="ticker" aria-label="Decisions from the Oct 20 testnet run">
+<div class="ticker" aria-label="Decisions from the two testnet runs">
   <div class="ticker-track"><ul>${tickerItems}</ul><ul aria-hidden="true">${tickerItems.replace(/<a /g, '<a tabindex="-1" ')}</ul></div>
 </div>
 
@@ -130,9 +165,9 @@ const html = `<!doctype html>
   <a class="brand" href="#main" aria-label="Yaksok, top">${mark}<b>Yaksok</b><span lang="ko">약속</span></a>
   <div class="cells" aria-label="Run">
     <div class="cell"><small>Network</small><span><i class="dot" aria-hidden="true"></i>zcash-testnet</span></div>
-    <div class="cell"><small>Run</small><span>${ranAt}</span></div>
+    <div class="cell"><small>Runs</small><span>${ranAt}</span></div>
     <div class="cell"><small>Log</small><span>${log.length} entries</span></div>
-    <div class="cell"><small>Anchored</small><span>#0–${anchoredSeq} · block ${zat(anchorEntry.at_height)}</span></div>
+    <div class="cell"><small>Anchors</small><span>${anchors.length} · ${anchorPath}</span></div>
     <div class="cell"><small>Verifier</small><span>${short(d.keys.verifier.id)}</span></div>
   </div>
   <nav class="acts" aria-label="Links">
@@ -146,23 +181,23 @@ const html = `<!doctype html>
     <section class="p s5 hero" aria-labelledby="h1">
       <p class="kicker">Zcash · private markets · intents</p>
       <h1 id="h1">Intents signed and sealed with <em>post-quantum</em> keys, settled in shielded ZEC.</h1>
-      <p class="lede">An intent is signed with ML-DSA-65 and sealed to the solver with ML-KEM-768. The user escrows testnet ZEC, the solver delivers from its own liquidity, and a verifier releases or refunds the escrow. It writes every decision as a signed, hash-chained log entry, anchored in a shielded memo. Zcash spends stay elliptic-curve. The post-quantum part is the intent layer.</p>
+      <p class="lede">Why: the address you receive at is paid from the solver’s liquidity, never from the wallet you fund with, and the order itself is signed and sealed with post-quantum keys. You sign an intent with ML-DSA-65 and seal it to the solver with ML-KEM-768, escrow testnet ZEC, and a verifier releases or refunds the escrow. Every decision is a signed, hash-chained log entry, anchored in a shielded memo. Zcash spends stay elliptic-curve; the post-quantum part is the intent layer.</p>
       <div class="ctas"><a class="btn btn-copper btn-lg" href="#tape">Watch the tape verify</a><a class="btn btn-lg" href="${REPO}/blob/main/packages/docs/README.md#trust-model">Trust model</a></div>
-      <div class="kpis" aria-label="The Oct 20 run">
+      <div class="kpis" aria-label="Both testnet runs">
         <div class="kpi"><b class="st-settled">${count('SETTLED')}</b><small>settled</small></div>
         <div class="kpi"><b class="st-rejected">${count('REJECTED')}</b><small>refused, signed</small></div>
         <div class="kpi"><b class="st-refunded">${count('REFUNDED')}</b><small>refunded</small></div>
-        <div class="kpi"><b class="st-anchored">${count('ANCHORED')}</b><small>anchor</small></div>
+        <div class="kpi"><b class="st-anchored">${count('ANCHORED')}</b><small>anchors</small></div>
       </div>
     </section>
 
     <section class="p s7" aria-labelledby="book-h">
-      <div class="ph"><h2 id="book-h">Intent book</h2><span class="meta">zat · 3 intents · one funding tx ${short(d.txs.funding)}</span></div>
+      <div class="ph"><h2 id="book-h">Intent book</h2><span class="meta">zat · ${LETTERS.length} intents · 2 runs</span></div>
       <table class="book stack">
-        <thead><tr><th scope="col">Intent</th><th scope="col" class="r">Escrow</th><th scope="col" class="r">Deliver ≥</th><th scope="col" class="r">Fee</th><th scope="col" class="r">Deadline</th><th scope="col">Status</th><th scope="col">Payout</th></tr></thead>
+        <thead><tr><th scope="col">Intent</th><th scope="col" class="r">Escrow</th><th scope="col" class="r">Deliver ≥</th><th scope="col" class="r">Solver spread</th><th scope="col" class="r">Deadline</th><th scope="col">Status</th><th scope="col">Payout</th></tr></thead>
         <tbody>${bookRows}</tbody>
       </table>
-      <p class="book-note">The bar under “Deliver ≥” is the share of the escrow the solver must deliver. A release or refund pays the escrow minus a 15,000 zat fee budget (45,000). All three were funded in ${tx(d.txs.funding, 'funding')}.</p>
+      <p class="book-note">The bar under “Deliver ≥” is the share of the escrow the solver must deliver. Solver spread is escrow minus delivery (20,000). A release or a refund pays the escrow minus a 15,000 zat fee budget, so a release is 45,000 and the solver nets 5,000 over what it delivered; a refund returns 45,000 of the 60,000 (the user loses 15,000, a quarter). The part of the fee budget the payout transaction does not spend stays in the escrow wallet, which the verifier holds. A, B and C were funded together in ${tx(d.txs.funding, 'funding')}; D, in pass 2, in ${tx(p2.txs.funding, 'funding')}.</p>
       <div class="flow">
         <div><b>Sign</b><p>ML-DSA-65 over the canonical intent; the key id is inside it.</p></div>
         <div><b>Seal</b><p>ML-KEM-768 + HKDF + AES-256-GCM to the solver's key.</p></div>
@@ -186,9 +221,9 @@ const html = `<!doctype html>
         <dl class="kv">
           <dt>Verifier key</dt><dd title="${d.keys.verifier.id}">${short(d.keys.verifier.id, 16)}</dd>
           <dt>Log head</dt><dd title="${log[log.length - 1].hash}">${short(log[log.length - 1].hash, 16)}</dd>
-          <dt>Anchored head</dt><dd title="${anchorEntry.refs.anchored_head}">#${anchoredSeq} ${short(anchorEntry.refs.anchored_head, 12)}</dd>
+          <dt>Anchored heads</dt><dd>${anchors.map((a) => `<span title="${a.refs.anchored_head}">#${a.refs.anchored_seq} ${short(a.refs.anchored_head, 8)}</span>`).join(' · ')}</dd>
           <dt>Head check</dt><dd id="anchor-check" data-state="idle">not checked</dd>
-          <dt>Anchor memo</dt><dd>${tx(anchorEntry.refs.anchor_txid, 'anchor')} <span class="muted">found by the run; re-read by <code>pnpm test</code></span></dd>
+          <dt>Anchor memos</dt><dd>${anchors.map((a) => tx(a.refs.anchor_txid, `anchor of #${a.refs.anchored_seq}`)).join(' → ')} <span class="muted">found by the runs; re-read by <code>pnpm test</code> and <code>check-anchors</code></span></dd>
           <dt>After the anchor</dt><dd>${log.length - 1 - anchoredSeq} entry (#${anchorEntry.seq}, the anchor itself)</dd>
         </dl>
       </div>
@@ -197,6 +232,11 @@ const html = `<!doctype html>
     <section class="p s12" aria-labelledby="ref-h">
       <div class="ph"><h2 id="ref-h">What the verifier refuses</h2><span class="meta">each refusal is a signed log entry</span></div>
       <div class="refusals">${refusals}</div>
+    </section>
+
+    <section class="p s12" id="crash" aria-labelledby="crash-h">
+      <div class="ph"><h2 id="crash-h">Killed mid-release, reconciled, paid once</h2><span class="meta">pass 2 · intent D · live on testnet</span></div>
+      <div class="flow crash">${crashSteps}</div>
     </section>
 
     <section class="p s6" aria-labelledby="prim-h">
@@ -216,7 +256,7 @@ const html = `<!doctype html>
       <div class="ph"><h2 id="pq-h">What is post-quantum, and what is not</h2></div>
       <div class="cols2">
         <div class="yes"><h3>Post-quantum</h3><ul class="plain"><li>The intent signature (ML-DSA-65)</li><li>The sealed envelope to the solver (ML-KEM-768): recording it today does not open it later</li><li>The verifier's signatures on every decision</li></ul></div>
-        <div class="no"><h3>Not post-quantum</h3><ul class="plain"><li>Zcash spends and note encryption: a future quantum adversary holding the chain could read the funding and fill memos and link them</li><li>The escrow viewing key is public, so funding amounts and intent hashes are visible today</li></ul></div>
+        <div class="no"><h3>Not post-quantum, and not private</h3><ul class="plain"><li>Zcash spends and note encryption: a future quantum adversary holding the chain could read the funding and fill memos and link them</li><li>The escrow’s full viewing key is published, so anyone sees today every funding (amount, intent hash) and every payout out of the escrow: the recipient and amount of each release and refund, including the user’s refund address next to <code>pqi1:&lt;hash&gt;:refund</code></li></ul></div>
       </div>
     </section>
 
@@ -226,6 +266,7 @@ const html = `<!doctype html>
 <pre><b>verify_log</b>     the desk vs your pinned verifier key;
                every hash, link, signature, anchor memo
 <b>submit_intent</b>  sign, seal, fund: pinned escrow + KEM key only
+               (tested on its refusals; see the README for live runs)
 <b>status</b>         an intent's stage and signed entries
 <b>quote</b>          the fee vs the solver's published minimum</pre>
       </div>
@@ -234,8 +275,9 @@ const html = `<!doctype html>
     <section class="p s6" id="run" aria-labelledby="run-h">
       <div class="ph"><h2 id="run-h">Run it</h2><span class="meta">${TESTS.total} tests · no mocks</span></div>
       <div class="pb">
-<pre><b>pnpm install && pnpm test</b>
-pnpm --filter @pqi/dashboard dev          <span class="muted"># the terminal, :5181</span>
+<pre><b>pnpm install</b>
+pnpm --filter @pqi/dashboard dev          <span class="muted"># terminal, :5181</span>
+pnpm test                                 <span class="muted"># + Rust, zingo-cli</span>
 PQI_PUBLISHED=deployments/testnet.json \\
   pnpm --filter @pqi/node serve           <span class="muted"># read-only desk</span></pre>
         <table class="tests" style="margin-top:12px">
@@ -254,8 +296,9 @@ PQI_PUBLISHED=deployments/testnet.json \\
       <div class="pb">
         <ul class="plain">
           <li>Not trustless. The verifier holds the escrow and could withhold a payout. It cannot change the record without the signatures, links or anchors showing it.</li>
-          <li>The solver and the verifier read the plaintext intent. In this run, one receive address served all three intents, so those deliveries can be linked.</li>
-          <li>Anchors are periodic, and each names the one before it. The escrow's full viewing key is published, so every anchor it sent can be listed and a second head is a visible fork; entries after the last anchor are not covered. Funding and fills need 3 confirmations.</li>
+          <li>The solver and the verifier read the plaintext intent. One receive address served all four intents (A–D), so those deliveries can be linked.</li>
+          <li>The escrow’s full viewing key is published for auditability: it shows every payout’s recipient and amount, not only the fundings.</li>
+          <li>Anchors are periodic, and each names the one before it. Every anchor the escrow sent can be listed, and a second head, an anchor that names none, or one off the chain fails the check; entries after the last anchor are not covered. Funding and fills need 3 confirmations.</li>
           <li>ZEC only, testnet only, a single verifier key, not audited. A portfolio piece: the Zecathon entry is Shielded x402.</li>
         </ul>
       </div>
@@ -265,7 +308,8 @@ PQI_PUBLISHED=deployments/testnet.json \\
 
 <footer class="foot">
   <span>MIT · Copyright (c) 2026 Nivesh Gajengi</span>
-  <a href="${REPO}/blob/main/deployments/testnet.json">Run record</a>
+  <a href="${REPO}/blob/main/deployments/testnet.json">Run record (Oct 20)</a>
+  <a href="${REPO}/blob/main/deployments/testnet-pass2.json">Pass 2 (Oct 21)</a>
   <a href="${REPO}/blob/main/docs/JUDGE-2026-10-21.md">Review</a>
   <span>Zcash testnet · not audited</span>
 </footer>
@@ -275,7 +319,7 @@ PQI_PUBLISHED=deployments/testnet.json \\
 `;
 
 writeFileSync(join(here, 'index.html'), html);
-writeFileSync(join(here, 'src/run.json'), JSON.stringify({ verifier: d.keys.verifier, log, anchor: { seq: anchoredSeq, head: anchorEntry.refs.anchored_head } }));
+writeFileSync(join(here, 'src/run.json'), JSON.stringify({ verifier: d.keys.verifier, log, anchors: anchors.map((a) => ({ entry: a.seq, seq: Number(a.refs.anchored_seq), head: a.refs.anchored_head, txid: a.refs.anchor_txid, prev: a.refs.prev_anchor_txid ?? null })) }));
 
 // esbuild from the workspace store (a dependency of the dashboard's vite)
 const store = join(root, 'node_modules/.pnpm');

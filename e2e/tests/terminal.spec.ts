@@ -1,15 +1,18 @@
-// The Yaksok terminal (dashboard), the way a user clicks through it: the tape (the attestation log)
-// re-verifying entry by entry, every log entry opened in the inspector, every "log #n · open in the
-// inspector" refusal, the intent book, the anchor head and the anchor chain across both runs, the
-// attack console, links, reduced motion. Values are compared against the records.
+// The Yaksok terminal (dashboard), the way a user clicks through it: the tape (the attestation log of
+// both runs, 13 entries) re-verifying entry by entry, every log entry opened in the inspector, every
+// "log #n · open in the inspector" refusal, the intent book (A–D), the anchored heads and the anchor
+// chain across both runs, the pass-2 kill, the attack console, links, reduced motion. Values are
+// compared against the records.
 import { EXPLORER, REPO, TERMINAL, expect, fullyInView, isMobile, noHorizontalScroll, oct20, pass2, short, test, zat } from './fixtures';
 
 type E = { seq: number; status: string; reason: string | null; hash: string; prev: string; intent_hash: string | null; at_height: number; refs: Record<string, string> };
-const log = oct20.log as E[];
+/** Oct 20's #0-9 continued by pass 2 to #12, under the same verifier key. */
+const log = pass2.log as E[];
 const N = log.length;
+const INTENTS = { ...oct20.intents, D: pass2.intent } as Record<string, { hash: string; signed: { intent: Record<string, string> } }>;
 
 test.describe('terminal', () => {
-  test('the attestation tape prints entry by entry as each ML-DSA-65 signature verifies; the bar ends at 10/10', async ({ page }) => {
+  test('the attestation tape prints entry by entry as each ML-DSA-65 signature verifies; the bar ends at 13/13', async ({ page }) => {
     await page.addInitScript(() => {
       const w = window as unknown as { __meta: string[] };
       w.__meta = [];
@@ -20,9 +23,11 @@ test.describe('terminal', () => {
     });
     await page.goto(TERMINAL);
     await expect(page).toHaveTitle(/Yaksok terminal/);
-    const tape = page.locator('.tape li');
+    expect(N).toBe(13);
+    const tape = page.locator('.tape li[data-check]');
     await expect(tape).toHaveCount(N);
     await expect(page.locator('#tape-h + .meta')).toHaveText(`${N}/${N} signatures verify`, { timeout: 20_000 });
+    await expect(page.locator('.tape li.run-sep')).toHaveText(/Pass 2 · Oct 21/);
     const seen = await page.evaluate(() => (window as unknown as { __meta: string[] }).__meta);
     for (let k = 1; k < N; k++) expect(seen, 'printed one entry at a time').toContain(`verifying ${k}/${N}…`);
     for (let i = 0; i < N; i++) {
@@ -53,17 +58,20 @@ test.describe('terminal', () => {
       for (const [k, v] of Object.entries(e.refs)) if (k.endsWith('_txid')) await expect(inspector.locator(`a.tx[href="${EXPLORER + v}"]`)).toBeVisible();
       await fullyInView(inspector);
     }
-    await page.screenshot({ path: test.info().outputPath('inspector-entry-9.png') });
+    await page.screenshot({ path: test.info().outputPath('inspector-entry-12.png') });
     await noHorizontalScroll(page);
   });
 
   test('every refusal button ("log #n · open in the inspector") opens that signed entry in the inspector', async ({ page }) => {
     await page.goto(TERMINAL);
     const refs = page.locator('.refusals button.ref');
-    const decided = Object.values(oct20.attacks.decisions as Record<string, number>).filter((s) => log[s].status === 'REJECTED');
+    const decided = [...Object.values(oct20.attacks.decisions as Record<string, number>), pass2.theft.seq as number].filter((s) => log[s].status === 'REJECTED');
+    expect(decided).toContain(10);
     await expect(refs).toHaveCount(decided.length);
-    const labelled = page.getByRole('button', { name: /log #\d+/ });
+    const labelled = page.locator('.refusals').getByRole('button', { name: /log #\d+/ });
     await expect(labelled).toHaveCount(decided.length);
+    // one more such button outside the refusals: the pass-2 crash panel's "log #11" (its own test)
+    await expect(page.getByRole('button', { name: /log #\d+/ })).toHaveCount(decided.length + 1);
     for (let i = 0; i < decided.length; i++) {
       const seq = decided[i];
       const b = refs.nth(i);
@@ -76,26 +84,32 @@ test.describe('terminal', () => {
       await expect(page.locator('.tape li button').nth(seq)).toHaveAttribute('aria-pressed', 'true');
       await fullyInView(page.locator('#inspector'));
     }
-    for (const code of ['BAD_SIGNATURE', 'ALREADY_SETTLED', 'NONCE_REUSED', 'WRONG_KEY', 'EXPIRED']) await expect(page.locator('.refusals code', { hasText: code })).toHaveCount(1);
+    for (const code of ['BAD_SIGNATURE', 'ALREADY_SETTLED', 'NONCE_REUSED', 'WRONG_KEY', 'EXPIRED', 'FILL_BY_OTHER_SOLVER']) await expect(page.locator('.refusals code', { hasText: code })).toHaveCount(1);
     await page.screenshot({ path: test.info().outputPath('refusal-opened.png') });
   });
 
-  test('intent book: A, B and C each show their steps, transactions and log entries from the record', async ({ page }) => {
+  test('intent book: A, B, C and D each show their steps, transactions and log entries from the records', async ({ page }) => {
     await page.goto(TERMINAL);
     const book = page.getByRole('radiogroup', { name: 'Intents' });
-    await expect(book.getByRole('radio')).toHaveCount(3);
-    for (const k of ['A', 'B', 'C']) {
-      const it = oct20.intents[k];
+    await expect(book.getByRole('radio')).toHaveCount(4);
+    for (const k of ['A', 'B', 'C', 'D']) {
+      const it = INTENTS[k];
       const radio = book.getByRole('radio').filter({ hasText: short(it.hash) });
       await radio.click();
       await expect(radio).toHaveAttribute('aria-checked', 'true');
       const steps = page.locator('.steps');
       await expect(steps).toContainText(`ML-DSA-65 by user ${short(it.signed.intent.user)}`);
-      await expect(steps.locator(`a[href="${EXPLORER + oct20.txs.funding}"]`)).toBeVisible();
+      await expect(steps.locator(`a[href="${EXPLORER + (k === 'D' ? pass2.txs.funding : oct20.txs.funding)}"]`)).toBeVisible();
       const entries = log.filter((e) => e.intent_hash === it.hash);
       await expect(page.getByText('Log entries for this intent:')).toHaveText(`Log entries for this intent: ${entries.map((e) => `#${e.seq}`).join(', ')}`);
       const fin = entries.find((e) => e.status === 'SETTLED' || e.status === 'REFUNDED')!;
-      if (k === 'C') {
+      if (k === 'D') {
+        await expect(steps.locator(`a[href="${EXPLORER + pass2.txs.fill}"]`)).toBeVisible();
+        await expect(steps).toContainText('FILL_BY_OTHER_SOLVER (#10)');
+        await expect(steps).toContainText('Killed by SIGKILL right after the release broadcast');
+        await expect(steps).toContainText(`Released ${zat(fin.refs.released_zat)} zat to the solver`);
+        await expect(steps.locator(`a[href="${EXPLORER + pass2.txs.release}"]`)).toBeVisible();
+      } else if (k === 'C') {
         await expect(steps).toContainText('wrong memo');
         await expect(steps.locator(`a[href="${EXPLORER + oct20.txs.wrongMemoFill}"]`)).toBeVisible();
         await expect(steps.locator(`a[href="${EXPLORER + oct20.txs.lateFill}"]`)).toBeVisible();
@@ -112,11 +126,11 @@ test.describe('terminal', () => {
     await noHorizontalScroll(page);
   });
 
-  test('anchor: head recomputed here; "Check the anchor chain" verifies both runs as one chain (#8 → #11)', async ({ page }) => {
+  test('anchors: both heads recomputed here; "Check the anchor chain" verifies both runs as one chain (#8 → #11)', async ({ page }) => {
     await page.goto(TERMINAL);
     const anc = page.locator('section', { has: page.locator('#anc-h') });
-    const a = log.find((e) => e.status === 'ANCHORED')!;
-    await expect(anc.locator('dd[data-state]').first()).toHaveText(`equals entry #${a.refs.anchored_seq} (recomputed here)`);
+    await expect(anc.locator('dd[data-state]').first()).toHaveText("#8 and #11 equal the log's entries (recomputed here)");
+    await expect(anc).toContainText('1 entry (#12, the anchor itself)');
     await expect(anc.locator('dd[data-state]').first()).toHaveAttribute('data-state', 'ok', { timeout: 20_000 });
     await expect(anc.getByText('not checked yet')).toBeVisible();
     const btn = anc.getByRole('button', { name: 'Check the anchor chain' });
@@ -127,7 +141,8 @@ test.describe('terminal', () => {
     await expect(result).toHaveAttribute('data-state', 'ok');
     await expect(result).toHaveText(`one chain, ${hist.length} anchors, no fork: #8 → #11 · ${pass2.log.length}/${pass2.log.length} pass-2 signatures verify`);
     await expect(anc.locator(`a[href="${EXPLORER + pass2.txs.previousAnchor}"]`).first()).toBeVisible();
-    await expect(anc.locator(`a[href="${EXPLORER + pass2.txs.anchor}"]`)).toBeVisible();
+    await expect(anc.locator(`a[href="${EXPLORER + pass2.txs.anchor}"]`)).toHaveCount(2); // in "Anchor txs" and in the checked chain
+    await expect(anc.locator(`a[href="${EXPLORER + pass2.txs.anchor}"]`).last()).toBeVisible();
     await expect(anc).toContainText(`names ${short(pass2.txs.previousAnchor)}`);
     await expect(anc.getByRole('button', { name: 'Check the anchor chain again' })).toBeEnabled();
     await anc.screenshot({ path: test.info().outputPath('anchor-chain.png') });
@@ -156,6 +171,23 @@ test.describe('terminal', () => {
     for (let i = 0; i < 3; i++) await con.getByRole('button', { name: 'Original' }).click();
     await expect(out).toHaveCount(8); // newest 8 kept
     await con.screenshot({ path: test.info().outputPath('attack-console.png') });
+    await noHorizontalScroll(page);
+  });
+
+  test('pass 2’s kill: write-ahead, SIGKILL after the release broadcast, reconciled to the one release; its "log #11" opens the SETTLED entry', async ({ page }) => {
+    await page.goto(TERMINAL);
+    const crash = page.locator('#crash');
+    await crash.scrollIntoViewIfNeeded();
+    await expect(crash).toContainText(`saved (fsync) at block ${zat(pass2.crash.write_ahead.at_height)}`);
+    await expect(crash).toContainText('then SIGKILL before its txid was saved');
+    await expect(crash).toContainText('the escrow sent 1 transaction with that memo');
+    await expect(crash.locator(`a[href="${EXPLORER + pass2.txs.release}"]`)).toBeVisible();
+    await expect(page.locator('#tape-h + .meta')).toHaveText(`${N}/${N} signatures verify`, { timeout: 20_000 });
+    await crash.getByRole('button', { name: 'log #11 · open in the inspector' }).click();
+    await expect(page.locator('#ins-h')).toHaveText('Entry #11');
+    await expect(page.locator('#inspector')).toContainText('SETTLED');
+    await expect(page.locator(`#inspector a.tx[href="${EXPLORER + pass2.txs.release}"]`)).toBeVisible();
+    await fullyInView(page.locator('#inspector'));
     await noHorizontalScroll(page);
   });
 
@@ -189,7 +221,7 @@ test.describe('terminal', () => {
       await expect(page.locator('.ticker-track')).toHaveCSS('animation-name', 'none');
       await expect(page.locator('.ticker-track ul[aria-hidden]')).toBeHidden();
       await expect(page.locator('#tape-h + .meta')).toHaveText(`${N}/${N} signatures verify`, { timeout: 5_000 });
-      await expect(page.locator('.tape li').first()).toHaveCSS('transition-duration', '0s');
+      await expect(page.locator('.tape li[data-check]').first()).toHaveCSS('transition-duration', '0s');
       await noHorizontalScroll(page);
     });
   });
