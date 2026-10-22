@@ -4,6 +4,7 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [react()],
-  resolve: { alias: { '@deployments': resolve(__dirname, '../../deployments') } },
+  // @pqi/protocol from its source, so a fresh clone runs `dev` and `build` without building it first.
+  resolve: { alias: { '@deployments': resolve(__dirname, '../../deployments'), '@pqi/protocol': resolve(__dirname, '../protocol/src/index.ts') } },
   server: { port: 5181, strictPort: true, fs: { allow: [resolve(__dirname, '../..')] } },
 });

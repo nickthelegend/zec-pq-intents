@@ -73,21 +73,40 @@ the recomputed head of entries 0–8. Every payout was re-read with the recipien
 
 ## Run it
 
-Needs Node 22+, pnpm 10, Rust 1.89 (pinned in `packages/scan`).
+**See it in 60 seconds** (Node 22+ and pnpm 10 only; nothing to build first):
 
 ```sh
-pnpm install
-pnpm test                                    # 57 tests + doc: protocol 16, scan 3 + doc, node 32, mcp 6 (node and mcp read Zcash testnet)
-pnpm --filter @pqi/dashboard dev             # http://localhost:5181
+pnpm install && pnpm --filter @pqi/dashboard dev     # the Yaksok terminal on http://localhost:5181
+```
+
+The terminal re-verifies every ML-DSA-65 signature of both testnet runs in your browser.
+
+**Everything else** needs Rust 1.89 (pinned in `packages/scan`) for the `zpay-verify` viewing-key
+checker, and **zingo-cli** for the wallet calls (`check-anchors`, the live desk, and the node tests
+that read the escrow's history or a wallet balance). Build zingo-cli from
+[zingolib](https://github.com/zingolabs/zingolib) at commit `0a5cb69ab` (the commit the runs used):
+
+```sh
+git clone https://github.com/zingolabs/zingolib ~/src/zingolib && git -C ~/src/zingolib checkout 0a5cb69ab
+(cd ~/src/zingolib && cargo build --release -p zingo-cli)
+export PQI_ZINGO_CLI=~/src/zingolib/target/release/zingo-cli   # this is also the default path
+```
+
+Without it, those commands stop with `Setup required: PQI_ZINGO_CLI`. Then:
+
+```sh
+pnpm test                                    # every package (TESTING.md); node and mcp read Zcash testnet
 pnpm test:e2e                                # Google Chrome E2E: landing, terminal, desks (TESTING.md)
-PQI_PUBLISHED=deployments/testnet.json pnpm --filter @pqi/node serve    # read-only desk for the MCP server
-# MCP server: node packages/mcp/dist/main.js with PQI_VERIFIER_ID=f60f1305… (verify_log needs the key you trust)
-PQI_VERIFIER_ID=f60f1305… pnpm --filter @pqi/node check-anchors deployments/testnet-pass2.json   # every anchor the escrow sent, one chain
-node packages/landing/build.mjs              # regenerate the landing from deployments/testnet.json
+node packages/landing/build.mjs              # regenerate the landing from deployments/*.json
+PQI_PUBLISHED=deployments/testnet.json pnpm --filter @pqi/node serve    # read-only desk on 127.0.0.1:8404
+PQI_VERIFIER_ID=f60f130579386479043287fb68c2c1726a0a210be77aee46b355adb1287f1445 \
+  pnpm --filter @pqi/node check-anchors deployments/testnet-pass2.json  # every anchor the escrow sent, one chain
 PQI_FUNDER_WALLET=<demo wallet> pnpm --filter @pqi/examples run-live    # a new live run
 ```
 
-Demo video: `zec-pq-intents-demo.mp4` (shared separately until hosted).
+MCP server: `node packages/mcp/dist/main.js` (after `pnpm build`) with
+`PQI_VERIFIER_ID=f60f130579386479043287fb68c2c1726a0a210be77aee46b355adb1287f1445`; see
+[`packages/mcp`](packages/mcp) for the other pins.
 
 ## Honest limits
 

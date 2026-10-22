@@ -10,7 +10,8 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "types": ["vite/client"],
-    "paths": { "@deployments/*": ["../../deployments/*"], "@fixtures/*": ["../../deployments/*"] }
+    "allowImportingTsExtensions": true,
+    "paths": { "@pqi/protocol": ["../protocol/src/index.ts"], "@deployments/*": ["../../deployments/*"], "@fixtures/*": ["../../deployments/*"] }
   },
   "include": ["src"]
 }

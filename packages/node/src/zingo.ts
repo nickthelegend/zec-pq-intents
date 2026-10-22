@@ -1,11 +1,16 @@
 // Copied from zec-payment-verify-sdk / zec-sealed-bid-auction (same author, MIT). Thin wrapper over zingo-cli (testnet). One process per call; --waitsync so every read is current.
 // Never calls `recovery_info` (it prints the seed). Errors carry zingo-cli's own message.
 import { execFile } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
+import { SetupRequiredError } from './scan.js';
+
 const run = promisify(execFile);
+/** zingolib commit the runs used (testnet with NU7): https://github.com/zingolabs/zingolib */
+export const ZINGOLIB_COMMIT = '0a5cb69ab';
 
 export interface ZingoConfig {
   bin: string;
@@ -27,6 +32,7 @@ function refuseTreasury(walletDir: string) {
 async function zingo(cfg: ZingoConfig, walletDir: string, args: string[], timeoutMs = 600_000, pre: string[] = []): Promise<string> {
   if (args.includes('recovery_info')) throw new Error('refusing recovery_info: it prints the seed');
   refuseTreasury(walletDir);
+  if (!existsSync(cfg.bin)) throw new SetupRequiredError('PQI_ZINGO_CLI', `no zingo-cli at ${cfg.bin}; build zingolib ${ZINGOLIB_COMMIT} (cargo build --release -p zingo-cli) and point PQI_ZINGO_CLI at target/release/zingo-cli`);
   try {
     const { stdout, stderr } = await run(cfg.bin, ['--chain', 'testnet', '--server', cfg.server, '--data-dir', walletDir, '--waitsync', ...pre, ...args], {
       timeout: timeoutMs,
