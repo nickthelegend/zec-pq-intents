@@ -2,19 +2,20 @@
 // HTTP surface. Chain-touching cases read the published run on Zcash testnet; payouts are recorded up
 // front so nothing is ever sent, and the solver's wallet path does not exist (no delivery happens).
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { request } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { bytesToHex, keyId, memo, newKemKey, newSigningKey, randomBytes, seal, signFill, signIntent, type SignedIntent } from '@pqi/protocol';
-import { chainTip, Desk, MAX_BODY_BYTES, scan, serveDesk, Solver, Verifier, zingoConfig, type BoardItem } from '../src/index.js';
+import { chainTip, Desk, HttpError, MAX_BODY_BYTES, scan, serveDesk, Solver, Verifier, zingoConfig, type BoardItem } from '../src/index.js';
 
 const d = JSON.parse(readFileSync(resolve(__dirname, '../../../deployments/testnet.json'), 'utf8'));
 const I = d.intents as Record<'A' | 'B' | 'C', { hash: string; signed: SignedIntent }>;
 const W = d.wallets as Record<string, { address: string; uivk: string }>;
 const NEVER_SENT = 'test-marker-no-payment-sent';
 
-function setup(items: (kem: Uint8Array, sign: ReturnType<typeof newSigningKey>) => BoardItem[] = () => [], SolverClass: typeof Solver = Solver) {
+function setup(items: (kem: Uint8Array, sign: ReturnType<typeof newSigningKey>) => BoardItem[] = () => [], SolverClass: typeof Solver = Solver, deskOpts: { maxOpen?: number; unfundedTtlBlocks?: number } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'pqi-desk-'));
   const kem = newKemKey();
   const sign = newSigningKey();
@@ -23,7 +24,7 @@ function setup(items: (kem: Uint8Array, sign: ReturnType<typeof newSigningKey>) 
   writeFileSync(join(dir, 'board.json'), JSON.stringify(items(kem.publicKey, sign)));
   const solver = new SolverClass({ sign, kem, wallet: '/nonexistent/solver-wallet-never-used', ua: W.solver.address, escrowUivk: W.escrow.uivk, zingo: zingoConfig(), minFeeZat: 15_000n });
   const verifier = new Verifier({ key: newSigningKey(), escrowWallet: '/nonexistent/escrow-wallet-never-used', escrowUa: W.escrow.address, escrowUivk: W.escrow.uivk, solvers: [keyId(sign.publicKey)], legacyUnboundFills: [I.A.hash, I.B.hash, I.C.hash], zingo: zingoConfig(), statePath: join(dir, 'verifier.json'), tip: chainTip });
-  const desk = new Desk({ boardPath: join(dir, 'board.json'), solver, verifier, tip: chainTip, info: { mode: 'test' } });
+  const desk = new Desk({ boardPath: join(dir, 'board.json'), solver, verifier, tip: chainTip, info: { mode: 'test' }, ...deskOpts });
   return { desk, verifier, solver, kem: kem.publicKey, boardPath: join(dir, 'board.json') };
 }
 
@@ -47,6 +48,13 @@ describe('board', () => {
     expect(() => desk.submit(seal(I.A.signed, newKemKey().publicKey), d.txs.funding)).toThrow(/NOT_FOR_ME/);
     expect(desk.items).toHaveLength(0);
     expect(desk.submit(seal(I.A.signed, kem), d.txs.funding)).toMatchObject({ hash: I.A.hash, stage: 'received' });
+  });
+
+  it('an envelope paying no more than the 15,000 zat fee budget is refused at the door (PAY_BELOW_FEE_BUDGET)', () => {
+    const { desk, kem } = setup();
+    const s = signIntent(newSigningKey(), { escrow: W.escrow.address, pay_zat: '15000', min_out_zat: '1', receive_ua: W.receive.address, receive_uivk: W.receive.uivk, refund_ua: W.user.address, deadline_height: 5_000_000 });
+    expect(() => desk.submit(seal(s, kem), d.txs.funding)).toThrow(/^PAY_BELOW_FEE_BUDGET: pay_zat 15000 is not above the 15000 zat fee budget/);
+    expect(desk.items).toHaveLength(0);
   });
 });
 
@@ -157,6 +165,48 @@ describe('an unreachable lightwalletd times out instead of blocking the desk', (
   });
 });
 
+describe('junk on the board costs nothing and leaves nothing (Zcash testnet)', () => {
+  it('50 self-signed envelopes nobody funded, past their deadline: the tick drops all 50 and the signed log grows by 0', async () => {
+    const { desk, verifier, kem } = setup();
+    for (let n = 0; n < 50; n++) {
+      // 10 of them name another escrow, which used to be refused (and signed) before funding was read.
+      const s = signIntent(newSigningKey(), { escrow: n < 10 ? W.user.address : W.escrow.address, pay_zat: '60000', min_out_zat: '40000', receive_ua: W.receive.address, receive_uivk: W.receive.uivk, refund_ua: W.user.address, deadline_height: 1 });
+      desk.submit(seal(s, kem), bytesToHex(randomBytes(32)));
+    }
+    expect(desk.items).toHaveLength(50);
+    const out = await desk.tick();
+    expect(out.every((r) => /^dropped: NOT_FUNDED:TX_NOT_FOUND/.test(r.result)), JSON.stringify(out.slice(0, 2))).toBe(true);
+    expect(verifier.state.log).toHaveLength(0);
+    expect(desk.items).toHaveLength(0);
+  }, 600_000);
+
+  it('the board holds at most maxOpen open intents, and one with no funding seen for unfundedTtlBlocks is dropped unlogged', async () => {
+    const tip = await chainTip();
+    const { desk, verifier, kem } = setup(() => [], Solver, { maxOpen: 2, unfundedTtlBlocks: 5 });
+    const a = seal(fresh(tip), kem);
+    desk.submit(a, bytesToHex(randomBytes(32)));
+    desk.submit(seal(fresh(tip), kem), bytesToHex(randomBytes(32)));
+    expect(desk.submit(a, bytesToHex(randomBytes(32))).hash).toBe(a.intent_hash); // same hash: the item it has
+    const full = (() => {
+      try {
+        desk.submit(seal(fresh(tip), kem), bytesToHex(randomBytes(32)));
+      } catch (e) {
+        return e;
+      }
+    })();
+    expect(full).toBeInstanceOf(HttpError);
+    expect(full).toMatchObject({ status: 503, message: 'the board is full (2 open intents); try again later' });
+    // First seen 6 blocks ago, still nothing with its memo at the escrow: dropped, nothing logged.
+    desk.items[0].firstSeen = tip - 6;
+    desk.items[1].firstSeen = tip;
+    const out = await desk.tick();
+    expect(out[0].result).toMatch(/^dropped: no funding seen within 5 blocks \(TX_NOT_FOUND\); nothing logged$/);
+    expect(out[1].result).toBe('waiting for funding: TX_NOT_FOUND');
+    expect(desk.items.map((i) => i.hash)).not.toContain(a.intent_hash);
+    expect(verifier.state.log).toHaveLength(0);
+  });
+});
+
 describe('HTTP', () => {
   let close: () => void = () => undefined;
   afterEach(() => close());
@@ -179,5 +229,29 @@ describe('HTTP', () => {
     const info = await fetch(`${url}/api/info`);
     expect(info.status).toBe(200);
     expect(info.headers.get('access-control-allow-origin')).toBe('*');
+  });
+
+  it('a request whose Host is not 127.0.0.1 or localhost (a DNS-rebinding page) is refused 403, reads and writes alike', async () => {
+    const { desk } = setup();
+    const server = serveDesk(desk).listen(0, '127.0.0.1');
+    close = () => server.close();
+    await new Promise((ok) => server.once('listening', ok));
+    const port = (server.address() as AddressInfo).port;
+    const send = (method: string, path: string, host: string) =>
+      new Promise<{ status: number; body: string; cors: unknown }>((ok, fail) => {
+        const r = request({ host: '127.0.0.1', port, method, path, headers: { host, 'content-type': 'application/json' } }, (res) => {
+          let body = '';
+          res.on('data', (c) => (body += c)).on('end', () => ok({ status: res.statusCode!, body, cors: res.headers['access-control-allow-origin'] }));
+        });
+        r.on('error', fail);
+        r.end(method === 'POST' ? '{}' : undefined);
+      });
+    for (const [method, path] of [['POST', '/api/tick'], ['POST', '/api/intents'], ['GET', '/api/info']]) {
+      const r = await send(method, path, 'evil.example');
+      expect(r, `${method} ${path}`).toMatchObject({ status: 403, body: JSON.stringify({ error: 'Host "evil.example" is not this desk; use 127.0.0.1 or localhost' }), cors: undefined });
+    }
+    expect((await send('GET', '/api/info', `127.0.0.1:${port}`)).status).toBe(200);
+    expect((await send('GET', '/api/info', `localhost:${port}`)).status).toBe(200);
+    expect((await send('GET', '/api/info', `127.0.0.1:${port + 1}`)).status).toBe(403);
   });
 });

@@ -87,6 +87,9 @@ export interface VerifierConfig {
 export type Decision = { status: LogStatus; reason: string | null; entry: LogEntry; payoutTxid?: string };
 /** Not decided yet (a transaction is not mined); nothing is logged. */
 export type Pending = { status: 'PENDING'; reason: string };
+/** Nothing with the intent's memo reached the escrow: not a decision about anyone's money, so
+ *  nothing is logged (anyone could otherwise grow the signed log with intents they never fund). */
+export type Unfunded = { status: 'NOT_FUNDED'; reason: string };
 const onlyUnconfirmed = (reasons: string[]) => reasons.length > 0 && reasons.every((r) => r === 'NOT_CONFIRMED');
 
 export class Verifier {
@@ -209,7 +212,7 @@ export class Verifier {
 
   /** Common checks on the user's signed intent: signature, key binding, nonce, funding. */
   /** `forRefund`: a deposit mined after the deadline still has to be refundable, so skip that check. */
-  private async admit(s: SignedIntent, fundingTxid: string, forRefund = false): Promise<{ hash: string; fund: ScanResult } | Decision | Pending> {
+  private async admit(s: SignedIntent, fundingTxid: string, forRefund = false): Promise<{ hash: string; fund: ScanResult } | Decision | Pending | Unfunded> {
     let hash: string;
     try {
       hash = verifyIntent(s);
@@ -226,7 +229,6 @@ export class Verifier {
     if (this.state.closed[hash]) return this.reject(hash, `ALREADY_${this.state.closed[hash]}`, { funding_txid: fundingTxid });
     const firstUse = this.state.nonces[s.intent.user]?.[s.intent.nonce];
     if (firstUse && firstUse !== hash) return this.reject(hash, 'NONCE_REUSED', { funding_txid: fundingTxid, first_use: firstUse });
-    if (s.intent.escrow !== this.c.escrowUa) return this.reject(hash, 'WRONG_ESCROW', { funding_txid: fundingTxid });
     // A release or refund pays pay_zat - FEE_BUDGET_ZAT; at or below the budget there is nothing to pay.
     if (BigInt(s.intent.pay_zat) <= FEE_BUDGET_ZAT) return this.reject(hash, 'PAY_BELOW_FEE_BUDGET', { funding_txid: fundingTxid, pay_zat: s.intent.pay_zat, fee_budget_zat: FEE_BUDGET_ZAT.toString() });
     // A fill is read with receive_uivk; if that key does not derive receive_ua, a delivery to
@@ -234,9 +236,12 @@ export class Verifier {
     if (!forRefund && !(await owns(s.intent.receive_uivk, s.intent.receive_ua)).pay_to) return this.reject(hash, 'RECEIVE_KEY_MISMATCH', { funding_txid: fundingTxid });
     const fund = await this.funding(hash, fundingTxid, BigInt(s.intent.pay_zat));
     if (onlyUnconfirmed(fund.reasons)) return { status: 'PENDING', reason: 'funding not mined yet' };
-    if (!fund.ok) return this.reject(hash, `NOT_FUNDED:${fund.reasons.join('+')}`, { funding_txid: fundingTxid });
+    if (!fund.found || fund.paidZat === 0) return { status: 'NOT_FUNDED', reason: `NOT_FUNDED:${fund.reasons.join('+')} (nothing with this intent's memo reached the escrow; not logged)` };
+    // Something did reach the escrow with this memo: from here on every refusal is a signed entry.
     const shallow = await this.deepEnough(fund, 'funding');
     if (shallow) return shallow;
+    if (!fund.ok) return this.reject(hash, `NOT_FUNDED:${fund.reasons.join('+')}`, { funding_txid: fundingTxid });
+    if (s.intent.escrow !== this.c.escrowUa) return this.reject(hash, 'WRONG_ESCROW', { funding_txid: fundingTxid });
     if (!forRefund && fund.height !== null && fund.height > s.intent.deadline_height) return this.reject(hash, 'FUNDED_AFTER_DEADLINE', { funding_txid: fundingTxid });
     return { hash, fund };
   }
@@ -252,11 +257,11 @@ export class Verifier {
   }
 
   /** A solver claims it filled `s`. On success the escrow pays the solver and the entry is SETTLED. */
-  settle(s: SignedIntent, fundingTxid: string, claim: FillClaim): Promise<Decision | Pending> {
+  settle(s: SignedIntent, fundingTxid: string, claim: FillClaim): Promise<Decision | Pending | Unfunded> {
     return this.exclusive(() => this.settleNow(s, fundingTxid, claim));
   }
 
-  private async settleNow(s: SignedIntent, fundingTxid: string, claim: FillClaim): Promise<Decision | Pending> {
+  private async settleNow(s: SignedIntent, fundingTxid: string, claim: FillClaim): Promise<Decision | Pending | Unfunded> {
     const a = await this.admit(s, fundingTxid);
     if ('status' in a) return a;
     const { hash } = a;
@@ -296,11 +301,11 @@ export class Verifier {
 
   /** The user asks for its escrow back. Only once the deadline and the claim window have passed, and
    *  if nothing settled it. */
-  refund(s: SignedIntent, fundingTxid: string): Promise<Decision | Pending> {
+  refund(s: SignedIntent, fundingTxid: string): Promise<Decision | Pending | Unfunded> {
     return this.exclusive(() => this.refundNow(s, fundingTxid));
   }
 
-  private async refundNow(s: SignedIntent, fundingTxid: string): Promise<Decision | Pending> {
+  private async refundNow(s: SignedIntent, fundingTxid: string): Promise<Decision | Pending | Unfunded> {
     const a = await this.admit(s, fundingTxid, true);
     if ('status' in a) return a;
     const { hash } = a;

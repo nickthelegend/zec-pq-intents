@@ -57,7 +57,8 @@ periodically:                                               log head + previous 
 | a receive viewing key from another wallet (the user would keep the delivery, have the fill refused, and be refunded too) | `receive_uivk` must derive a shielded receiver of `receive_ua` (`zpay-verify owns`); the solver declines and pays only that receiver | `RECEIVE_KEY_MISMATCH` |
 | fill with the wrong memo or amount | receive UIVK must see `pqi1:<hash>:fill:<solver>` ≥ min_out | `FILL_NOT_CREDITED:…` |
 | fill mined after the deadline | fill height ≤ deadline | `EXPIRED` |
-| escrow not funded (or too little, or late) | escrow UIVK must see `pqi1:<hash>` ≥ pay by the deadline | `NOT_FUNDED:…`, `FUNDED_AFTER_DEADLINE` |
+| escrow funded too little, or late | escrow UIVK must see `pqi1:<hash>` ≥ pay by the deadline | `NOT_FUNDED:…`, `FUNDED_AFTER_DEADLINE` (nothing at all under the memo: `NOT_FUNDED`, not signed, the intent is dropped) |
+| an intent naming another escrow, funded here | `intent.escrow` must be this escrow (checked once funding is seen) | `WRONG_ESCROW` |
 | an intent paying no more than the 15,000 zat fee budget (a payout of it would be zero or negative) | `pay_zat` > 15,000 | `PAY_BELOW_FEE_BUDGET` |
 | refund before the deadline | tip > deadline | `NOT_EXPIRED_YET` |
 | refund inside the claim window (a fill mined by the deadline may still be claimed) | tip > deadline + 10 | `CLAIM_WINDOW_OPEN` |
@@ -91,8 +92,17 @@ and killed after `PQI_SCAN_TIMEOUT_MS` (90 s), so the desk keeps answering while
 A delivery the solver's wallet cannot fund yet is tried again from the next block, not slept on
 inside the tick. An intent that is declined, rejected or never filled is refunded by the verifier
 once the deadline and the claim window have passed. The solver declines intents with fewer than 3
-blocks left, a deadline more than 1,000 blocks ahead, or `min_out` above its spendable balance. POSTs need an `application/json` body of at most 64 KiB, so a page on
-another site cannot trigger them. Reads stay open (CORS `*`).
+blocks left, a deadline more than 1,000 blocks ahead, or `min_out` above its spendable balance.
+POSTs need an `application/json` body of at most 64 KiB, and every request must name the desk as
+`127.0.0.1:<port>` or `localhost:<port>` in its Host header (403 otherwise), so neither a page on
+another site nor one that rebinds its own DNS name to 127.0.0.1 can trigger them. Reads stay open
+(CORS `*`). **The signed log only records decisions about money that arrived:** an intent with
+nothing at the escrow under its memo is dropped without a log entry (`NOT_FUNDED`, not signed),
+including at refund time, and so is one with no funding seen within 100 blocks of reaching the
+board; the board holds at most 1,000 open intents. Refusals that are properties of the signed
+intent alone (`BAD_SIGNATURE`, `WRONG_KEY`, `PAY_BELOW_FEE_BUDGET`, `RECEIVE_KEY_MISMATCH`) are
+signed when the verifier is called directly; the desk refuses those envelopes at the door or
+declines them before any settle is asked for.
 
 **Agents.** `verify_log` needs the verifier key id you trust (`PQI_VERIFIER_ID`), so the desk cannot
 vouch for its own log. `submit_intent` signs and pays only if the desk's escrow and solver KEM key

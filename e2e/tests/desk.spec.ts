@@ -64,6 +64,19 @@ test.describe('desk API', () => {
     expect((await request.get(`${DESK}/api/log`)).headers()['access-control-allow-origin']).toBe('*');
   });
 
+  test('a request whose Host is not 127.0.0.1 or localhost (DNS rebinding) is refused 403, reads and writes alike, with no CORS header', async ({ request }) => {
+    for (const desk of [DESK, DESK2]) {
+      const read = await request.get(`${desk}/api/log`, { headers: { host: 'evil.example' } });
+      expect(read.status(), desk).toBe(403);
+      expect(await read.json()).toEqual({ error: 'Host "evil.example" is not this desk; use 127.0.0.1 or localhost' });
+      expect(read.headers()['access-control-allow-origin']).toBeUndefined();
+      const write = await request.post(`${desk}/api/intents`, { headers: { host: 'evil.example', 'content-type': 'application/json' }, data: {} });
+      expect(write.status()).toBe(403);
+      const port = new URL(desk).port;
+      expect((await request.get(`${desk}/api/info`, { headers: { host: `localhost:${port}` } })).status()).toBe(200);
+    }
+  });
+
   test('Setup required: a desk with neither PQI_STATE nor PQI_PUBLISHED exits 2 and says so', () => {
     const env = { ...process.env, PQI_STATE: '', PQI_PUBLISHED: '', PQI_PORT: '8499' };
     delete (env as Record<string, string | undefined>).PQI_STATE;
