@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { appendEntry, findEquivocation, fromB64, intentHash, keyId, memo, newSigningKey, signFill, verifyLog, type FillClaim, type LogEntry, type SignedIntent } from '@pqi/protocol';
-import { chainTip, scan, Verifier, zingoConfig } from '../src/index.js';
+import { chainTip, owns, scan, Verifier, zingoConfig } from '../src/index.js';
 
 const d = JSON.parse(readFileSync(resolve(__dirname, '../../../deployments/testnet.json'), 'utf8'));
 const I = d.intents as Record<'A' | 'B' | 'C', { hash: string; signed: SignedIntent }>;
@@ -209,3 +209,34 @@ describe('pass 2 on testnet (Oct 21): a fill that names its solver, 3 confirmati
     expect(p2.observedPending).toContain('waiting for funding: NOT_CONFIRMED (1 of 3)');
   });
 });
+
+describe('pass 3 on testnet (Oct 22): the agent path through MCP', () => {
+  const p2 = JSON.parse(readFileSync(resolve(__dirname, '../../../deployments/testnet-pass2.json'), 'utf8'));
+  const p3 = JSON.parse(readFileSync(resolve(__dirname, '../../../deployments/testnet-pass3.json'), 'utf8'));
+  const E = p3.intent as { hash: string; signed: SignedIntent; claim: FillClaim };
+  const pk = fromB64(d.keys.verifier.pk);
+
+  it('the pass-3 log verifies with the same verifier key and extends pass 2: E SETTLED, ANCHORED; E was signed by the agent’s own key and delivered to an address none of A–D used, which the receive key derives', async () => {
+    const l = p3.log as LogEntry[];
+    expect(verifyLog(l, pk)).toMatchObject({ ok: true, entries: p2.log.length + 2 });
+    expect(findEquivocation(p2.log, l, pk)).toBeNull();
+    expect(l.slice(p2.log.length).map((e) => e.status)).toEqual(['SETTLED', 'ANCHORED']);
+    expect(l[p2.log.length].refs).toMatchObject({ funding_txid: p3.txs.funding, fill_txid: p3.txs.fill, release_txid: p3.txs.release, solver: d.keys.solver.id, fill_binding: 'solver-memo', user: p3.keys.agent.id });
+    expect(E.signed.intent.user).toBe(p3.keys.agent.id);
+    expect(p3.agent.submit_intent).toMatchObject({ intent_hash: E.hash, funding_txid: p3.txs.funding, receive_ua: E.signed.intent.receive_ua });
+    const before = [...Object.values(I).map((x) => x.signed.intent.receive_ua), p2.intent.signed.intent.receive_ua];
+    expect(before).not.toContain(E.signed.intent.receive_ua);
+    expect((await owns(W.receive.uivk, E.signed.intent.receive_ua)).covered).toEqual(['orchard']);
+  });
+
+  it('E’s funding, its fill to the new address naming the solver, and its release are on-chain as their keys see them; the fill the restarted desk found is the one the solver sent once', async () => {
+    expect((await scan(W.escrow.uivk, p3.txs.funding, Number(E.signed.intent.pay_zat), memo.funding(E.hash))).ok).toBe(true);
+    const fill = await scan(W.receive.uivk, p3.txs.fill, Number(E.signed.intent.min_out_zat), memo.fill(E.hash, d.keys.solver.id));
+    expect(fill.ok).toBe(true);
+    expect(fill.height!).toBeLessThanOrEqual(E.signed.intent.deadline_height);
+    expect((await scan(W.solver.uivk, p3.txs.release, Number(E.signed.intent.pay_zat) - 15_000, memo.release(E.hash))).ok).toBe(true);
+    expect(p3.crash).toMatchObject({ point: 'deliver-after-broadcast', signal: 'SIGKILL', board_after_kill: { stage: 'funded', fillTxid: null, delivering: { memo: memo.fill(E.hash, d.keys.solver.id), pay_to: E.signed.intent.receive_ua } }, solver_sends_with_fill_memo: [p3.txs.fill] });
+    expect(p3.crash.restart[0]).toContain(`filled ${p3.txs.fill} (found in the solver's history by its memo after a restart; not sent again)`);
+  });
+});
+

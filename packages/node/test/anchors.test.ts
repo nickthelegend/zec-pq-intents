@@ -58,6 +58,21 @@ describe('pass 2 in the escrow’s history (Zcash testnet)', () => {
   });
 });
 
+describe('pass 3 in the escrow’s history (Zcash testnet)', () => {
+  it('three anchors, one chain (#8 → #11 → #13); the pass-3 log checks out against every anchor the escrow sent, and E’s release went out once', async () => {
+    const p3 = JSON.parse(readFileSync(resolve(__dirname, '../../../deployments/testnet-pass3.json'), 'utf8'));
+    const c = checkAnchors(p3.log, sent);
+    expect(c.problems).toEqual([]);
+    expect(c.chain.slice(0, 3).map((a) => [a.txid, a.seq])).toEqual([
+      [d.anchor.txid, 8],
+      [p2.txs.anchor, 11],
+      [p3.txs.anchor, 13],
+    ]);
+    expect(c.chain[2].prev).toBe(p2.txs.anchor);
+    expect((await sentWithMemo(zingoConfig(), VIEW, memo.release(p3.intent.hash))).map((t) => t.txid)).toEqual([p3.txs.release]);
+  });
+});
+
 describe('the verifier chains its anchors', () => {
   it('each ANCHORED entry and memo names the previous anchor’s txid (genesis for the first)', async () => {
     const statePath = join(mkdtempSync(join(tmpdir(), 'pqi-anchor-')), 'state.json');

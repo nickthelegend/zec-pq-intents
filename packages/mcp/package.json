@@ -4,10 +4,13 @@
   "description": "MCP server for agents trading with post-quantum signed intents: quote, submit_intent, status, verify_log",
   "license": "MIT",
   "type": "module",
-  "bin": { "pqi-mcp": "dist/main.js" },
+  "bin": {
+    "pqi-mcp": "dist/main.js"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "pass3": "tsx examples/pass3.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.1",
