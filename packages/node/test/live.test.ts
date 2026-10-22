@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { appendEntry, findEquivocation, fromB64, intentHash, keyId, memo, newSigningKey, signFill, verifyLog, type FillClaim, type LogEntry, type SignedIntent } from '@pqi/protocol';
+import { appendEntry, bytesToHex, findEquivocation, fromB64, intentHash, keyId, memo, newSigningKey, randomBytes, signFill, verifyLog, type FillClaim, type LogEntry, type SignedIntent } from '@pqi/protocol';
 import { chainTip, owns, scan, Verifier, zingoConfig } from '../src/index.js';
 
 const d = JSON.parse(readFileSync(resolve(__dirname, '../../../deployments/testnet.json'), 'utf8'));
@@ -148,6 +148,24 @@ describe('confirmations: funding and fill are acted on only at N (default 3)', (
     const fillH = (await scan(W.receive.uivk, d.txs.fills[I.B.hash], 40_000, memo.legacyFill(I.B.hash))).height!;
     const { v } = freshVerifier(undefined, { tip: async () => fillH + 4, minConfirmations: 6 });
     expect(await v.settle(I.B.signed, d.txs.funding, claim(I.B.hash, d.txs.fills[I.B.hash]))).toEqual({ status: 'PENDING', reason: 'fill has 5 of 6 confirmations' });
+  });
+});
+
+describe('a fill lightwalletd does not return is not refused while it could still count', () => {
+  it('A with a claim on a txid that is not on chain: PENDING (FILL_NOT_FOUND_YET) up to the end of the claim window, nothing logged; after it → REJECTED FILL_NOT_CREDITED:TX_NOT_FOUND', async () => {
+    const fundH = (await scan(W.escrow.uivk, d.txs.funding, 60_000, memo.funding(I.A.hash))).height!;
+    const deadline = I.A.signed.intent.deadline_height;
+    const missing = bytesToHex(randomBytes(32));
+    let held = fundH + 5;
+    const { v } = freshVerifier(undefined, { tip: async () => held });
+    const settleA = () => v.settle(I.A.signed, d.txs.funding, claim(I.A.hash, missing));
+    expect(await settleA()).toMatchObject({ status: 'PENDING', reason: expect.stringMatching(/^FILL_NOT_FOUND_YET: lightwalletd does not return fill [0-9a-f]{64}; it is asked again until the claim window closes at height \d+/) });
+    held = deadline + v.claimWindow;
+    expect((await settleA()).status).toBe('PENDING');
+    expect(v.state.log).toHaveLength(0);
+    held = deadline + v.claimWindow + 1;
+    expect(await settleA()).toMatchObject({ status: 'REJECTED', reason: 'FILL_NOT_CREDITED:TX_NOT_FOUND' });
+    expect(v.state.closed[I.A.hash]).toBeUndefined();
   });
 });
 

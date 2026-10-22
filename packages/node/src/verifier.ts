@@ -302,6 +302,14 @@ export class Verifier {
       }
     }
     if (onlyUnconfirmed(fill.reasons)) return { status: 'PENDING', reason: 'fill not mined yet' };
+    // A fill lightwalletd does not return may just be missing on the backend that answered (the
+    // public server is load-balanced) or dropped by a shallow reorg and about to be mined again. It
+    // only counts if mined by the deadline, so it is not refused before the claim window has closed.
+    if (fill.reasons.length === 1 && fill.reasons[0] === 'TX_NOT_FOUND') {
+      const tip = await this.c.tip();
+      const until = s.intent.deadline_height + this.claimWindow;
+      if (tip <= until) return { status: 'PENDING', reason: `FILL_NOT_FOUND_YET: lightwalletd does not return fill ${claim.fill_txid}; it is asked again until the claim window closes at height ${until} (tip ${tip})` };
+    }
     if (!fill.ok) return this.reject(hash, `FILL_NOT_CREDITED:${fill.reasons.join('+')}`, { fill_txid: claim.fill_txid });
     const shallowFill = await this.deepEnough(fill, 'fill');
     if (shallowFill) return shallowFill;

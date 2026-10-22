@@ -21,6 +21,9 @@ export interface BoardItem {
   stage: Stage;
   note: string | null;
   fillTxid: string | null;
+  /** chain tip when the fill was broadcast (or the write-ahead record's height): a fill not found on
+   *  chain could be mined until fillAt + 1 + TX_EXPIRY_BLOCKS */
+  fillAt?: number;
   claim: FillClaim | null;
   postedAt: string;
   /** errors a tick hit on this item (each is also in `note`); the tick moves on to the next item */
@@ -112,6 +115,12 @@ export class Desk {
       const pending = await this.reconcileDelivery(item, tip);
       if (pending !== null) return pending;
     }
+    // A fill the verifier refused because lightwalletd did not return it may still be mined: no
+    // refund until a transaction broadcast then has provably expired.
+    if (item.stage === 'rejected' && item.fillTxid && /TX_NOT_FOUND/.test(item.note ?? '')) {
+      const expires = (item.fillAt ?? s.intent.deadline_height) + 1 + TX_EXPIRY_BLOCKS;
+      if (tip <= expires) return `FILL_MAY_STILL_BE_MINED: fill ${item.fillTxid} was not found, but a transaction broadcast at height ${item.fillAt ?? `≤ ${s.intent.deadline_height}`} could be mined until height ${expires} (tip ${tip}), so the escrow is not refunded before then`;
+    }
     if (OPEN.includes(item.stage) && item.stage !== 'filled' && tip > s.intent.deadline_height + this.c.verifier.claimWindow) return this.refund(item, s);
     if (item.stage === 'received') {
       if (item.firstSeen === undefined) {
@@ -188,7 +197,7 @@ export class Desk {
       return item.note;
     }
     crashPoint('deliver-after-broadcast');
-    return this.filled(item, txid, `filled ${txid}`);
+    return this.filled(item, txid, tip, `filled ${txid}`);
   }
 
   /** Removes an item that never got funding: there is nothing to refund and nothing is logged. */
@@ -204,7 +213,7 @@ export class Desk {
   private async reconcileDelivery(item: BoardItem, tip: number): Promise<string | null> {
     const rec = item.delivering!;
     const found = (await this.c.solver.sentWithMemo(rec.memo)).filter((t) => t.status !== 'failed');
-    if (found.length) return this.filled(item, found[0].txid, `filled ${found[0].txid} (found in the solver's history by its memo after a restart; not sent again)`);
+    if (found.length) return this.filled(item, found[0].txid, rec.at_height, `filled ${found[0].txid} (found in the solver's history by its memo after a restart; not sent again)`);
     const expires = rec.at_height + 1 + TX_EXPIRY_BLOCKS;
     if (tip <= expires) return `DELIVERY_UNRECONCILED: a delivery was being sent at height ${rec.at_height} when the process stopped and is not in the solver's history; a transaction sent then could be mined until height ${expires} (tip ${tip}), so it is not sent again, and the escrow not refunded, before then`;
     delete item.delivering; // provably never mined: safe to send, or to refund
@@ -212,8 +221,9 @@ export class Desk {
     return null;
   }
 
-  private filled(item: BoardItem, txid: string, result: string): string {
+  private filled(item: BoardItem, txid: string, at: number, result: string): string {
     item.fillTxid = txid;
+    item.fillAt = at;
     item.claim = this.c.solver.claim(item.hash, txid);
     item.stage = 'filled';
     item.note = null;

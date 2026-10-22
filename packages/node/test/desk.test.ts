@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { bytesToHex, keyId, memo, newKemKey, newSigningKey, randomBytes, seal, signFill, signIntent, type SignedIntent } from '@pqi/protocol';
-import { chainTip, Desk, HttpError, InsufficientBalanceError, MAX_BODY_BYTES, scan, serveDesk, Solver, Verifier, zingoConfig, type BoardItem } from '../src/index.js';
+import { chainTip, Desk, HttpError, InsufficientBalanceError, MAX_BODY_BYTES, scan, serveDesk, Solver, TX_EXPIRY_BLOCKS, Verifier, zingoConfig, type BoardItem } from '../src/index.js';
 
 const d = JSON.parse(readFileSync(resolve(__dirname, '../../../deployments/testnet.json'), 'utf8'));
 const I = d.intents as Record<'A' | 'B' | 'C', { hash: string; signed: SignedIntent }>;
@@ -142,6 +142,23 @@ describe('a momentary shortfall in the solver’s balance is retried, not declin
     expect((solver as ShortOnce).checks).toBe(2);
     expect((solver as ShortOnce).sends).toBe(1);
     expect(verifier.state.log).toHaveLength(0);
+  });
+});
+
+describe('a fill that was not found is not refunded while it could still be mined (Zcash testnet)', () => {
+  it('C rejected with FILL_NOT_CREDITED:TX_NOT_FOUND, its fill broadcast 3 blocks before the deadline: no refund until that transaction has expired, then REFUNDED', async () => {
+    const deadline = I.C.signed.intent.deadline_height;
+    const fillAt = deadline - 3;
+    const missing = bytesToHex(randomBytes(32));
+    const { desk, verifier } = setup((kem, sign) => [item('C', kem, 'rejected', { fillTxid: missing, fillAt, claim: signFill(sign, I.C.hash, missing, W.solver.address), note: 'FILL_NOT_CREDITED:TX_NOT_FOUND' })]);
+    const expires = fillAt + 1 + TX_EXPIRY_BLOCKS;
+    expect(await desk.step(desk.items[0], deadline + verifier.claimWindow + 1)).toBe(`FILL_MAY_STILL_BE_MINED: fill ${missing} was not found, but a transaction broadcast at height ${fillAt} could be mined until height ${expires} (tip ${deadline + verifier.claimWindow + 1}), so the escrow is not refunded before then`);
+    expect(await desk.step(desk.items[0], expires)).toMatch(/^FILL_MAY_STILL_BE_MINED/);
+    expect(desk.items[0].stage).toBe('rejected');
+    expect(verifier.state.log).toHaveLength(0);
+    expect(await desk.step(desk.items[0], expires + 1)).toBe('REFUNDED');
+    expect(desk.items[0].stage).toBe('refunded');
+    expect(verifier.state.log[0]).toMatchObject({ status: 'REFUNDED', refs: { refund_txid: NEVER_SENT } });
   });
 });
 
