@@ -75,6 +75,12 @@ escrow's history first. If it is there, that is the payout and nothing is sent. 
 verifier waits (`PAYOUT_UNRECONCILED`, `PENDING`) until a transaction built at that height has
 expired (120 blocks on this testnet), so it can never be mined later, and only then tries again.
 
+The decision's block height is read before its payout, and the intent is marked closed in the same
+write that appends its SETTLED or REFUNDED entry, so nothing that can fail sits between a payout and
+its entry. A state closed without its entry (from an older process) is finished on restart with the
+recorded payout. An anchor that went out but was never logged is logged, with the previous anchor its
+memo named, before the next anchor is sent, so the next one names it and the chain does not fork.
+
 **Deliveries are write-ahead too.** Before the solver's fill is broadcast, the desk saves (fsync) a
 record with its memo `pqi1:<hash>:fill:<solver key id>`, recipient, amount and height. After a
 restart it looks that memo up in the solver's wallet history: found → that txid is the fill and

@@ -4,7 +4,7 @@
 // ML-DSA-65 signed entry for every decision. It is trusted to act on its decisions (it holds the
 // escrow); anyone can re-check every decision and signature from the published log.
 import { closeSync, existsSync, fsyncSync, openSync, readFileSync, renameSync, writeSync } from 'node:fs';
-import { appendEntry, GENESIS, intentHash, memo, ProtocolError, readFillMemo, verifyFill, verifyIntent, verifyLog, type FillClaim, type LogEntry, type LogStatus, type SignedIntent, type SigningKey } from '@pqi/protocol';
+import { appendEntry, GENESIS, intentHash, memo, ProtocolError, readAnchorMemo, readFillMemo, verifyFill, verifyIntent, verifyLog, type FillClaim, type LogEntry, type LogStatus, type SignedIntent, type SigningKey } from '@pqi/protocol';
 import { owns, scan, type ScanResult } from './scan.js';
 import { quicksend, sentWithMemo, type ZingoConfig } from './zingo.js';
 
@@ -39,6 +39,9 @@ export interface VerifierState {
   closed: Record<string, 'SETTLED' | 'REFUNDED'>;
   /** decisions already paid out on-chain, so a restart never pays twice: key → txid */
   payouts: Record<string, string>;
+  /** the memo each payout in `payouts` carried (key → memo), so an anchor paid but not yet logged
+   *  can be logged with the exact previous anchor it named */
+  payout_memos?: Record<string, string>;
   /** write-ahead records: a payout about to be broadcast, saved (fsync) before the broadcast and
    *  removed once its txid is saved. One left here after a restart means the process stopped in
    *  between; it is reconciled against the escrow's on-chain history before any new attempt. */
@@ -128,7 +131,14 @@ export class Verifier {
   }
 
   private async log(status: LogStatus, intent_hash: string | null, reason: string | null, refs: Record<string, string>): Promise<LogEntry> {
-    const e = appendEntry(this.state.log, this.c.key, { status, intent_hash, reason, refs, at_height: await this.c.tip() });
+    return this.logAt(status, intent_hash, reason, refs, await this.c.tip());
+  }
+
+  /** Appends and saves in one step, with the height read before: nothing can fail between a payout
+   *  being recorded and its entry being written, and `closed` is saved in the same write. */
+  private logAt(status: LogStatus, intent_hash: string | null, reason: string | null, refs: Record<string, string>, at_height: number, close?: 'SETTLED' | 'REFUNDED'): LogEntry {
+    const e = appendEntry(this.state.log, this.c.key, { status, intent_hash, reason, refs, at_height });
+    if (close && intent_hash) this.state.closed[intent_hash] = close;
     this.save();
     return e;
   }
@@ -156,6 +166,7 @@ export class Verifier {
         const [txid] = await quicksend(this.c.zingo, this.c.escrowWallet, [{ address: to, amount, memo: m }]);
         crashPoint('payout-after-broadcast');
         this.state.payouts[key] = txid;
+        (this.state.payout_memos ??= {})[key] = m;
         delete sending[key];
         this.save();
         return txid;
@@ -189,6 +200,7 @@ export class Verifier {
     const mined = out.find((t) => t.status === 'confirmed');
     if (mined) {
       this.state.payouts[key] = mined.txid;
+      (this.state.payout_memos ??= {})[key] = p.memo;
       delete this.state.sending![key];
       this.save();
       return mined.txid;
@@ -226,7 +238,11 @@ export class Verifier {
       }
       return this.reject(claimed, code, { funding_txid: fundingTxid });
     }
-    if (this.state.closed[hash]) return this.reject(hash, `ALREADY_${this.state.closed[hash]}`, { funding_txid: fundingTxid });
+    // Closed only together with its SETTLED/REFUNDED entry. A closed mark with no such entry (state
+    // left by a process that stopped between the payout and the entry) is finished below instead:
+    // payOnce returns the recorded payout and the entry is written.
+    const closedBy = this.state.closed[hash];
+    if (closedBy && this.state.log.some((e) => e.intent_hash === hash && e.status === closedBy)) return this.reject(hash, `ALREADY_${closedBy}`, { funding_txid: fundingTxid });
     const firstUse = this.state.nonces[s.intent.user]?.[s.intent.nonce];
     if (firstUse && firstUse !== hash) return this.reject(hash, 'NONCE_REUSED', { funding_txid: fundingTxid, first_use: firstUse });
     // A release or refund pays pay_zat - FEE_BUDGET_ZAT; at or below the budget there is nothing to pay.
@@ -292,10 +308,10 @@ export class Verifier {
     if (fill.height === null || fill.height > s.intent.deadline_height) return this.reject(hash, 'EXPIRED', { fill_txid: claim.fill_txid, fill_height: String(fill.height), deadline: String(s.intent.deadline_height) });
     this.remember(s, hash);
     const out = BigInt(s.intent.pay_zat) - FEE_BUDGET_ZAT;
+    const at = await this.c.tip(); // read before paying: nothing between the payout and its entry can fail
     const release = await this.payOnce(`release:${hash}`, claim.solver_ua, out, memo.release(hash));
     if (typeof release !== 'string') return release;
-    this.state.closed[hash] = 'SETTLED';
-    const entry = await this.log('SETTLED', hash, null, { user: s.intent.user, nonce: s.intent.nonce, funding_txid: fundingTxid, fill_txid: claim.fill_txid, release_txid: release, solver: claim.solver, fill_binding: binding, released_zat: out.toString() });
+    const entry = this.logAt('SETTLED', hash, null, { user: s.intent.user, nonce: s.intent.nonce, funding_txid: fundingTxid, fill_txid: claim.fill_txid, release_txid: release, solver: claim.solver, fill_binding: binding, released_zat: out.toString() }, at, 'SETTLED');
     return { status: 'SETTLED', reason: null, entry, payoutTxid: release };
   }
 
@@ -316,8 +332,7 @@ export class Verifier {
     const out = BigInt(s.intent.pay_zat) - FEE_BUDGET_ZAT;
     const refund = await this.payOnce(`refund:${hash}`, s.intent.refund_ua, out, memo.refund(hash));
     if (typeof refund !== 'string') return refund;
-    this.state.closed[hash] = 'REFUNDED';
-    const entry = await this.log('REFUNDED', hash, null, { user: s.intent.user, nonce: s.intent.nonce, funding_txid: fundingTxid, refund_txid: refund, refunded_zat: out.toString() });
+    const entry = this.logAt('REFUNDED', hash, null, { user: s.intent.user, nonce: s.intent.nonce, funding_txid: fundingTxid, refund_txid: refund, refunded_zat: out.toString() }, tip, 'REFUNDED');
     return { status: 'REFUNDED', reason: null, entry, payoutTxid: refund };
   }
 
@@ -329,13 +344,31 @@ export class Verifier {
   }
 
   private async anchorNow(anchorUa: string, amountZat: bigint): Promise<{ entry: LogEntry; txid: string; head: string; seq: number; prev: string }> {
+    const at = await this.c.tip();
+    this.logPaidAnchors(at);
     const head = this.state.log[this.state.log.length - 1]?.hash;
     if (!head) throw new Error('nothing to anchor');
     const seq = this.state.log.length - 1;
     const prev = [...this.state.log].reverse().find((e) => e.status === 'ANCHORED')?.refs.anchor_txid ?? GENESIS;
     const txid = await this.payOnce(`anchor:${seq}:${head}`, anchorUa, amountZat, memo.anchor(seq, head, prev));
     if (typeof txid !== 'string') throw new Error(txid.reason);
-    const entry = await this.log('ANCHORED', null, null, { anchor_txid: txid, anchored_seq: String(seq), anchored_head: head, prev_anchor_txid: prev });
+    const entry = this.logAt('ANCHORED', null, null, { anchor_txid: txid, anchored_seq: String(seq), anchored_head: head, prev_anchor_txid: prev }, at);
     return { entry, txid, head, seq, prev };
+  }
+
+  /** An anchor that went out but whose ANCHORED entry was never written (the process stopped in
+   *  between) is logged first, with the previous anchor its memo named, so the next anchor names it
+   *  and the chain does not fork. */
+  private logPaidAnchors(at: number) {
+    const logged = new Set(this.state.log.filter((e) => e.status === 'ANCHORED').map((e) => e.refs.anchor_txid));
+    const unlogged = Object.entries(this.state.payouts)
+      .filter(([k, txid]) => k.startsWith('anchor:') && !logged.has(txid))
+      .map(([k, txid]) => ({ k, txid, seq: Number(k.split(':')[1]) }))
+      .sort((a, b) => a.seq - b.seq);
+    for (const { k, txid } of unlogged) {
+      const m = readAnchorMemo(this.state.payout_memos?.[k]);
+      if (!m) throw new Error(`anchor ${txid} (${k}) went out but is not in the log, and its memo is not recorded; reconcile it from the escrow's history before anchoring again`);
+      this.logAt('ANCHORED', null, null, { anchor_txid: txid, anchored_seq: String(m.seq), anchored_head: m.head, ...(m.prev === null ? {} : { prev_anchor_txid: m.prev }) }, at);
+    }
   }
 }
