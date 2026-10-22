@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { findEquivocation, fromB64, intentHash, keyId, memo, newSigningKey, signFill, verifyLog, type FillClaim, type LogEntry, type SignedIntent } from '@pqi/protocol';
+import { appendEntry, findEquivocation, fromB64, intentHash, keyId, memo, newSigningKey, signFill, verifyLog, type FillClaim, type LogEntry, type SignedIntent } from '@pqi/protocol';
 import { chainTip, scan, Verifier, zingoConfig } from '../src/index.js';
 
 const d = JSON.parse(readFileSync(resolve(__dirname, '../../../deployments/testnet.json'), 'utf8'));
@@ -23,11 +23,15 @@ const allPayouts = Object.fromEntries((['A', 'B', 'C'] as const).flatMap((k) => 
 /** The Oct 20 intents, whose fill memos name no solver (accepted as legacy single-solver). */
 const LEGACY = [I.A.hash, I.B.hash, I.C.hash];
 
-/** A verifier with a new key and (optionally) prior state, on the published escrow. No wallet is used. */
+/** A verifier with a new key and (optionally) prior state, on the published escrow. No wallet is used.
+ *  An intent marked closed gets its SETTLED/REFUNDED entry too (signed by the new key), as a real
+ *  verifier writes them together. */
 function freshVerifier(prior?: { nonces?: Record<string, Record<string, string>>; closed?: Record<string, 'SETTLED' | 'REFUNDED'> }, opts: { tip?: () => Promise<number>; solvers?: string[]; legacy?: string[]; minConfirmations?: number } = {}) {
   const key = newSigningKey();
   const statePath = join(mkdtempSync(join(tmpdir(), 'pqi-')), 'state.json');
-  writeFileSync(statePath, JSON.stringify({ log: [], nonces: prior?.nonces ?? {}, closed: prior?.closed ?? {}, payouts: allPayouts }));
+  const priorLog: LogEntry[] = [];
+  for (const [h, st] of Object.entries(prior?.closed ?? {})) appendEntry(priorLog, key, { status: st, intent_hash: h, reason: null, refs: { [st === 'SETTLED' ? 'release_txid' : 'refund_txid']: NEVER_SENT }, at_height: 4_522_000 });
+  writeFileSync(statePath, JSON.stringify({ log: priorLog, nonces: prior?.nonces ?? {}, closed: prior?.closed ?? {}, payouts: allPayouts }));
   const v = new Verifier({ key, escrowWallet: '/nonexistent/escrow-wallet-never-used', escrowUa: W.escrow.address, escrowUivk: W.escrow.uivk, solvers: opts.solvers ?? [keyId(solver.publicKey)], legacyUnboundFills: opts.legacy ?? LEGACY, minConfirmations: opts.minConfirmations, zingo: zingoConfig(), statePath, tip: opts.tip ?? chainTip });
   return { v, key };
 }

@@ -345,7 +345,9 @@ export class Verifier {
 
   private async anchorNow(anchorUa: string, amountZat: bigint): Promise<{ entry: LogEntry; txid: string; head: string; seq: number; prev: string }> {
     const at = await this.c.tip();
-    this.logPaidAnchors(at);
+    // Not the key about to be paid: a payout recorded for this very head is this anchor, finished below.
+    const current = `anchor:${this.state.log.length - 1}:${this.state.log[this.state.log.length - 1]?.hash}`;
+    this.logPaidAnchors(at, current);
     const head = this.state.log[this.state.log.length - 1]?.hash;
     if (!head) throw new Error('nothing to anchor');
     const seq = this.state.log.length - 1;
@@ -359,10 +361,10 @@ export class Verifier {
   /** An anchor that went out but whose ANCHORED entry was never written (the process stopped in
    *  between) is logged first, with the previous anchor its memo named, so the next anchor names it
    *  and the chain does not fork. */
-  private logPaidAnchors(at: number) {
+  private logPaidAnchors(at: number, current: string) {
     const logged = new Set(this.state.log.filter((e) => e.status === 'ANCHORED').map((e) => e.refs.anchor_txid));
     const unlogged = Object.entries(this.state.payouts)
-      .filter(([k, txid]) => k.startsWith('anchor:') && !logged.has(txid))
+      .filter(([k, txid]) => k.startsWith('anchor:') && k !== current && !logged.has(txid))
       .map(([k, txid]) => ({ k, txid, seq: Number(k.split(':')[1]) }))
       .sort((a, b) => a.seq - b.seq);
     for (const { k, txid } of unlogged) {

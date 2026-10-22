@@ -73,12 +73,14 @@ describe('nothing between a payout and its entry can lose the decision (Zcash te
     appendEntry(log, key, { status: 'REJECTED', intent_hash: A.hash, reason: 'BAD_SIGNATURE', refs: {}, at_height: TIP });
     const T1 = 'a1'.repeat(32);
     const k1 = `anchor:0:${log[0].hash}`;
+    // Entry 0 was anchored (T1 went out) but the process stopped before logging it; then the log grew.
+    appendEntry(log, key, { status: 'REJECTED', intent_hash: A.hash, reason: 'WRONG_KEY', refs: {}, at_height: TIP });
     const v = new Verifier({ key, escrowWallet: '/nonexistent/escrow-wallet-never-used', escrowUa: W.escrow.address, escrowUivk: W.escrow.uivk, solvers: [], zingo: zingoConfig(), statePath: statePath({ log, payouts: { [k1]: T1 }, payout_memos: { [k1]: memo.anchor(0, log[0].hash, GENESIS) } }), tip: async () => TIP });
     // The next anchor cannot be paid here (no such wallet), but its write-ahead record shows what it names.
     await expect(v.anchor(W.anchor.address)).rejects.toThrow(/zingo-cli quicksend failed/);
-    expect(v.state.log[1]).toMatchObject({ status: 'ANCHORED', refs: { anchor_txid: T1, anchored_seq: '0', anchored_head: log[0].hash, prev_anchor_txid: GENESIS } });
+    expect(v.state.log[2]).toMatchObject({ status: 'ANCHORED', refs: { anchor_txid: T1, anchored_seq: '0', anchored_head: log[0].hash, prev_anchor_txid: GENESIS } });
     const next = Object.values(v.state.sending ?? {})[0];
-    expect(next.memo).toBe(memo.anchor(1, v.state.log[1].hash, T1));
+    expect(next.memo).toBe(memo.anchor(2, v.state.log[2].hash, T1));
   });
 });
 

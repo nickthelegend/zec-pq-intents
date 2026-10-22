@@ -69,11 +69,14 @@ describe('write-ahead payouts, with a real process kill', () => {
     expect(readState(statePath).log).toHaveLength(0);
 
     // Recorded long enough ago that anything built then has expired: the verifier writes a new record
-    // and tries again (the view-only wallet cannot spend, so that attempt fails here).
+    // and tries again. The view-only wallet cannot fund it ("Insufficient balance", which zingo-cli
+    // reports while proposing, before anything is built), so the new record is dropped again and the
+    // refund waits for balance: nothing sent, nothing logged.
     record(tip - TX_EXPIRY_BLOCKS - 5);
-    await expect(verifier(statePath, solver.publicKey, { balanceRetries: 0 }).refund(I.B.signed, d.txs.funding)).rejects.toThrow(/zingo-cli quicksend failed/);
+    const again = await verifier(statePath, solver.publicKey, { balanceRetries: 0 }).refund(I.B.signed, d.txs.funding);
+    expect(again).toMatchObject({ status: 'PENDING', reason: expect.stringMatching(new RegExp(`^PAYOUT_WAITING_FOR_BALANCE: ${key} \\(zingo-cli quicksend failed: .*Insufficient balance`)) });
     const after = readState(statePath);
-    expect(after.sending?.[key].at_height).toBeGreaterThanOrEqual(tip);
+    expect(after.sending?.[key]).toBeUndefined();
     expect(after.payouts[key]).toBeUndefined();
     expect(after.log).toHaveLength(0);
   });
