@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { bytesToHex, keyId, memo, newKemKey, newSigningKey, randomBytes, seal, signFill, signIntent, type SignedIntent } from '@pqi/protocol';
-import { chainTip, Desk, HttpError, MAX_BODY_BYTES, scan, serveDesk, Solver, Verifier, zingoConfig, type BoardItem } from '../src/index.js';
+import { chainTip, Desk, HttpError, InsufficientBalanceError, MAX_BODY_BYTES, scan, serveDesk, Solver, Verifier, zingoConfig, type BoardItem } from '../src/index.js';
 
 const d = JSON.parse(readFileSync(resolve(__dirname, '../../../deployments/testnet.json'), 'utf8'));
 const I = d.intents as Record<'A' | 'B' | 'C', { hash: string; signed: SignedIntent }>;
@@ -108,6 +108,40 @@ describe('one bad item does not stop the desk (Zcash testnet)', () => {
     expect(verifier.state.log.map((e) => e.status)).toEqual(['REFUNDED']);
     // Saved, so a restart sees the same note.
     expect(new Desk({ boardPath, solver, verifier, tip: chainTip, info: {} }).items[0].failures).toBe(1);
+  });
+});
+
+describe('a momentary shortfall in the solver’s balance is retried, not declined (Zcash testnet)', () => {
+  it('A funded and received, with the clock held at 3 funding confirmations: the first tick finds the spendable balance short and waits a block; the next takes A on and tries to deliver', async () => {
+    /** The wallet's spendable balance is short once (change notes of the previous delivery not yet
+     *  spendable), then enough; every send fails while proposing (as "Insufficient balance" does), so
+     *  nothing is ever sent. */
+    class ShortOnce extends Solver {
+      checks = 0;
+      sends = 0;
+      override async capacity(): Promise<{ ok: true } | { ok: false; reason: string }> {
+        return this.checks++ === 0 ? { ok: false, reason: 'min_out 40000 zat is above the solver’s spendable balance 12000 zat' } : { ok: true };
+      }
+      override async deliver(): Promise<string> {
+        this.sends++;
+        throw new InsufficientBalanceError('Insufficient balance (induced by this test; nothing is sent)');
+      }
+    }
+    const fundH = (await scan(W.escrow.uivk, d.txs.funding, 60_000, memo.funding(I.A.hash))).height!;
+    const tip = fundH + 2; // 3 confirmations
+    expect(I.A.signed.intent.deadline_height - tip).toBeGreaterThanOrEqual(3);
+    const { desk, solver, verifier } = setup((kem) => [item('A', kem, 'received')], ShortOnce);
+    const first = await desk.step(desk.items[0], tip);
+    expect(first).toMatch(/^waiting for the solver's balance: min_out 40000 zat is above/);
+    expect(desk.items[0]).toMatchObject({ stage: 'received', retryAfter: tip + 1 });
+    expect(await desk.step(desk.items[0], tip)).toBe(`waiting for the solver's balance until block ${tip + 1}`);
+    const second = await desk.step(desk.items[0], tip + 1);
+    expect(second).toMatch(/^waiting for the solver's balance: Insufficient balance/);
+    expect(desk.items[0]).toMatchObject({ stage: 'funded', retryAfter: tip + 2 });
+    expect(desk.items[0].delivering).toBeUndefined();
+    expect((solver as ShortOnce).checks).toBe(2);
+    expect((solver as ShortOnce).sends).toBe(1);
+    expect(verifier.state.log).toHaveLength(0);
   });
 });
 

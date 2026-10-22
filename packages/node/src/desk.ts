@@ -25,7 +25,8 @@ export interface BoardItem {
   postedAt: string;
   /** errors a tick hit on this item (each is also in `note`); the tick moves on to the next item */
   failures?: number;
-  /** the solver's wallet could not fund the delivery yet: not tried again before this height */
+  /** the solver's wallet could not fund the delivery yet (spendable balance below min_out, or the
+   *  send failed on "Insufficient balance"): not tried again before this height */
   retryAfter?: number;
   /** chain tip the first time a tick saw this item; an item with no funding seen within
    *  `unfundedTtlBlocks` of it is dropped from the board */
@@ -124,13 +125,25 @@ export class Desk {
         return `waiting for funding: ${f.reasons.join(', ')}`;
       }
       const q = await this.c.solver.quote(s, tip);
-      const room = q.accept ? await this.c.solver.capacity(s) : null;
-      if (!q.accept || !room!.ok) {
+      if (!q.accept) {
         item.stage = 'declined';
-        item.note = q.accept ? (room as { reason: string }).reason : q.reason;
+        item.note = q.reason;
         this.save();
         return item.note;
       }
+      // A spendable balance below min_out is usually momentary (change notes from the last delivery
+      // are not spendable for a few blocks), so it is retried from the next block, not declined. The
+      // quote above runs again on every retry and declines once the deadline is too close.
+      if (item.retryAfter !== undefined && tip < item.retryAfter) return `waiting for the solver's balance until block ${item.retryAfter}`;
+      const room = await this.c.solver.capacity(s);
+      if (!room.ok) {
+        item.retryAfter = tip + 1;
+        item.note = `waiting for the solver's balance: ${room.reason}`;
+        this.save();
+        return item.note;
+      }
+      delete item.retryAfter;
+      item.note = null;
       item.stage = 'funded';
       this.save();
     }
