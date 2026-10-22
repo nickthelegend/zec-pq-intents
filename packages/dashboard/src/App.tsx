@@ -1,9 +1,10 @@
 // Yaksok terminal: the published testnet run, re-verified in this tab. Everything shown comes from
-// deployments/testnet.json; every signature, hash, link and the anchored head are re-computed here
+// deployments/testnet.json (the anchor chain also reads testnet-pass2.json); every signature, hash, link and the anchored head are re-computed here
 // with @pqi/protocol. Values the tab cannot check (an on-chain memo) are labelled as recorded.
 import { useEffect, useMemo, useState } from 'react';
-import { entryHash, fromB64, GENESIS, intentHash, keyId, verifyIntent, verifySig, type LogEntry, type SignedIntent } from '@pqi/protocol';
+import { checkAnchors, entryHash, fromB64, GENESIS, intentHash, keyId, verifyIntent, verifyLog, verifySig, type AnchorCheck, type AnchorSeen, type LogEntry, type SignedIntent } from '@pqi/protocol';
 import run from '@deployments/testnet.json';
+import pass2Run from '@deployments/testnet-pass2.json';
 
 type K = 'A' | 'B' | 'C';
 type Rec = {
@@ -15,6 +16,8 @@ type Rec = {
   log: LogEntry[];
 };
 const r = run as unknown as Rec;
+/** Pass 2 (Oct 21): the same verifier's log continued from entry 9, and the escrow's sent anchors as that run read them. */
+const p2 = pass2Run as unknown as { ranAt: string; keys: { verifier: { id: string; pk: string } }; log: LogEntry[]; anchors?: { escrowHistory: AnchorSeen[] } };
 const EXPLORER = 'https://testnet.zcashexplorer.app/transactions/';
 const REPO = 'https://github.com/nickthelegend/zec-pq-intents';
 const LETTERS: K[] = ['A', 'B', 'C'];
@@ -333,6 +336,7 @@ function Anchor({ allOk }: { allOk: boolean }) {
         <dd className="faint">found by the run script; re-read by pnpm test (needs lightwalletd, not this tab)</dd>
         <dt>After the anchor</dt>
         <dd>{r.log.length - 1 - anchoredSeq} entry, not yet anchored</dd>
+        <AnchorChain />
         <dt>Verifier</dt>
         <dd title={r.keys.verifier.id}>ML-DSA-65 {short(r.keys.verifier.id, 12)}</dd>
         <dt>Solver</dt>
@@ -341,6 +345,73 @@ function Anchor({ allOk }: { allOk: boolean }) {
         <dd title={r.keys.solverKem.id}>ML-KEM-768 {short(r.keys.solverKem.id, 12)}</dd>
       </dl>
     </section>
+  );
+}
+
+type ChainResult = { ok: true; check: AnchorCheck } | { ok: false; problem: string; check?: AnchorCheck };
+
+/** The anchor chain across both runs, re-checked in this tab: pass 2's log verifies under the same
+ *  verifier key, extends the Oct 20 log entry for entry, and every anchor in the escrow history that
+ *  pass 2 recorded forms one chain with the log (protocol checkAnchors). */
+function checkChain(): ChainResult {
+  if (!p2.anchors?.escrowHistory?.length) return { ok: false, problem: 'pass 2 recorded no escrow history to check' };
+  if (p2.keys.verifier.id !== r.keys.verifier.id) return { ok: false, problem: `pass 2 is signed by ${short(p2.keys.verifier.id)}, not ${short(r.keys.verifier.id)}` };
+  const v = verifyLog(p2.log, fromB64(r.keys.verifier.pk));
+  if (!v.ok) return { ok: false, problem: `pass 2 log entry ${v.error?.seq}: ${v.error?.problem}` };
+  const fork = r.log.findIndex((e, i) => p2.log[i]?.hash !== e.hash);
+  if (fork !== -1) return { ok: false, problem: `pass 2 does not extend the Oct 20 log at entry #${fork}` };
+  const check = checkAnchors(p2.log, p2.anchors.escrowHistory);
+  if (!check.ok) return { ok: false, problem: check.problems.map((x) => x.kind).join(', '), check };
+  return { ok: true, check };
+}
+
+function AnchorChain() {
+  const [res, setRes] = useState<ChainResult | 'checking' | null>(null);
+  const check = () => {
+    setRes('checking');
+    setTimeout(() => {
+      try {
+        setRes(checkChain());
+      } catch (e) {
+        setRes({ ok: false, problem: (e as Error).message });
+      }
+    }, 30);
+  };
+  return (
+    <>
+      <dt>Anchor chain</dt>
+      <dd>
+        <button className="btn" onClick={check} disabled={res === 'checking'}>
+          {res && res !== 'checking' ? 'Check the anchor chain again' : 'Check the anchor chain'}
+        </button>
+      </dd>
+      <div className="kv-row chain" aria-live="polite">
+        <dt>Both runs</dt>
+        {res === null ? (
+          <dd className="faint">pass 2 (Oct 21) log + the {p2.anchors?.escrowHistory?.length ?? 0} anchors it read from the escrow; not checked yet</dd>
+        ) : res === 'checking' ? (
+          <dd data-state="checking">checking {p2.log.length} signatures and the links…</dd>
+        ) : res.ok ? (
+          <dd data-state="ok">
+            one chain, {res.check.chain.length} anchors, no fork: {res.check.chain.map((a) => `#${a.seq}`).join(' → ')} · {p2.log.length}/{p2.log.length} pass-2 signatures verify
+          </dd>
+        ) : (
+          <dd data-state="bad">does not hold: {res.problem}</dd>
+        )}
+      </div>
+      {res && res !== 'checking' && res.check
+        ? res.check.chain.map((a) => (
+            <div className="kv-row" key={a.txid}>
+              <dt>Anchor #{a.seq}</dt>
+              <dd>
+                <Tx id={a.txid} label={`anchor ${a.seq}`} /> <span className="faint">{a.prev ? `names ${short(a.prev)}` : 'first anchor'}</span>
+              </dd>
+            </div>
+          ))
+        : null}
+      <dt>Escrow history</dt>
+      <dd className="faint">as recorded by pass 2; re-read on-chain by pnpm test and check-anchors (needs lightwalletd, not this tab)</dd>
+    </>
   );
 }
 

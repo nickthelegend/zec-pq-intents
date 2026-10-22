@@ -11,6 +11,10 @@ tab with `@pqi/protocol`:
   ML-DSA-65 signature is checked. Pick an entry to open it in the inspector.
 - **Anchor and keys:** the anchored head is recomputed here. The memo itself is on-chain and needs
   lightwalletd, so the tab labels it "found by the run script; re-read by `pnpm test`".
+  **Check the anchor chain** re-checks both runs as one chain: pass 2's log
+  (`deployments/testnet-pass2.json`) verifies under the same verifier key and extends the Oct 20 log,
+  and the escrow's two anchor memos as pass 2 recorded them (#8, then #11 naming #8's txid) pass
+  `checkAnchors` with no fork. The on-chain re-read is `pnpm test` / `check-anchors`.
 - **Attack console:** change any field of intent A, or verify the attacker's intent, with the same
   check the verifier runs.
 - **Refused on testnet:** the six signed refusals, each one opening its entry.
