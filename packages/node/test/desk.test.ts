@@ -103,6 +103,24 @@ describe('one bad item does not stop the desk (Zcash testnet)', () => {
   });
 });
 
+describe('a delivery is quoted again right before it is sent', () => {
+  it('a funded intent whose deadline is now 1 block away is declined, and the solver sends nothing', async () => {
+    class Recording extends Solver {
+      sends = 0;
+      override async deliver(): Promise<string> {
+        this.sends++;
+        throw new Error('this test sends nothing');
+      }
+    }
+    const tip = await chainTip();
+    const { desk, solver } = setup((kem) => [freshItem(fresh(tip, 1), kem, 'funded')], Recording);
+    const result = await desk.step(desk.items[0], tip);
+    expect(result).toMatch(/^deadline \d+ is 1 block\(s\) away/);
+    expect(desk.items[0]).toMatchObject({ stage: 'declined', fillTxid: null });
+    expect((solver as Recording).sends).toBe(0);
+  });
+});
+
 describe('an unreachable lightwalletd times out instead of blocking the desk', () => {
   const saved = { lwd: process.env.PQI_LWD_URL, ms: process.env.PQI_SCAN_TIMEOUT_MS };
   afterEach(() => {

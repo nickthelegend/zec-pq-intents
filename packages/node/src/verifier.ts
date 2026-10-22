@@ -24,7 +24,7 @@ export const TX_EXPIRY_BLOCKS = 120;
 
 /** Test hook: `PQI_TEST_CRASH_AT=<point>` kills this process with SIGKILL at that point (no cleanup,
  *  no save), so a test can restart from exactly what was on disk. */
-function crashPoint(point: 'payout-before-broadcast' | 'payout-after-broadcast') {
+export function crashPoint(point: 'payout-before-broadcast' | 'payout-after-broadcast' | 'deliver-before-broadcast' | 'deliver-after-broadcast') {
   if (process.env.PQI_TEST_CRASH_AT === point) process.kill(process.pid, 'SIGKILL');
 }
 

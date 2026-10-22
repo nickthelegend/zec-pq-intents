@@ -7,13 +7,14 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { bytesToHex, keyId, memo, newKemKey, newSigningKey, randomBytes, signFill, signIntent, signingKeyFromSeed, hexToBytes, type LogEntry, type SignedIntent } from '@pqi/protocol';
-import { chainTip, openViewWallet, Solver, spendable, TX_EXPIRY_BLOCKS, Verifier, zingoConfig, type VerifierState } from '../src/index.js';
+import { bytesToHex, kemKeyFromSeed, keyId, memo, newKemKey, newSigningKey, randomBytes, seal, signFill, signIntent, signingKeyFromSeed, hexToBytes, type LogEntry, type SignedIntent } from '@pqi/protocol';
+import { chainTip, Desk, openViewWallet, Solver, spendable, TX_EXPIRY_BLOCKS, Verifier, zingoConfig, type BoardItem, type VerifierState } from '../src/index.js';
 
 const d = JSON.parse(readFileSync(resolve(__dirname, '../../../deployments/testnet.json'), 'utf8'));
 const I = d.intents as Record<'A' | 'B' | 'C', { hash: string; signed: SignedIntent }>;
 const W = d.wallets as Record<string, { address: string; uivk: string; ufvk?: string; birthday?: number }>;
 const log = d.log as LogEntry[];
+const p2 = JSON.parse(readFileSync(resolve(__dirname, '../../../deployments/testnet-pass2.json'), 'utf8'));
 const VIEW = join(mkdtempSync(join(tmpdir(), 'pqi-escrow-view-')), 'wallet');
 
 const readState = (p: string) => JSON.parse(readFileSync(p, 'utf8')) as VerifierState;
@@ -85,6 +86,73 @@ describe('the solver takes on only what its wallet can pay', () => {
     const ask = (min_out: bigint) => signIntent(newSigningKey(), { escrow: W.escrow.address, pay_zat: String(min_out + 20_000n), min_out_zat: String(min_out), receive_ua: W.receive.address, receive_uivk: W.receive.uivk, refund_ua: W.user.address, deadline_height: 5_000_000 });
     expect(await solver.capacity(ask(have + 1n))).toEqual({ ok: false, reason: `min_out ${have + 1n} zat is above the solver's spendable balance ${have} zat` });
     if (have > 0n) expect(await solver.capacity(ask(have))).toEqual({ ok: true });
+  });
+});
+
+describe('the solver’s delivery is write-ahead, with a real process kill', () => {
+  /** A desk whose solver cannot spend (no such wallet) and reads `history` to reconcile. */
+  const deskAt = (dir: string, signSeed: string, kemSeed: string, history: string) => {
+    const sign = signingKeyFromSeed(hexToBytes(signSeed));
+    const solver = new Solver({ sign, kem: kemKeyFromSeed(hexToBytes(kemSeed)), wallet: '/nonexistent/solver-wallet-never-used', historyWallet: history, ua: W.solver.address, escrowUivk: W.escrow.uivk, zingo: zingoConfig(), minFeeZat: 15_000n });
+    const verifier = new Verifier({ key: newSigningKey(), escrowWallet: '/nonexistent/escrow-wallet-never-used', escrowUa: W.escrow.address, escrowUivk: W.escrow.uivk, solvers: [keyId(sign.publicKey)], zingo: zingoConfig(), statePath: join(dir, 'state.json'), tip: chainTip });
+    return new Desk({ boardPath: join(dir, 'board.json'), solver, verifier, tip: chainTip, info: {} });
+  };
+  /** A 'funded' intent due 100 blocks after `tip`, sealed to the KEM key from `kemSeed`. */
+  const funded = (tip: number, kemSeed: string): BoardItem => {
+    const s = signIntent(newSigningKey(), { escrow: W.escrow.address, pay_zat: '60000', min_out_zat: '40000', receive_ua: W.receive.address, receive_uivk: W.receive.uivk, refund_ua: W.user.address, deadline_height: tip + 100 });
+    const envelope = seal(s, kemKeyFromSeed(hexToBytes(kemSeed)).publicKey);
+    return { hash: envelope.intent_hash, envelope, fundingTxid: bytesToHex(randomBytes(32)), stage: 'funded', note: null, fillTxid: null, claim: null, postedAt: new Date().toISOString() };
+  };
+  const readBoard = (dir: string) => JSON.parse(readFileSync(join(dir, 'board.json'), 'utf8')) as BoardItem[];
+
+  it('killed after the delivery’s write-ahead record, before the broadcast: the restart does not find it in the solver’s history and sends nothing until a transaction built then has expired; after that, a new record and a new attempt', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pqi-deliver-'));
+    const [signSeed, kemSeed] = [bytesToHex(randomBytes(32)), bytesToHex(randomBytes(64))];
+    const tip = await chainTip();
+    const it0 = funded(tip, kemSeed);
+    writeFileSync(join(dir, 'board.json'), JSON.stringify([it0]));
+    const child = spawn(process.execPath, ['--import', 'tsx', resolve(__dirname, 'fixtures/deliver-crash-child.ts'), join(dir, 'board.json'), join(dir, 'state.json'), signSeed, kemSeed], { cwd: resolve(__dirname, '..'), env: { ...process.env, PQI_TEST_CRASH_AT: 'deliver-before-broadcast' }, stdio: ['ignore', 'pipe', 'pipe'] });
+    let out = '';
+    child.stdout!.on('data', (b) => (out += b));
+    child.stderr!.on('data', (b) => (out += b));
+    const [code, signal] = await new Promise<[number | null, string | null]>((ok) => child.on('exit', (c, s) => ok([c, s])));
+    expect({ code, signal }, out).toEqual({ code: null, signal: 'SIGKILL' });
+
+    // What the killed process left: the record (flushed before the send), no fill.
+    const [left] = readBoard(dir);
+    const solverId = keyId(signingKeyFromSeed(hexToBytes(signSeed)).publicKey);
+    expect(left).toMatchObject({ stage: 'funded', fillTxid: null, delivering: { memo: memo.fill(it0.hash, solverId), pay_to: W.receive.address, amount_zat: '40000' } });
+    expect(left.delivering!.at_height).toBeGreaterThanOrEqual(tip);
+
+    // Restart. The solver's history (here the escrow's view-only wallet stands in for it) has no such
+    // memo, and a transaction built at that height could still be mined: nothing is sent.
+    const [r] = await deskAt(dir, signSeed, kemSeed, VIEW).tick();
+    expect(r.result).toMatch(new RegExp(`^DELIVERY_UNRECONCILED: a delivery was being sent at height ${left.delivering!.at_height} .* could be mined until height ${left.delivering!.at_height + 1 + TX_EXPIRY_BLOCKS} .*so it is not sent again before then$`));
+    expect(readBoard(dir)[0]).toMatchObject({ stage: 'funded', fillTxid: null, delivering: left.delivering });
+
+    // Recorded long enough ago that it can no longer be mined: the record is dropped, the quote is
+    // run again and a new record is written before a new attempt (which fails here: no wallet).
+    writeFileSync(join(dir, 'board.json'), JSON.stringify([{ ...left, delivering: { ...left.delivering!, at_height: tip - TX_EXPIRY_BLOCKS - 5 } }]));
+    const [again] = await deskAt(dir, signSeed, kemSeed, VIEW).tick();
+    expect(again.result).toMatch(/^error: zingo-cli quicksend failed/);
+    const after = readBoard(dir)[0];
+    expect(after).toMatchObject({ stage: 'funded', fillTxid: null, failures: 1 });
+    expect(after.delivering!.at_height).toBeGreaterThanOrEqual(tip);
+  });
+
+  it('a delivery record whose memo the wallet’s history shows is adopted with that txid, and nothing is sent', async () => {
+    // Stand-in for the solver's history: the escrow's view-only wallet, which sent pass 2's release of
+    // D (memo pqi1:<D>:release) exactly once. The record names that memo; the lookup is by memo.
+    const dir = mkdtempSync(join(tmpdir(), 'pqi-deliver-'));
+    const [signSeed, kemSeed] = [bytesToHex(randomBytes(32)), bytesToHex(randomBytes(64))];
+    const tip = await chainTip();
+    const it0 = funded(tip, kemSeed);
+    writeFileSync(join(dir, 'board.json'), JSON.stringify([{ ...it0, delivering: { memo: memo.release(p2.intent.hash), pay_to: W.receive.address, amount_zat: '40000', at_height: tip - 10, at: new Date().toISOString() } }]));
+    const desk = deskAt(dir, signSeed, kemSeed, VIEW);
+    const [r] = await desk.tick();
+    expect(r.result).toBe(`filled ${p2.txs.release} (found in the solver's history by its memo after a restart; not sent again)`);
+    expect(desk.items[0]).toMatchObject({ stage: 'filled', fillTxid: p2.txs.release, claim: { fill_txid: p2.txs.release } });
+    expect(desk.items[0].delivering).toBeUndefined();
   });
 });
 

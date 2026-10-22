@@ -74,6 +74,14 @@ escrow's history first. If it is there, that is the payout and nothing is sent. 
 verifier waits (`PAYOUT_UNRECONCILED`, `PENDING`) until a transaction built at that height has
 expired (120 blocks on this testnet), so it can never be mined later, and only then tries again.
 
+**Deliveries are write-ahead too.** Before the solver's fill is broadcast, the desk saves (fsync) a
+record with its memo `pqi1:<hash>:fill:<solver key id>`, recipient, amount and height. After a
+restart it looks that memo up in the solver's wallet history: found → that txid is the fill and
+nothing is sent; not found → `DELIVERY_UNRECONCILED` until a transaction built then has expired.
+Before every send, including a resumed or retried one, the solver's quote is run again at the
+current tip, so a delivery that could no longer be mined by the deadline is declined and the
+escrow is refunded instead.
+
 **Desk rules.** An envelope is opened when it is posted. If it does not open with the solver's key to
 a signed intent with that hash, it is refused and never takes the hash's place on the board. One
 tick runs at a time, at one chain tip; an error on one intent (a failed wallet call, a timeout) is

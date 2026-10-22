@@ -5,7 +5,7 @@
 import { keyId, memo, open, ProtocolError, signFill, type Envelope, type FillClaim, type KemKey, type SignedIntent, type SigningKey } from '@pqi/protocol';
 import { owns, scan, type ScanResult } from './scan.js';
 import { confirmationsAt, MIN_CONFIRMATIONS } from './verifier.js';
-import { quicksend, spendable, type ZingoConfig } from './zingo.js';
+import { quicksend, sentWithMemo as walletSentWithMemo, spendable, type ValueTransfer, type ZingoConfig } from './zingo.js';
 
 /** Blocks a fill needs to be mined by the deadline with room to spare (testnet blocks are ~75 s). */
 export const MIN_BLOCKS_LEFT = 3;
@@ -36,6 +36,10 @@ export interface SolverConfig {
   minConfirmations?: number;
   /** default MAX_BLOCKS_AHEAD: decline an intent whose deadline is further away than this */
   maxBlocksAhead?: number;
+  /** a zingo wallet whose history shows every payment out of the solver's wallet (default: `wallet`;
+   *  a view-only wallet from its full viewing key also works). Read only to reconcile a delivery a
+   *  stopped process may have broadcast. */
+  historyWallet?: string;
   /** how many times deliver() waits a minute and retries "Insufficient balance" (default 0: throw
    *  InsufficientBalanceError at once, so a desk tick never sleeps; the desk retries next block) */
   balanceRetries?: number;
@@ -112,6 +116,16 @@ export class Solver {
         if (i >= retries) throw new InsufficientBalanceError((e as Error).message);
         await new Promise((r) => setTimeout(r, 60_000));
       }
+    }
+  }
+
+  /** Payments out of the solver's wallet whose memos include `m`, from its history. A failure to read
+   *  it is an error, never "not sent". */
+  async sentWithMemo(m: string): Promise<ValueTransfer[]> {
+    try {
+      return await walletSentWithMemo(this.c.zingo, this.c.historyWallet ?? this.c.wallet, m);
+    } catch (e) {
+      throw new Error(`DELIVERY_UNRECONCILED: the solver's history cannot be read to see whether ${m} went out (${(e as Error).message}). Not delivering again.`);
     }
   }
 

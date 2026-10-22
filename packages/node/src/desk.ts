@@ -4,11 +4,11 @@
 // The board holds ciphertext and the intent hash; an envelope is opened once on arrival (junk is
 // refused, so nobody can squat a hash), the solver fills, the verifier decides. `tick()` advances
 // every open intent by what the chain shows now; one tick runs at a time.
-import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, fsyncSync, openSync, readFileSync, renameSync, writeSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { keyId, ProtocolError, toB64, type Envelope, type FillClaim, type SignedIntent } from '@pqi/protocol';
+import { keyId, memo, ProtocolError, toB64, type Envelope, type FillClaim, type SignedIntent } from '@pqi/protocol';
 import { InsufficientBalanceError, type Solver } from './solver.js';
-import type { Verifier } from './verifier.js';
+import { crashPoint, TX_EXPIRY_BLOCKS, type Verifier } from './verifier.js';
 
 export type Stage = 'received' | 'declined' | 'funded' | 'filled' | 'settled' | 'refunded' | 'rejected' | 'refund_refused';
 /** Stages a tick still works on. */
@@ -27,6 +27,10 @@ export interface BoardItem {
   failures?: number;
   /** the solver's wallet could not fund the delivery yet: not tried again before this height */
   retryAfter?: number;
+  /** write-ahead record of a delivery about to be broadcast (saved with fsync first, removed once
+   *  its txid is saved). One left after a restart means the process stopped in between: the solver's
+   *  history is searched for its memo before any new attempt. */
+  delivering?: { memo: string; pay_to: string; amount_zat: string; at_height: number; at: string };
 }
 
 export interface DeskConfig {
@@ -43,9 +47,17 @@ export class Desk {
     this.items = existsSync(c.boardPath) ? JSON.parse(readFileSync(c.boardPath, 'utf8')) : [];
   }
 
+  /** Temporary file, flushed to disk, renamed over the board: a crash leaves the old or the new. */
   private save() {
-    writeFileSync(`${this.c.boardPath}.tmp`, JSON.stringify(this.items, null, 2));
-    renameSync(`${this.c.boardPath}.tmp`, this.c.boardPath);
+    const tmp = `${this.c.boardPath}.tmp`;
+    const fd = openSync(tmp, 'w');
+    try {
+      writeSync(fd, JSON.stringify(this.items, null, 2));
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+    renameSync(tmp, this.c.boardPath);
   }
 
   submit(envelope: Envelope, fundingTxid: string): BoardItem {
@@ -94,24 +106,7 @@ export class Desk {
       item.stage = 'funded';
       this.save();
     }
-    if (item.stage === 'funded') {
-      if (item.retryAfter !== undefined && tip < item.retryAfter) return `waiting for the solver's balance until block ${item.retryAfter}`;
-      try {
-        item.fillTxid = await this.c.solver.deliver(item.hash, s);
-      } catch (e) {
-        if (!(e instanceof InsufficientBalanceError)) throw e;
-        item.retryAfter = tip + 1;
-        item.note = `waiting for the solver's balance: ${e.message}`;
-        this.save();
-        return item.note;
-      }
-      delete item.retryAfter;
-      item.claim = this.c.solver.claim(item.hash, item.fillTxid);
-      item.stage = 'filled';
-      item.note = null;
-      this.save();
-      return `filled ${item.fillTxid}`;
-    }
+    if (item.stage === 'funded') return this.deliver(item, s, tip);
     if (item.stage === 'filled' && item.claim) {
       const d = await this.c.verifier.settle(s, item.fundingTxid, item.claim);
       if (d.status === 'PENDING') return d.reason;
@@ -121,6 +116,57 @@ export class Desk {
       return `${d.status}${d.reason ? ` ${d.reason}` : ''}`;
     }
     return item.stage;
+  }
+
+  /** The solver pays the user, at most once per intent. A delivery left half-done by a stopped
+   *  process (write-ahead record, no txid) is looked up by its memo in the solver's history first:
+   *  found → that txid is the fill, nothing is sent; not found → nothing is sent until a transaction
+   *  built then has expired. Before every send the quote is run again at this tip, so a resumed or
+   *  retried delivery that could no longer be mined by the deadline is declined (then refunded). */
+  private async deliver(item: BoardItem, s: SignedIntent, tip: number): Promise<string> {
+    if (item.delivering) {
+      const found = (await this.c.solver.sentWithMemo(item.delivering.memo)).filter((t) => t.status !== 'failed');
+      if (found.length) return this.filled(item, found[0].txid, `filled ${found[0].txid} (found in the solver's history by its memo after a restart; not sent again)`);
+      const expires = item.delivering.at_height + 1 + TX_EXPIRY_BLOCKS;
+      if (tip <= expires) return `DELIVERY_UNRECONCILED: a delivery was being sent at height ${item.delivering.at_height} when the process stopped and is not in the solver's history; a transaction sent then could be mined until height ${expires} (tip ${tip}), so it is not sent again before then`;
+      delete item.delivering; // provably never mined: safe to send
+      this.save();
+    }
+    if (item.retryAfter !== undefined && tip < item.retryAfter) return `waiting for the solver's balance until block ${item.retryAfter}`;
+    const q = await this.c.solver.quote(s, tip);
+    if (!q.accept) {
+      item.stage = 'declined';
+      item.note = q.reason;
+      this.save();
+      return q.reason;
+    }
+    item.delivering = { memo: memo.fill(item.hash, this.c.solver.id), pay_to: q.payTo, amount_zat: s.intent.min_out_zat, at_height: tip, at: new Date().toISOString() };
+    this.save();
+    crashPoint('deliver-before-broadcast');
+    let txid: string;
+    try {
+      txid = await this.c.solver.deliver(item.hash, s);
+    } catch (e) {
+      if (!(e instanceof InsufficientBalanceError)) throw e; // outcome unknown: the record stays
+      delete item.delivering; // fails while proposing: nothing was built or sent
+      item.retryAfter = tip + 1;
+      item.note = `waiting for the solver's balance: ${e.message}`;
+      this.save();
+      return item.note;
+    }
+    crashPoint('deliver-after-broadcast');
+    return this.filled(item, txid, `filled ${txid}`);
+  }
+
+  private filled(item: BoardItem, txid: string, result: string): string {
+    item.fillTxid = txid;
+    item.claim = this.c.solver.claim(item.hash, txid);
+    item.stage = 'filled';
+    item.note = null;
+    delete item.delivering;
+    delete item.retryAfter;
+    this.save();
+    return result;
   }
 
   /** Past the deadline and the claim window with nothing settled: the verifier refunds the escrow. */
