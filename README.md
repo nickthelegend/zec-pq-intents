@@ -100,7 +100,8 @@ pnpm test:e2e                                # Google Chrome E2E: landing, termi
 node packages/landing/build.mjs              # regenerate the landing from deployments/*.json
 PQI_PUBLISHED=deployments/testnet.json pnpm --filter @pqi/node serve    # read-only desk on 127.0.0.1:8404
 PQI_VERIFIER_ID=f60f130579386479043287fb68c2c1726a0a210be77aee46b355adb1287f1445 \
-  pnpm --filter @pqi/node check-anchors deployments/testnet-pass2.json  # every anchor the escrow sent, one chain
+PQI_ESCROW_UA=utest1fgwtrf8nq6e2j6w7rwa06k8ggmc5llsk3v7mjjnpy5ywmdfrjzuqfvlm4wpeggn9lq7cutkum7k75v8zqg2rxlg3z0k67lcz3cmcs558 \
+  pnpm --filter @pqi/node check-anchors "$PWD/deployments/testnet-pass2.json"  # every anchor the escrow sent, one chain
 PQI_FUNDER_WALLET=<demo wallet> pnpm --filter @pqi/examples run-live    # a new live run
 ```
 

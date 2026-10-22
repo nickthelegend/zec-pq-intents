@@ -145,7 +145,9 @@ match the agent's pinned ones.
   address. Each anchor names the previous anchor's txid, so anchors form one chain. The escrow's
   full viewing key is published, and a view-only wallet made from it lists every payment out of
   the escrow, so every anchor the verifier ever sent can be listed by anyone. `checkAnchors` (CLI:
-  `pnpm --filter @pqi/node check-anchors`) catches two heads anchored after the same anchor
+  `pnpm --filter @pqi/node check-anchors`, with the escrow address you trust pinned in
+  `PQI_ESCROW_UA`: the source supplies the full viewing key, so the CLI reads nothing unless that key
+  derives the pinned escrow and the source's intents name it) catches two heads anchored after the same anchor
   (`ANCHOR_FORK`), a log that hides an anchor, and a log that is not the one anchored. An anchor
   sent from any other wallet is not in the escrow's history, so a log that names one fails
   (`ANCHOR_NOT_IN_HISTORY`). Each audience has to run the check for this to hold. Not covered:
@@ -166,7 +168,7 @@ match the agent's pinned ones.
 |---|---|
 | `pnpm --filter @pqi/protocol test` | ML-DSA/ML-KEM sizes, every tamper caught, canonical base64, the log re-verifies, fill memos name the solver, anchor forks caught (16 tests) |
 | `pnpm --filter @pqi/node test` | both published runs re-checked on testnet; fill theft by an outsider or another solver, settle/refund races, the claim window and shallow confirmations refused; a verifier process killed mid-payout reconciles on restart; every anchor the escrow sent checked against the logs; desk board, ticks, refunds and HTTP rules (32 tests) |
-| `PQI_VERIFIER_ID=f60f1305… pnpm --filter @pqi/node check-anchors deployments/testnet-pass2.json` | every anchor the escrow sent (view-only wallet from its published full viewing key), one chain, checked against the log |
+| `PQI_VERIFIER_ID=f60f130579386479043287fb68c2c1726a0a210be77aee46b355adb1287f1445 PQI_ESCROW_UA=utest1fgwtrf8nq6e2j6w7rwa06k8ggmc5llsk3v7mjjnpy5ywmdfrjzuqfvlm4wpeggn9lq7cutkum7k75v8zqg2rxlg3z0k67lcz3cmcs558 pnpm --filter @pqi/node check-anchors "$PWD/deployments/testnet-pass2.json"` | every anchor the escrow sent (view-only wallet from its published full viewing key, which must derive the escrow you pinned), one chain, checked against the log |
 | open the dashboard | every log entry's ML-DSA-65 signature re-verified in your browser, the chain linked |
 | dashboard → "Change a field" | the intent no longer verifies (`BAD_SIGNATURE`) |
 | `PQI_PUBLISHED=deployments/testnet.json pnpm --filter @pqi/node serve` + MCP `verify_log` with `PQI_VERIFIER_ID=f60f1305…` | ok, entry counts, the anchor memo found on-chain and matching the head, 1 entry after the anchor |

@@ -30,3 +30,7 @@ serde_json = "1"
 
 [profile.dev.package."*"]
 opt-level = 3
+
+[dev-dependencies]
+# Already in the tree (through zcash_keys); used to derive a throwaway key in tests.
+zip32 = "0.3"

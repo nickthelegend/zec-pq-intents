@@ -368,6 +368,23 @@ mod tests {
         assert_eq!((only.has_orchard(), only.sapling()), (false, Some(&sapling)));
     }
 
+    /// "Another wallet's key" for the node tests: the full viewing key of a throwaway seed (32 bytes
+    /// of 7, account 0) that holds nothing. The fixture file must be exactly this derivation.
+    #[test]
+    fn the_throwaway_ufvk_fixture_is_derived_from_the_public_test_seed_and_does_not_cover_the_escrow() {
+        use zcash_keys::keys::UnifiedSpendingKey;
+        let usk = UnifiedSpendingKey::from_seed(&NETWORK, &[7u8; 32], zip32::AccountId::ZERO).unwrap();
+        let ufvk = usk.to_unified_full_viewing_key().encode(&NETWORK).unwrap();
+        let fixture = include_str!("../../node/test/fixtures/throwaway-ufvk.txt").trim().to_string();
+        if std::env::var("WRITE_FIXTURE").is_ok() {
+            std::fs::write(concat!(env!("CARGO_MANIFEST_DIR"), "/../node/test/fixtures/throwaway-ufvk.txt"), format!("{ufvk}\n")).unwrap();
+            return;
+        }
+        assert_eq!(ufvk, fixture);
+        let w = wallets();
+        assert!(owns(&uivk_from_ufvk(&fixture).unwrap(), w["escrow"]["address"].as_str().unwrap()).unwrap().covered.is_empty());
+    }
+
     #[test]
     fn owns_refuses_what_is_not_an_address() {
         let w = wallets();
