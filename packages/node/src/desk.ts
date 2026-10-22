@@ -147,12 +147,12 @@ export class Desk {
 }
 
 /** Reads are public (CORS open); writes are not offered to other origins. */
-const json = (res: ServerResponse, status: number, body: unknown, cors = true) =>
+export const json = (res: ServerResponse, status: number, body: unknown, cors = true) =>
   res.writeHead(status, { 'content-type': 'application/json', ...(cors ? { 'access-control-allow-origin': '*' } : {}) }).end(JSON.stringify(body, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)));
 
 export const MAX_BODY_BYTES = 64 * 1024;
 
-class HttpError extends Error {
+export class HttpError extends Error {
   constructor(readonly status: number, message: string) {
     super(message);
   }
@@ -160,7 +160,7 @@ class HttpError extends Error {
 
 /** JSON bodies only (a cross-site form or plain fetch cannot send that without a preflight, which
  *  this server never approves), and at most MAX_BODY_BYTES. */
-async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
+export async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
   if (!/^application\/json\b/.test(req.headers['content-type'] ?? '')) throw new HttpError(415, 'POST bodies must be application/json');
   let s = '';
   for await (const c of req) {
@@ -168,6 +168,13 @@ async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
     if (s.length > MAX_BODY_BYTES) throw new HttpError(413, `body over ${MAX_BODY_BYTES} bytes`);
   }
   return JSON.parse(s || '{}');
+}
+
+/** A refused or failed write: 415/413 from body(), 400 for a bad request, 502 otherwise; never CORS. */
+export function fail(res: ServerResponse, e: Error) {
+  const status = e instanceof HttpError ? e.status : e instanceof ProtocolError || e instanceof SyntaxError ? 400 : 502;
+  if (status === 413) res.setHeader('connection', 'close');
+  json(res, status, { error: e.message }, false);
 }
 
 /** HTTP for agents (MCP) and the dashboard. */
@@ -187,11 +194,7 @@ export function serveDesk(desk: Desk): Server {
         return json(res, 200, await desk.tick(), false);
       }
       return json(res, 404, { error: 'not found' }, req.method === 'GET');
-    })().catch((e: Error) => {
-      const status = e instanceof HttpError ? e.status : e instanceof ProtocolError || e instanceof SyntaxError ? 400 : 502;
-      if (status === 413) res.setHeader('connection', 'close');
-      json(res, status, { error: e.message }, false);
-    });
+    })().catch((e: Error) => fail(res, e));
   });
 }
 

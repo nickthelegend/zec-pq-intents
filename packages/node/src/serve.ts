@@ -8,7 +8,7 @@ import { createServer } from 'node:http';
 import { dirname, resolve } from 'node:path';
 import { hexToBytes, kemKeyFromSeed, keyId, signingKeyFromSeed, toB64, type LogEntry } from '@pqi/protocol';
 import { chainTip, SetupRequiredError } from './scan.js';
-import { Desk, serveDesk } from './desk.js';
+import { body, Desk, fail, json, serveDesk } from './desk.js';
 import { Solver } from './solver.js';
 import { Verifier } from './verifier.js';
 import { zingoConfig } from './zingo.js';
@@ -25,9 +25,17 @@ function published(path: string) {
     verifier: d.keys.verifier,
     min_fee_zat: '15000',
   };
-  const json = (res: import('node:http').ServerResponse, s: number, b: unknown) => res.writeHead(s, { 'content-type': 'application/json', 'access-control-allow-origin': '*' }).end(JSON.stringify(b));
+  // Same HTTP rules as the live desk (desk.ts): reads are public; a write is held to the live desk's
+  // rules first (JSON only, at most MAX_BODY_BYTES, no CORS) and then answered Setup required.
   return createServer((req, res) => {
     const url = new URL(req.url ?? '/', 'http://local');
+    if (req.method === 'POST' && (url.pathname === '/api/intents' || url.pathname === '/api/tick')) {
+      body(req)
+        .then(() => json(res, 503, { error: 'Setup required: this desk serves a published record (PQI_PUBLISHED); run it with PQI_STATE to accept intents' }, false))
+        .catch((e: Error) => fail(res, e));
+      return;
+    }
+    if (req.method !== 'GET') return json(res, 404, { error: 'not found' }, false);
     if (url.pathname === '/api/info') return json(res, 200, { ...info, log_entries: d.log.length });
     if (url.pathname === '/api/log') return json(res, 200, { log: d.log });
     if (url.pathname.startsWith('/api/intents/')) {
@@ -38,7 +46,6 @@ function published(path: string) {
       const stage = (final ?? entries[entries.length - 1])?.status.toLowerCase() ?? 'unknown';
       return json(res, 200, { hash: h, stage, log: entries });
     }
-    if (req.method === 'POST') return json(res, 503, { error: 'Setup required: this desk serves a published record (PQI_PUBLISHED); run it with PQI_STATE to accept intents' });
     return json(res, 404, { error: 'not found' });
   });
 }
