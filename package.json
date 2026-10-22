@@ -8,6 +8,7 @@
     "test:scan": "cd packages/scan && cargo test --release",
     "build": "pnpm build:scan && pnpm -r --if-present build",
     "test": "pnpm build && pnpm test:scan && pnpm -r --workspace-concurrency=1 --if-present test",
-    "test:e2e": "cd e2e && ./stack.sh && (npx playwright test; s=$?; ./stack.sh stop; exit $s)"
+    "test:e2e": "cd e2e && ./stack.sh && (npx playwright test; s=$?; ./stack.sh stop; exit $s)",
+    "build:site": "node packages/landing/build.mjs && pnpm --filter @pqi/dashboard build && node packages/landing/site.mjs"
   }
 }

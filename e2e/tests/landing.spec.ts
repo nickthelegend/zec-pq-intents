@@ -157,6 +157,10 @@ test.describe('landing', () => {
         expect(txid, href).toMatch(/^[0-9a-f]{64}$/);
         expect(record.includes(txid), `${txid} is in deployments/testnet.json or testnet-pass2.json`).toBe(true);
         expect(blank && rel.includes('noopener'), `${href} opens in a new tab with noopener`).toBe(true);
+      } else if (href === 'terminal/') {
+        const r = await page.request.get(new URL(href, LANDING).toString());
+        expect(r.status(), `${href} is served next to the landing`).toBe(200);
+        expect(await r.text()).toContain('<title>Yaksok terminal');
       } else if (href.startsWith(`${REPO}/blob/main/`)) {
         const [path, frag] = href.slice(`${REPO}/blob/main/`.length).split('#');
         expect(existsSync(resolve(root, path)), `${path} exists in the repo`).toBe(true);
@@ -179,6 +183,19 @@ test.describe('landing', () => {
     await expect(track).toHaveCSS('animation-play-state', 'running');
     await page.locator('.ticker').hover();
     await expect(track).toHaveCSS('animation-play-state', 'paused');
+  });
+
+  test('“Open the terminal” opens the Yaksok terminal served next to the landing; it verifies 13/13 and links back', async ({ page }) => {
+    await page.goto(LANDING);
+    await expect(page.getByRole('navigation', { name: 'Links' }).getByRole('link', { name: 'Terminal' })).toHaveAttribute('href', 'terminal/');
+    await page.getByRole('link', { name: 'Open the terminal' }).click();
+    await expect(page).toHaveURL(new URL('terminal/', LANDING).toString());
+    await expect(page).toHaveTitle(/Yaksok terminal/);
+    await expect(page.locator('#tape-h + .meta')).toHaveText(`${log.length}/${log.length} signatures verify`, { timeout: 20_000 });
+    await noHorizontalScroll(page);
+    await page.getByRole('link', { name: 'Landing' }).click();
+    await expect(page).toHaveURL(LANDING);
+    await expect(page.locator('#verify-state')).toHaveText('verified in this tab', { timeout: 20_000 });
   });
 
   test.describe('reduced motion', () => {

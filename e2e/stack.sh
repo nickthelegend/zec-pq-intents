@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Starts the Yaksok stack the way a user runs it, bound to 127.0.0.1, and records every PID in .run/pids.
-#   ./stack.sh        rebuild the landing from the records, build the dashboard, then serve:
-#                     landing 4183 (static), dashboard 5181 (vite preview),
+#   ./stack.sh        rebuild the landing from the records, build the dashboard, assemble site/
+#                     (the landing with the terminal at terminal/, as a static host serves it), then serve:
+#                     site 4183 (static: landing at /, terminal at /terminal/), dashboard 5181 (vite preview),
 #                     desk 8404 (PQI_PUBLISHED=deployments/testnet.json, the Oct 20 run),
 #                     desk 8405 (PQI_PUBLISHED=deployments/testnet-pass2.json, pass 2)
 #                     Ports: YAKSOK_LANDING_PORT, YAKSOK_TERMINAL_PORT, YAKSOK_DESK_PORT, YAKSOK_DESK2_PORT
@@ -36,8 +37,9 @@ done
 
 (cd "$root" && node packages/landing/build.mjs >"$run/landing-build.log" 2>&1) || { echo "landing build failed: $run/landing-build.log" >&2; exit 1; }
 (cd "$root" && pnpm --filter @pqi/dashboard build >"$run/dashboard-build.log" 2>&1) || { echo "dashboard build failed: $run/dashboard-build.log" >&2; exit 1; }
+(cd "$root" && node packages/landing/site.mjs >"$run/site-build.log" 2>&1) || { echo "site build failed: $run/site-build.log" >&2; exit 1; }
 
-python3 -m http.server "$LP" --bind 127.0.0.1 -d "$root/packages/landing" >"$run/landing.log" 2>&1 &
+python3 -m http.server "$LP" --bind 127.0.0.1 -d "$root/site" >"$run/landing.log" 2>&1 &
 echo "landing $!" >>"$run/pids"
 (cd "$root/packages/dashboard" && exec ./node_modules/.bin/vite preview --host 127.0.0.1 --port "$TP" --strictPort) >"$run/dashboard.log" 2>&1 &
 echo "dashboard $!" >>"$run/pids"

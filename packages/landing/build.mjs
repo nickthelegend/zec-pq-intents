@@ -171,6 +171,7 @@ const html = `<!doctype html>
     <div class="cell"><small>Verifier</small><span>${short(d.keys.verifier.id)}</span></div>
   </div>
   <nav class="acts" aria-label="Links">
+    <a class="btn" href="terminal/">Terminal</a>
     <a class="btn hide-s" href="${REPO}/blob/main/packages/docs/README.md">Docs</a>
     <a class="btn btn-copper" href="${REPO}">GitHub</a>
   </nav>
@@ -182,7 +183,7 @@ const html = `<!doctype html>
       <p class="kicker">Zcash · private markets · intents</p>
       <h1 id="h1">Intents signed and sealed with <em>post-quantum</em> keys, settled in shielded ZEC.</h1>
       <p class="lede">Why: the address you receive at is paid from the solver’s liquidity, never from the wallet you fund with, and the order itself is signed and sealed with post-quantum keys. You sign an intent with ML-DSA-65 and seal it to the solver with ML-KEM-768, escrow testnet ZEC, and a verifier releases or refunds the escrow. Every decision is a signed, hash-chained log entry, anchored in a shielded memo. Zcash spends stay elliptic-curve; the post-quantum part is the intent layer.</p>
-      <div class="ctas"><a class="btn btn-copper btn-lg" href="#tape">Watch the tape verify</a><a class="btn btn-lg" href="${REPO}/blob/main/packages/docs/README.md#trust-model">Trust model</a></div>
+      <div class="ctas"><a class="btn btn-copper btn-lg" href="#tape">Watch the tape verify</a><a class="btn btn-lg" href="terminal/">Open the terminal</a><a class="btn btn-lg" href="${REPO}/blob/main/packages/docs/README.md#trust-model">Trust model</a></div>
       <div class="kpis" aria-label="Both testnet runs">
         <div class="kpi"><b class="st-settled">${count('SETTLED')}</b><small>settled</small></div>
         <div class="kpi"><b class="st-rejected">${count('REJECTED')}</b><small>refused, signed</small></div>

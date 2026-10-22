@@ -210,7 +210,11 @@ test.describe('terminal', () => {
       await expect(page.locator('#ins-h'), `"${label}" opens its entry`).toHaveText(`Entry #${seq}`);
       await fullyInView(page.locator('#inspector'));
     }
-    await expect(page.getByRole('link', { name: 'Docs' })).toHaveAttribute('href', `${REPO}/blob/main/packages/docs/README.md`);
+    const docs = page.locator('.acts a', { hasText: 'Docs' });
+    await expect(docs).toHaveAttribute('href', `${REPO}/blob/main/packages/docs/README.md`);
+    if (isMobile(test.info().project.name)) await expect(docs, 'the phone bar keeps Terminal/Landing and GitHub, as the landing does').toBeHidden();
+    else await expect(docs).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Landing' }), 'served on its own, not under the landing: no way back to show').toHaveCount(0);
     await expect(page.getByRole('link', { name: 'GitHub' })).toHaveAttribute('href', REPO);
   });
 

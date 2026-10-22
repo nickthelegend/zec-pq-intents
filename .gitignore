@@ -4,6 +4,7 @@
 node_modules/
 target/
 dist/
+site/
 .next/
 *.log
 .DS_Store

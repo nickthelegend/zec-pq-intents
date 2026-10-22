@@ -210,3 +210,8 @@ select { height: 38px; padding: 0 10px; background: var(--bg-deep); color: var(-
   .refusals { grid-template-columns: 1fr; }
   .refusals .ref:last-child:nth-child(3n + 1) { grid-column: auto; }
 }
+@media (max-width: 760px) {
+  .acts .hide-s { display: none; }
+  .acts { gap: 6px; }
+  .acts .btn { padding: 0 10px; }
+}

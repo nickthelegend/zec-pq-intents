@@ -150,7 +150,13 @@ function Bar({ good, done, n }: { good: number; done: number; n: number }) {
         </div>
       </div>
       <nav className="acts" aria-label="Links">
-        <a className="btn" href={`${REPO}/blob/main/packages/docs/README.md`}>
+        {/* Served under the landing (site/terminal/): a way back to it. */}
+        {location.pathname.replace(/\/index\.html$/, '/').endsWith('/terminal/') ? (
+          <a className="btn" href="../">
+            Landing
+          </a>
+        ) : null}
+        <a className="btn hide-s" href={`${REPO}/blob/main/packages/docs/README.md`}>
           Docs
         </a>
         <a className="btn btn-copper" href={REPO}>
