@@ -119,7 +119,9 @@ MCP server: `node packages/mcp/dist/main.js` (after `pnpm build`) with
 - Only the configured solver key that the fill's memo names is paid. The Oct 20 fills name no
   solver and are honoured as legacy single-solver fills, marked so in the log.
 - Anchors are periodic. Each names the previous one, and the escrow's full viewing key is published,
-  so every anchor can be listed and a second head is a visible fork, if someone runs the check.
+  so every anchor can be listed; a second head, an anchor in the old form that names no predecessor
+  (other than the Oct 20 root), or any anchor off the one chain fails `check-anchors`, if someone
+  runs it.
   Entries after the last anchor are not covered.
 - Funding and fills need 3 confirmations; a deeper reorg is not handled. A payout interrupted by a
   crash is reconciled from the escrow's history; if that history cannot be read, the verifier stops

@@ -148,7 +148,8 @@ match the agent's pinned ones.
   `pnpm --filter @pqi/node check-anchors`, with the escrow address you trust pinned in
   `PQI_ESCROW_UA`: the source supplies the full viewing key, so the CLI reads nothing unless that key
   derives the pinned escrow and the source's intents name it) catches two heads anchored after the same anchor
-  (`ANCHOR_FORK`), a log that hides an anchor, and a log that is not the one anchored. An anchor
+  (`ANCHOR_FORK`), an anchor that names no previous anchor other than the Oct 20 one as the root
+  (`ANCHOR_LEGACY_LATE`), any anchor that is not on the one chain (`ANCHOR_ORPHAN`), a log that hides an anchor, and a log that is not the one anchored. An anchor
   sent from any other wallet is not in the escrow's history, so a log that names one fails
   (`ANCHOR_NOT_IN_HISTORY`). Each audience has to run the check for this to hold. Not covered:
   entries after the last anchor (`verify_log` reports how many), and anchors past the end of the log

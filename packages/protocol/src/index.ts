@@ -335,8 +335,14 @@ export interface AnchorSeen {
   memo: string;
 }
 
+/** The Oct 20, 2026 anchor (seq 8), sent before anchors named their predecessor. It is the only
+ *  anchor in the legacy form that checkAnchors accepts by default, and only as the chain's root. */
+export const OCT20_LEGACY_ANCHOR = 'a7d960386f2d8dc926003e700b15bcc761b6e72419765ea6f958a85d73a65a73';
+
 export type AnchorProblem =
   | { kind: 'ANCHOR_FORK'; txids: [string, string]; detail: string }
+  | { kind: 'ANCHOR_LEGACY_LATE'; txid: string; seq: number }
+  | { kind: 'ANCHOR_ORPHAN'; txid: string; seq: number }
   | { kind: 'ANCHOR_PREV_UNKNOWN'; txid: string; prev: string }
   | { kind: 'ANCHOR_SEQ_NOT_INCREASING'; txid: string; seq: number; prevSeq: number }
   | { kind: 'ANCHOR_HEAD_MISMATCH'; txid: string; seq: number; detail: string }
@@ -357,9 +363,12 @@ export interface AnchorCheck {
 /**
  * Checks a log against every anchor the escrow ever sent (`sent`, from its full history, which the
  * published full viewing key shows to anyone):
- *  - each anchor names the previous one by txid (the first names GENESIS; a legacy anchor names none
- *    and may only come first), and no two name the same one: two anchored heads for one history are
- *    ANCHOR_FORK, whichever audience was shown which;
+ *  - each anchor names the previous one by txid (the first names GENESIS), and no two name the same
+ *    one: two anchored heads for one history are ANCHOR_FORK, whichever audience was shown which. An
+ *    anchor that names none (the legacy form) is accepted only if it is listed in `legacyRoots`
+ *    (default: the Oct 20 anchor) and only as the root; any other is ANCHOR_LEGACY_LATE. Two roots
+ *    (legacy or GENESIS) are ANCHOR_FORK. Every anchor must be on the one chain walked from the
+ *    root; one that is not is ANCHOR_ORPHAN, so the chain holds every anchor or the check fails;
  *  - sequence numbers increase along the chain;
  *  - every anchor within this log's length anchors this log's entry hash at its seq, and appears in the
  *    log as an ANCHORED entry naming the same transaction (ANCHOR_HEAD_MISMATCH / ANCHOR_NOT_IN_LOG:
@@ -368,19 +377,22 @@ export interface AnchorCheck {
  *    previous anchor (ANCHOR_NOT_IN_HISTORY).
  * The log itself should already have passed verifyLog.
  */
-export function checkAnchors(log: LogEntry[], sent: AnchorSeen[]): AnchorCheck {
+export function checkAnchors(log: LogEntry[], sent: AnchorSeen[], opts: { legacyRoots?: string[] } = {}): AnchorCheck {
   const problems: AnchorProblem[] = [];
+  const legacyRoots = opts.legacyRoots ?? [OCT20_LEGACY_ANCHOR];
   const anchors = sent.flatMap((a) => {
     const r = readAnchorMemo(a.memo);
     return r ? [{ txid: a.txid, ...r }] : [];
   });
   const byTxid = new Map(anchors.map((a) => [a.txid, a]));
-  // Forks: two anchors after the same previous one, or two different heads for one seq.
+  // Forks: two anchors after the same previous one (a legacy anchor counts as after genesis: two
+  // roots are two chains), or two different heads for one seq.
   const after = new Map<string, (typeof anchors)[number]>();
   for (const a of anchors) {
-    const from = a.prev ?? 'legacy';
+    if (a.prev === null && !legacyRoots.includes(a.txid)) problems.push({ kind: 'ANCHOR_LEGACY_LATE', txid: a.txid, seq: a.seq });
+    const from = a.prev ?? GENESIS;
     const twin = after.get(from);
-    if (twin && from !== 'legacy') problems.push({ kind: 'ANCHOR_FORK', txids: [twin.txid, a.txid], detail: `both anchor after ${from === GENESIS ? 'genesis' : from}` });
+    if (twin) problems.push({ kind: 'ANCHOR_FORK', txids: [twin.txid, a.txid], detail: `both anchor after ${from === GENESIS ? 'genesis' : from}` });
     else after.set(from, a);
     const sameSeq = anchors.find((b) => b !== a && b.seq === a.seq && b.head !== a.head && b.txid < a.txid);
     if (sameSeq) problems.push({ kind: 'ANCHOR_FORK', txids: [sameSeq.txid, a.txid], detail: `two heads anchored for entry ${a.seq}` });
@@ -396,6 +408,9 @@ export function checkAnchors(log: LogEntry[], sent: AnchorSeen[]): AnchorCheck {
     const id: string = cur.txid;
     cur = anchors.find((a) => a.prev === id);
   }
+  // Every anchor the escrow sent is on that one chain, or the history holds another chain.
+  const onChain = new Set(chain.map((a) => a.txid));
+  for (const a of anchors) if (!onChain.has(a.txid)) problems.push({ kind: 'ANCHOR_ORPHAN', txid: a.txid, seq: a.seq });
   const later: AnchorCheck['later'] = [];
   const logged = new Map(log.filter((e) => e.status === 'ANCHORED').map((e) => [e.refs.anchor_txid, e]));
   for (const a of anchors) {

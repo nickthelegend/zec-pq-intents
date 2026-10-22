@@ -5,6 +5,7 @@ import {
   appendEntry,
   canonical,
   checkAnchors,
+  OCT20_LEGACY_ANCHOR,
   findEquivocation,
   GENESIS,
   fromB64,
@@ -233,6 +234,40 @@ describe('anchor chain', () => {
     // Both logs verify under the verifier's key, so the two signed entries at 3 are the evidence.
     expect(findEquivocation(log, other, verifier.publicKey)).toEqual({ seq: 3, a: log[3].hash, b: other[3].hash });
     expect(findEquivocation(log, log.slice(0, 3), verifier.publicKey)).toBeNull();
+  });
+
+  it('anchors in the legacy form (naming no previous anchor) cannot hide a fork: a late one is ANCHOR_LEGACY_LATE, one off the chain is ANCHOR_ORPHAN, two roots are ANCHOR_FORK', () => {
+    // A shared prefix anchored once (X0, after genesis), then two histories: C anchored at seq 7, B
+    // (longer) at seq 9. Each audience is shown its own log and anchor.
+    const prefix: LogEntry[] = [];
+    for (let i = 0; i < 5; i++) appendEntry(prefix, verifier, { status: 'REJECTED', intent_hash: 'a'.repeat(64), reason: `R${i}`, refs: {}, at_height: 100 + i });
+    const x0 = { txid: tx(1), memo: memo.anchor(4, prefix[4].hash, GENESIS) };
+    appendEntry(prefix, verifier, { status: 'ANCHORED', intent_hash: null, reason: null, refs: { anchor_txid: x0.txid, anchored_seq: '4', anchored_head: prefix[4].hash, prev_anchor_txid: GENESIS }, at_height: 105 });
+    const grow = (n: number, tag: string) => {
+      const l = [...prefix];
+      for (let i = 0; i < n; i++) appendEntry(l, verifier, { status: 'REJECTED', intent_hash: 'c'.repeat(64), reason: `${tag}${i}`, refs: {}, at_height: 200 + i });
+      return l;
+    };
+    const C = grow(2, 'C'); // entries 0-7
+    const B = grow(4, 'B'); // entries 0-9
+    for (const form of ['chain', 'legacy'] as const) {
+      const anchorOf = (l: LogEntry[], seq: number, txid: string) => ({ txid, memo: form === 'chain' ? memo.anchor(seq, l[seq].hash, x0.txid) : memo.anchor(seq, l[seq].hash) });
+      const tc = anchorOf(C, 7, tx(2));
+      const tb = anchorOf(B, 9, tx(3));
+      const shownC = [...C];
+      appendEntry(shownC, verifier, { status: 'ANCHORED', intent_hash: null, reason: null, refs: { anchor_txid: tc.txid, anchored_seq: '7', anchored_head: C[7].hash, ...(form === 'chain' ? { prev_anchor_txid: x0.txid } : {}) }, at_height: 300 });
+      const c = checkAnchors(shownC, [x0, tc, tb]);
+      expect(c.ok, form).toBe(false);
+      if (form === 'chain') expect(c.problems.map((p) => p.kind)).toContain('ANCHOR_FORK');
+      else expect(c.problems.map((p) => p.kind)).toEqual(expect.arrayContaining(['ANCHOR_LEGACY_LATE', 'ANCHOR_ORPHAN']));
+      expect(c.chain.length, `${form}: the chain is one of the three anchors' chains, and the rest are reported`).toBeLessThan(3);
+    }
+    // The one legacy anchor accepted by default is the Oct 20 anchor, as the root.
+    expect(checkAnchors([], [{ txid: OCT20_LEGACY_ANCHOR, memo: memo.anchor(8, 'ab'.repeat(32)) }]).problems).toEqual([]);
+    expect(checkAnchors([], [{ txid: tx(5), memo: memo.anchor(8, 'ab'.repeat(32)) }]).problems).toEqual([{ kind: 'ANCHOR_LEGACY_LATE', txid: tx(5), seq: 8 }]);
+    // A legacy root and a genesis root: two chains.
+    const two = checkAnchors([], [{ txid: OCT20_LEGACY_ANCHOR, memo: memo.anchor(8, 'ab'.repeat(32)) }, { txid: tx(6), memo: memo.anchor(9, 'cd'.repeat(32), GENESIS) }]);
+    expect(two.problems.map((p) => p.kind)).toEqual(expect.arrayContaining(['ANCHOR_FORK', 'ANCHOR_ORPHAN']));
   });
 
   it('an ANCHORED entry naming a transaction the escrow never sent, or a broken link, is caught', () => {
