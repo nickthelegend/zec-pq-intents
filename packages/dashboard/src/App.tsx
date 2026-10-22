@@ -271,7 +271,7 @@ function Tape({ checks, error, sel, onSel }: { checks: Check[]; error: string | 
 function Inspector({ e, check }: { e: LogEntry | undefined; check: Check }) {
   if (!e) return null;
   return (
-    <section className="p s4" aria-labelledby="ins-h">
+    <section className="p s4" id="inspector" aria-labelledby="ins-h">
       <div className="ph">
         <h2 id="ins-h">Entry #{e.seq}</h2>
         <span className={`st st-${e.status.toLowerCase()}`}>{e.status}</span>
@@ -472,9 +472,11 @@ export function App() {
   const [entry, setEntry] = useState(0);
   const good = checks.filter((c) => c === 'ok').length;
   const done = checks.filter((c) => c !== 'pending').length;
+  // Bring the whole inspector panel into view after it shows the picked entry. Scrolling to its
+  // heading with block 'nearest' left the panel below the fold on a phone (only its top edge showed).
   const pick = (n: number) => {
     setEntry(n);
-    document.getElementById('ins-h')?.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    requestAnimationFrame(() => document.getElementById('inspector')?.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }));
   };
   return (
     <>
