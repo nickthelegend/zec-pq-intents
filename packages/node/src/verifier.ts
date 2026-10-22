@@ -223,8 +223,11 @@ export class Verifier {
   }
 
   /** Common checks on the user's signed intent: signature, key binding, nonce, funding. */
-  /** `forRefund`: a deposit mined after the deadline still has to be refundable, so skip that check. */
-  private async admit(s: SignedIntent, fundingTxid: string, forRefund = false): Promise<{ hash: string; fund: ScanResult } | Decision | Pending | Unfunded> {
+  /** `forRefund`: money that reached the escrow under this intent's memo must always be refundable to
+   *  the refund address the user signed, so a deposit mined after the deadline is not refused, and a
+   *  deposit that fails a settlement check (too little, a transparent part, another escrow named, a
+   *  reused nonce) comes back as `refundAs`: refund what arrived, minus the fee budget, with that reason. */
+  private async admit(s: SignedIntent, fundingTxid: string, forRefund = false): Promise<{ hash: string; fund: ScanResult; refundAs?: string } | Decision | Pending | Unfunded> {
     let hash: string;
     try {
       hash = verifyIntent(s);
@@ -244,7 +247,8 @@ export class Verifier {
     const closedBy = this.state.closed[hash];
     if (closedBy && this.state.log.some((e) => e.intent_hash === hash && e.status === closedBy)) return this.reject(hash, `ALREADY_${closedBy}`, { funding_txid: fundingTxid });
     const firstUse = this.state.nonces[s.intent.user]?.[s.intent.nonce];
-    if (firstUse && firstUse !== hash) return this.reject(hash, 'NONCE_REUSED', { funding_txid: fundingTxid, first_use: firstUse });
+    const nonceReused = !!firstUse && firstUse !== hash;
+    if (nonceReused && !forRefund) return this.reject(hash, 'NONCE_REUSED', { funding_txid: fundingTxid, first_use: firstUse });
     // A release or refund pays pay_zat - FEE_BUDGET_ZAT; at or below the budget there is nothing to pay.
     if (BigInt(s.intent.pay_zat) <= FEE_BUDGET_ZAT) return this.reject(hash, 'PAY_BELOW_FEE_BUDGET', { funding_txid: fundingTxid, pay_zat: s.intent.pay_zat, fee_budget_zat: FEE_BUDGET_ZAT.toString() });
     // A fill is read with receive_uivk; if that key does not derive receive_ua, a delivery to
@@ -256,6 +260,8 @@ export class Verifier {
     // Something did reach the escrow with this memo: from here on every refusal is a signed entry.
     const shallow = await this.deepEnough(fund, 'funding');
     if (shallow) return shallow;
+    const problem = nonceReused ? 'NONCE_REUSED' : !fund.ok ? `NOT_FUNDED:${fund.reasons.join('+')}` : s.intent.escrow !== this.c.escrowUa ? 'WRONG_ESCROW' : null;
+    if (problem && forRefund) return { hash, fund, refundAs: problem };
     if (!fund.ok) return this.reject(hash, `NOT_FUNDED:${fund.reasons.join('+')}`, { funding_txid: fundingTxid });
     if (s.intent.escrow !== this.c.escrowUa) return this.reject(hash, 'WRONG_ESCROW', { funding_txid: fundingTxid });
     if (!forRefund && fund.height !== null && fund.height > s.intent.deadline_height) return this.reject(hash, 'FUNDED_AFTER_DEADLINE', { funding_txid: fundingTxid });
@@ -332,16 +338,21 @@ export class Verifier {
   private async refundNow(s: SignedIntent, fundingTxid: string): Promise<Decision | Pending | Unfunded> {
     const a = await this.admit(s, fundingTxid, true);
     if ('status' in a) return a;
-    const { hash } = a;
+    const { hash, refundAs } = a;
     const tip = await this.c.tip();
     if (tip <= s.intent.deadline_height) return this.reject(hash, 'NOT_EXPIRED_YET', { tip: String(tip), deadline: String(s.intent.deadline_height) });
     if (tip <= s.intent.deadline_height + this.claimWindow) return this.reject(hash, 'CLAIM_WINDOW_OPEN', { tip: String(tip), deadline: String(s.intent.deadline_height), refund_after: String(s.intent.deadline_height + this.claimWindow) });
-    this.remember(s, hash);
-    const out = BigInt(s.intent.pay_zat) - FEE_BUDGET_ZAT;
+    // A deposit that could never settle is refunded from what actually arrived under its memo.
+    const out = (refundAs ? BigInt(a.fund.paidZat) : BigInt(s.intent.pay_zat)) - FEE_BUDGET_ZAT;
+    if (out <= 0n) return this.reject(hash, refundAs ?? 'PAY_BELOW_FEE_BUDGET', { funding_txid: fundingTxid, paid_zat: String(a.fund.paidZat), fee_budget_zat: FEE_BUDGET_ZAT.toString() });
+    // A reused nonce stays bound to the intent that used it first.
+    if (refundAs !== 'NONCE_REUSED') this.remember(s, hash);
     const refund = await this.payOnce(`refund:${hash}`, s.intent.refund_ua, out, memo.refund(hash));
     if (typeof refund !== 'string') return refund;
-    const entry = this.logAt('REFUNDED', hash, null, { user: s.intent.user, nonce: s.intent.nonce, funding_txid: fundingTxid, refund_txid: refund, refunded_zat: out.toString() }, tip, 'REFUNDED');
-    return { status: 'REFUNDED', reason: null, entry, payoutTxid: refund };
+    const refs: Record<string, string> = { user: s.intent.user, nonce: s.intent.nonce, funding_txid: fundingTxid, refund_txid: refund, refunded_zat: out.toString() };
+    if (refundAs) refs.paid_zat = String(a.fund.paidZat);
+    const entry = this.logAt('REFUNDED', hash, refundAs ?? null, refs, tip, 'REFUNDED');
+    return { status: 'REFUNDED', reason: refundAs ?? null, entry, payoutTxid: refund };
   }
 
   /** Puts the current head, and the txid of the previous anchor, in a shielded memo from the escrow

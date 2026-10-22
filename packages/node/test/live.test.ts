@@ -26,13 +26,13 @@ const LEGACY = [I.A.hash, I.B.hash, I.C.hash];
 /** A verifier with a new key and (optionally) prior state, on the published escrow. No wallet is used.
  *  An intent marked closed gets its SETTLED/REFUNDED entry too (signed by the new key), as a real
  *  verifier writes them together. */
-function freshVerifier(prior?: { nonces?: Record<string, Record<string, string>>; closed?: Record<string, 'SETTLED' | 'REFUNDED'> }, opts: { tip?: () => Promise<number>; solvers?: string[]; legacy?: string[]; minConfirmations?: number } = {}) {
+function freshVerifier(prior?: { nonces?: Record<string, Record<string, string>>; closed?: Record<string, 'SETTLED' | 'REFUNDED'> }, opts: { tip?: () => Promise<number>; solvers?: string[]; legacy?: string[]; minConfirmations?: number; escrowUa?: string } = {}) {
   const key = newSigningKey();
   const statePath = join(mkdtempSync(join(tmpdir(), 'pqi-')), 'state.json');
   const priorLog: LogEntry[] = [];
   for (const [h, st] of Object.entries(prior?.closed ?? {})) appendEntry(priorLog, key, { status: st, intent_hash: h, reason: null, refs: { [st === 'SETTLED' ? 'release_txid' : 'refund_txid']: NEVER_SENT }, at_height: 4_522_000 });
   writeFileSync(statePath, JSON.stringify({ log: priorLog, nonces: prior?.nonces ?? {}, closed: prior?.closed ?? {}, payouts: allPayouts }));
-  const v = new Verifier({ key, escrowWallet: '/nonexistent/escrow-wallet-never-used', escrowUa: W.escrow.address, escrowUivk: W.escrow.uivk, solvers: opts.solvers ?? [keyId(solver.publicKey)], legacyUnboundFills: opts.legacy ?? LEGACY, minConfirmations: opts.minConfirmations, zingo: zingoConfig(), statePath, tip: opts.tip ?? chainTip });
+  const v = new Verifier({ key, escrowWallet: '/nonexistent/escrow-wallet-never-used', escrowUa: opts.escrowUa ?? W.escrow.address, escrowUivk: W.escrow.uivk, solvers: opts.solvers ?? [keyId(solver.publicKey)], legacyUnboundFills: opts.legacy ?? LEGACY, minConfirmations: opts.minConfirmations, zingo: zingoConfig(), statePath, tip: opts.tip ?? chainTip });
   return { v, key };
 }
 
@@ -192,6 +192,26 @@ describe('one decision at a time, and a claim window before refunds', () => {
     expect(await early.refund(I.C.signed, d.txs.funding)).toMatchObject({ status: 'REJECTED', reason: 'CLAIM_WINDOW_OPEN' });
     const late = freshVerifier().v;
     expect(await late.refund(I.C.signed, d.txs.funding)).toMatchObject({ status: 'REFUNDED', payoutTxid: NEVER_SENT });
+  });
+});
+
+describe('money that reached the escrow is always refundable to the signed refund address', () => {
+  it('C’s deposit (60,000 zat under its memo) after the window, on a verifier whose escrow is not the one C names → REFUNDED 45,000 with reason WRONG_ESCROW, not refund_refused', async () => {
+    const { v } = freshVerifier(undefined, { escrowUa: W.user.address });
+    const r = await v.refund(I.C.signed, d.txs.funding);
+    expect(r).toMatchObject({ status: 'REFUNDED', reason: 'WRONG_ESCROW', payoutTxid: NEVER_SENT });
+    expect(v.state.log[0]).toMatchObject({ status: 'REFUNDED', reason: 'WRONG_ESCROW', refs: { refunded_zat: '45000', paid_zat: '60000', refund_txid: NEVER_SENT } });
+    expect(v.state.closed[I.C.hash]).toBe('REFUNDED');
+  });
+
+  it('C’s nonce already used by another intent → C’s deposit is still REFUNDED (reason NONCE_REUSED), and the nonce stays bound to its first use', async () => {
+    const user = I.C.signed.intent.user;
+    const first = 'ab'.repeat(32);
+    const { v } = freshVerifier({ nonces: { [user]: { [I.C.signed.intent.nonce]: first } } });
+    expect(await v.refund(I.C.signed, d.txs.funding)).toMatchObject({ status: 'REFUNDED', reason: 'NONCE_REUSED', payoutTxid: NEVER_SENT });
+    expect(v.state.nonces[user][I.C.signed.intent.nonce]).toBe(first);
+    // A settlement of the same intent is still refused for the reused nonce.
+    expect(await freshVerifier({ nonces: { [user]: { [I.C.signed.intent.nonce]: first } } }).v.settle(I.C.signed, d.txs.funding, claim(I.C.hash, d.txs.lateFill))).toMatchObject({ status: 'REJECTED', reason: 'NONCE_REUSED' });
   });
 });
 
