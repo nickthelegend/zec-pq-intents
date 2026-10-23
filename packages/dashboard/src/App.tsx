@@ -44,7 +44,7 @@ const p3 = pass3Run as unknown as {
   crash: { signal: string; board_after_kill: { delivering: { at_height: number } }; solver_sends_with_fill_memo: string[] };
   checks: { verify_log: { ok: boolean; entries: number; anchor: { anchors: number } }; check_anchors: { exit: number; chain: unknown[] } };
 };
-const EXPLORER = 'https://testnet.zcashexplorer.app/transactions/';
+const EXPLORER = 'https://testnet.zecblock.com/tx/';
 const REPO = 'https://github.com/nickthelegend/zec-pq-intents';
 const LETTERS: K[] = ['A', 'B', 'C', 'D', 'E'];
 /** How many published runs the page shows, in words. */

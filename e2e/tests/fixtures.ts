@@ -14,7 +14,7 @@ export const latest = pass3 ?? pass2;
 /** Every intent shown: A-C (Oct 20), D (pass 2), E (pass 3). */
 export const INTENTS = { ...oct20.intents, D: pass2.intent, ...(pass3 ? { E: pass3.intent } : {}) } as Record<string, { hash: string; signed: { intent: Record<string, string | number> } }>;
 export const FUNDING: Record<string, string> = { A: oct20.txs.funding, B: oct20.txs.funding, C: oct20.txs.funding, D: pass2.txs.funding, ...(pass3 ? { E: pass3.txs.funding } : {}) };
-export const EXPLORER = 'https://testnet.zcashexplorer.app/transactions/';
+export const EXPLORER = 'https://testnet.zecblock.com/tx/';
 export const REPO = 'https://github.com/nickthelegend/zec-pq-intents';
 export const zat = (n: number | string) => Number(n).toLocaleString('en-US');
 export const short = (s: string, n = 8) => `${s.slice(0, n)}…`;

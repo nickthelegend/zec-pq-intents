@@ -30,7 +30,7 @@ if (p3) {
     if (p3.log[i]?.hash !== e.hash) throw new Error(`pass 3 does not extend the pass-2 log at entry #${i}`);
   });
 }
-const EXPLORER = 'https://testnet.zcashexplorer.app/transactions/';
+const EXPLORER = 'https://testnet.zecblock.com/tx/';
 const REPO = 'https://github.com/nickthelegend/zec-pq-intents';
 const TESTS = JSON.parse(readFileSync(join(here, 'tests.json'), 'utf8'));
 

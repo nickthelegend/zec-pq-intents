@@ -17,9 +17,9 @@ first run in a terminal and predates this UI and passes 2 and 3.
 
 | Run | What happened | Key transaction |
 |---|---|---|
-| Pass 1, Oct 20 (`deployments/testnet.json`) | intents A–C funded in one shielded tx; A and B filled and settled; six attacks refused with signed entries; C refunded; the log head anchored in a memo | anchor [`a7d96038…`](https://testnet.zcashexplorer.app/transactions/a7d960386f2d8dc926003e700b15bcc761b6e72419765ea6f958a85d73a65a73) |
-| Pass 2, Oct 21 (`testnet-pass2.json`) | intent D; a second solver's claim refused; the verifier killed (SIGKILL) right after the release broadcast, reconciled on restart, paid once; an anchor naming pass 1's | release [`c0557316…`](https://testnet.zcashexplorer.app/transactions/c0557316e0378e65a3d63b2996a139b88dff37f8bfe2e1ce5f3af32e8fca0db1) |
-| Pass 3, Oct 22 (`testnet-pass3.json`) | an agent calls MCP `quote` and `submit_intent` (intent E, its own key, a new receive address); the desk is killed right after the fill broadcast and the restart finds the fill instead of resending it; E settles; an anchor naming pass 2's; `verify_log` and `check-anchors` pass | release [`6b63f403…`](https://testnet.zcashexplorer.app/transactions/6b63f403ceaf79c436edb8a9457133c97ad9ff1998a5f3254b57dd469876599a) |
+| Pass 1, Oct 20 (`deployments/testnet.json`) | intents A–C funded in one shielded tx; A and B filled and settled; six attacks refused with signed entries; C refunded; the log head anchored in a memo | anchor [`a7d96038…`](https://testnet.zecblock.com/tx/a7d960386f2d8dc926003e700b15bcc761b6e72419765ea6f958a85d73a65a73) |
+| Pass 2, Oct 21 (`testnet-pass2.json`) | intent D; a second solver's claim refused; the verifier killed (SIGKILL) right after the release broadcast, reconciled on restart, paid once; an anchor naming pass 1's | release [`c0557316…`](https://testnet.zecblock.com/tx/c0557316e0378e65a3d63b2996a139b88dff37f8bfe2e1ce5f3af32e8fca0db1) |
+| Pass 3, Oct 22 (`testnet-pass3.json`) | an agent calls MCP `quote` and `submit_intent` (intent E, its own key, a new receive address); the desk is killed right after the fill broadcast and the restart finds the fill instead of resending it; E settles; an anchor naming pass 2's; `verify_log` and `check-anchors` pass | release [`6b63f403…`](https://testnet.zecblock.com/tx/6b63f403ceaf79c436edb8a9457133c97ad9ff1998a5f3254b57dd469876599a) |
 
 **Tampered, replayed, expired or wrong-key intents get a signed refusal, never a payout** (entries
 of the published log, each ML-DSA-65 signed and re-verified in your browser):
@@ -66,22 +66,22 @@ deadline) was attacked twice and refunded.
 
 | # | Entry | Reason | Transactions |
 |---|---|---|---|
-| 0 | SETTLED | — | funding [`1d6b3868…`](https://testnet.zcashexplorer.app/transactions/1d6b38683c64a5e157af4cbfed344dca3604c28242f178de83894654b68354d9), fill [`2970d8ba…`](https://testnet.zcashexplorer.app/transactions/2970d8ba4538bdfae599a64d016c65231e42addb544ccdc1a609f17df59448cb), release [`9800b912…`](https://testnet.zcashexplorer.app/transactions/9800b912682a0630a64dd4a54c245fc7c0810ee117eed7b304138fddda63b7c2) |
-| 1 | SETTLED | — | funding [`1d6b3868…`](https://testnet.zcashexplorer.app/transactions/1d6b38683c64a5e157af4cbfed344dca3604c28242f178de83894654b68354d9), fill [`a74b9dfe…`](https://testnet.zcashexplorer.app/transactions/a74b9dfe4a74304078f77b80eb27c7a2653f263562874dc14bb6a6a072307dd1), release [`6b34215c…`](https://testnet.zcashexplorer.app/transactions/6b34215c46c7aff1e2924a8f8608b0cc17f376f254e10c4f027ad766111718d9) |
-| 2 | REJECTED | FILL_NOT_CREDITED:MEMO_MISMATCH+AMOUNT_TOO_LOW | fill [`36d0f49a…`](https://testnet.zcashexplorer.app/transactions/36d0f49acbcb0498073393f554c135697cb5c0bccc6ce788deb6b3c3a05bc33a) |
-| 3 | REJECTED | BAD_SIGNATURE | funding [`1d6b3868…`](https://testnet.zcashexplorer.app/transactions/1d6b38683c64a5e157af4cbfed344dca3604c28242f178de83894654b68354d9) |
-| 4 | REJECTED | ALREADY_SETTLED | funding [`1d6b3868…`](https://testnet.zcashexplorer.app/transactions/1d6b38683c64a5e157af4cbfed344dca3604c28242f178de83894654b68354d9) |
-| 5 | REJECTED | NONCE_REUSED | funding [`1d6b3868…`](https://testnet.zcashexplorer.app/transactions/1d6b38683c64a5e157af4cbfed344dca3604c28242f178de83894654b68354d9) |
-| 6 | REJECTED | WRONG_KEY | funding [`1d6b3868…`](https://testnet.zcashexplorer.app/transactions/1d6b38683c64a5e157af4cbfed344dca3604c28242f178de83894654b68354d9) |
-| 7 | REJECTED | EXPIRED | fill [`3b81e337…`](https://testnet.zcashexplorer.app/transactions/3b81e337b0669f97ad0f8c4a02a0e332a412a65276fbb5db0088704c6c39b1bb) |
-| 8 | REFUNDED | — | funding [`1d6b3868…`](https://testnet.zcashexplorer.app/transactions/1d6b38683c64a5e157af4cbfed344dca3604c28242f178de83894654b68354d9), refund [`357b7065…`](https://testnet.zcashexplorer.app/transactions/357b706505ae07232939aa39fe7a862363283b49a06e4a62fafc6eaa823a2966) |
-| 9 | ANCHORED | — | anchor [`a7d96038…`](https://testnet.zcashexplorer.app/transactions/a7d960386f2d8dc926003e700b15bcc761b6e72419765ea6f958a85d73a65a73) |
+| 0 | SETTLED | — | funding [`1d6b3868…`](https://testnet.zecblock.com/tx/1d6b38683c64a5e157af4cbfed344dca3604c28242f178de83894654b68354d9), fill [`2970d8ba…`](https://testnet.zecblock.com/tx/2970d8ba4538bdfae599a64d016c65231e42addb544ccdc1a609f17df59448cb), release [`9800b912…`](https://testnet.zecblock.com/tx/9800b912682a0630a64dd4a54c245fc7c0810ee117eed7b304138fddda63b7c2) |
+| 1 | SETTLED | — | funding [`1d6b3868…`](https://testnet.zecblock.com/tx/1d6b38683c64a5e157af4cbfed344dca3604c28242f178de83894654b68354d9), fill [`a74b9dfe…`](https://testnet.zecblock.com/tx/a74b9dfe4a74304078f77b80eb27c7a2653f263562874dc14bb6a6a072307dd1), release [`6b34215c…`](https://testnet.zecblock.com/tx/6b34215c46c7aff1e2924a8f8608b0cc17f376f254e10c4f027ad766111718d9) |
+| 2 | REJECTED | FILL_NOT_CREDITED:MEMO_MISMATCH+AMOUNT_TOO_LOW | fill [`36d0f49a…`](https://testnet.zecblock.com/tx/36d0f49acbcb0498073393f554c135697cb5c0bccc6ce788deb6b3c3a05bc33a) |
+| 3 | REJECTED | BAD_SIGNATURE | funding [`1d6b3868…`](https://testnet.zecblock.com/tx/1d6b38683c64a5e157af4cbfed344dca3604c28242f178de83894654b68354d9) |
+| 4 | REJECTED | ALREADY_SETTLED | funding [`1d6b3868…`](https://testnet.zecblock.com/tx/1d6b38683c64a5e157af4cbfed344dca3604c28242f178de83894654b68354d9) |
+| 5 | REJECTED | NONCE_REUSED | funding [`1d6b3868…`](https://testnet.zecblock.com/tx/1d6b38683c64a5e157af4cbfed344dca3604c28242f178de83894654b68354d9) |
+| 6 | REJECTED | WRONG_KEY | funding [`1d6b3868…`](https://testnet.zecblock.com/tx/1d6b38683c64a5e157af4cbfed344dca3604c28242f178de83894654b68354d9) |
+| 7 | REJECTED | EXPIRED | fill [`3b81e337…`](https://testnet.zecblock.com/tx/3b81e337b0669f97ad0f8c4a02a0e332a412a65276fbb5db0088704c6c39b1bb) |
+| 8 | REFUNDED | — | funding [`1d6b3868…`](https://testnet.zecblock.com/tx/1d6b38683c64a5e157af4cbfed344dca3604c28242f178de83894654b68354d9), refund [`357b7065…`](https://testnet.zecblock.com/tx/357b706505ae07232939aa39fe7a862363283b49a06e4a62fafc6eaa823a2966) |
+| 9 | ANCHORED | — | anchor [`a7d96038…`](https://testnet.zecblock.com/tx/a7d960386f2d8dc926003e700b15bcc761b6e72419765ea6f958a85d73a65a73) |
 
 ### Pass 2 (Oct 21): the fixes, live
 
 Same verifier key and wallets; the log continues to entry 12 (`deployments/testnet-pass2.json`).
-Intent **D** (`bb30c3bd…`): funding [`be265ece…`](https://testnet.zcashexplorer.app/transactions/be265ece5755724760caa319051ef4002ad6e8991254099b5394f96549bdaa40) (the desk waited for 3 confirmations), fill
-[`7f220bd5…`](https://testnet.zcashexplorer.app/transactions/7f220bd59aea6486977f5a467519c033430cf73f87b040fd29ad44281953d619) with memo `pqi1:<D>:fill:<solver key id>`, release [`c0557316…`](https://testnet.zcashexplorer.app/transactions/c0557316e0378e65a3d63b2996a139b88dff37f8bfe2e1ce5f3af32e8fca0db1), anchor [`694a94c7…`](https://testnet.zcashexplorer.app/transactions/694a94c7f81b83f396ca3f974f08eb7c43cc801663c442ff225a07a429a9b41c).
+Intent **D** (`bb30c3bd…`): funding [`be265ece…`](https://testnet.zecblock.com/tx/be265ece5755724760caa319051ef4002ad6e8991254099b5394f96549bdaa40) (the desk waited for 3 confirmations), fill
+[`7f220bd5…`](https://testnet.zecblock.com/tx/7f220bd59aea6486977f5a467519c033430cf73f87b040fd29ad44281953d619) with memo `pqi1:<D>:fill:<solver key id>`, release [`c0557316…`](https://testnet.zecblock.com/tx/c0557316e0378e65a3d63b2996a139b88dff37f8bfe2e1ce5f3af32e8fca0db1), anchor [`694a94c7…`](https://testnet.zecblock.com/tx/694a94c7f81b83f396ca3f974f08eb7c43cc801663c442ff225a07a429a9b41c).
 
 | # | Entry | What happened |
 |---|---|---|
@@ -101,17 +101,17 @@ Same verifier key and escrow; the log continues to entry 14 (`deployments/testne
 `pnpm --filter @pqi/mcp pass3`). An MCP client called `quote` (accept, 20,000 zat spread) and
 `submit_intent`, which signed intent **E** (`f5af85c4…`) with the agent's own ML-DSA-65 key, sent it
 to a new receive address of the agent's receive key, saved it, funded the escrow
-[`3ba64090…`](https://testnet.zcashexplorer.app/transactions/3ba6409028ebb04a0331be9b9564245b4553aa9b847dec1ce21eb0532a1d3ac1) (40,000 zat) and posted the
+[`3ba64090…`](https://testnet.zecblock.com/tx/3ba6409028ebb04a0331be9b9564245b4553aa9b847dec1ce21eb0532a1d3ac1) (40,000 zat) and posted the
 sealed envelope to a live desk over HTTP. The desk was killed with SIGKILL right after the solver
-broadcast the fill [`0ef36c7f…`](https://testnet.zcashexplorer.app/transactions/0ef36c7f68e08f1a825d5985df6b9a7efbf89f906f3e2d5f72a98caa97364b0a) (20,000 zat,
+broadcast the fill [`0ef36c7f…`](https://testnet.zecblock.com/tx/0ef36c7f68e08f1a825d5985df6b9a7efbf89f906f3e2d5f72a98caa97364b0a) (20,000 zat,
 memo naming the solver key), with its write-ahead record on disk and no txid saved. On restart it
 found the fill memo in the solver's history and adopted that txid; the solver's history shows the
 fill memo once, so nothing was sent twice.
 
 | # | Entry | What happened |
 |---|---|---|
-| 13 | SETTLED | E released [`6b63f403…`](https://testnet.zcashexplorer.app/transactions/6b63f403ceaf79c436edb8a9457133c97ad9ff1998a5f3254b57dd469876599a) (25,000 zat = 40,000 − 15,000 fee budget) |
-| 14 | ANCHORED | anchor [`7b1ce3f2…`](https://testnet.zcashexplorer.app/transactions/7b1ce3f29e9fc14239fab38fba9d0286b2dab327f465d43f959c3d22f9766f4f) of the head through #13, naming pass 2's anchor `694a94c7…` |
+| 13 | SETTLED | E released [`6b63f403…`](https://testnet.zecblock.com/tx/6b63f403ceaf79c436edb8a9457133c97ad9ff1998a5f3254b57dd469876599a) (25,000 zat = 40,000 − 15,000 fee budget) |
+| 14 | ANCHORED | anchor [`7b1ce3f2…`](https://testnet.zecblock.com/tx/7b1ce3f29e9fc14239fab38fba9d0286b2dab327f465d43f959c3d22f9766f4f) of the head through #13, naming pass 2's anchor `694a94c7…` |
 
 Then `verify_log` over MCP returned ok for all 15 entries and 3 anchors, and `check-anchors` with
 the escrow pinned exited 0 with the three anchors in one chain (#8 → #11 → #13).
