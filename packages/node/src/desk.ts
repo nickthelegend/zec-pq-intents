@@ -317,10 +317,14 @@ export function fail(res: ServerResponse, e: Error) {
 /** The desk listens on 127.0.0.1 only. A request whose Host is not 127.0.0.1:<port> or
  *  localhost:<port> came through a name that resolves here (DNS rebinding), and is refused (403),
  *  so a page on another site cannot reach the desk as if it were same-origin. */
+/** Extra Host values the desk answers to (PQI_ALLOWED_HOSTS, comma-separated, e.g. a public hostname behind a
+ *  reverse proxy). Without it only 127.0.0.1 and localhost on the desk's port pass (DNS-rebinding protection). */
+const extraHosts = (process.env.PQI_ALLOWED_HOSTS ?? '').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean);
+
 export function hostAllowed(req: IncomingMessage, server: Server): boolean {
   const port = (server.address() as { port?: number } | null)?.port;
   const host = (req.headers.host ?? '').toLowerCase();
-  return port !== undefined && (host === `127.0.0.1:${port}` || host === `localhost:${port}`);
+  return port !== undefined && (host === `127.0.0.1:${port}` || host === `localhost:${port}` || extraHosts.includes(host));
 }
 
 export const refuseHost = (req: IncomingMessage, res: ServerResponse) => json(res, 403, { error: `Host ${JSON.stringify(req.headers.host ?? '')} is not this desk; use 127.0.0.1 or localhost` }, false);

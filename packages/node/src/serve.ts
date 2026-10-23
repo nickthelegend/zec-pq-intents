@@ -2,7 +2,8 @@
 // Desk HTTP server.
 //   live:      PQI_STATE=.demo/run-state.json  (seeds, wallets) → solver + verifier act on the chain
 //   published: PQI_PUBLISHED=deployments/testnet.json            → read-only: info, log, intent status
-// Env: PQI_PORT (default 8404).
+// Env: PQI_PORT (default 8404), PQI_HOST (listen address, default 127.0.0.1; a container behind a reverse
+// proxy sets 0.0.0.0), PQI_ALLOWED_HOSTS (extra Host values the desk answers to, comma-separated).
 import { existsSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { dirname, resolve } from 'node:path';
@@ -88,7 +89,8 @@ function live(statePath: string) {
 try {
   const server = process.env.PQI_STATE ? live(process.env.PQI_STATE) : process.env.PQI_PUBLISHED && existsSync(process.env.PQI_PUBLISHED) ? published(process.env.PQI_PUBLISHED) : null;
   if (!server) throw new SetupRequiredError('PQI_STATE or PQI_PUBLISHED');
-  server.listen(port, '127.0.0.1', () => console.log(`pqi desk on http://127.0.0.1:${port} (${process.env.PQI_STATE ? 'live' : 'published'})`));
+  const host = process.env.PQI_HOST?.trim() || '127.0.0.1';
+  server.listen(port, host, () => console.log(`pqi desk on http://${host}:${port} (${process.env.PQI_STATE ? 'live' : 'published'})`));
 } catch (e) {
   console.error((e as Error).message);
   process.exit(e instanceof SetupRequiredError ? 2 : 1);
