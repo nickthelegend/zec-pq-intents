@@ -5,7 +5,7 @@ Zecathon allows one entry per team: Shielded x402. This would fit Private Market
 **Name:** zec-pq-intents
 **One line:** Intents signed with ML-DSA-65 and sealed with ML-KEM-768, settled in shielded ZEC, with a signed, hash-chained, memo-anchored decision log anyone can re-verify.
 **Repo:** github.com/nickthelegend/zec-pq-intents (not public yet: Nick creates it and pushes `main`)
-**Live demo:** not hosted yet. `pnpm build:site` builds the landing with the terminal at `terminal/` as one static folder for GitHub Pages; until then `pnpm install && pnpm --filter @pqi/dashboard dev`.
+**Live demo:** https://yaksok-landing.vercel.app (terminal at `/terminal/`) and https://yaksok-terminal.vercel.app (static `pnpm build:site` output over the published records); a read-only desk serves the pass-3 log at https://yaksok-api.201-18-198-162.sslip.io/api/log (submitting intents answers Setup required). Locally: `pnpm install && pnpm --filter @pqi/dashboard dev`.
 **Video:** none current. The only clip, `zec-pq-intents-demo.mp4` (26 s, Oct 20), is a terminal-only re-verification of the Oct 20 run; it predates the Yaksok UI, pass 2 and pass 3. A ~2-minute captioned video is still to be recorded (by Nick).
 **Screenshots:** `docs/img/terminal.png`, `terminal-375.png`, `landing.png`, `landing-375.png` (Google Chrome, after 15/15 signatures verified in the tab).
 

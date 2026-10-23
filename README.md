@@ -5,9 +5,12 @@ sealed with ML-KEM-768, a solver delivers from its own liquidity, and every deci
 hash-chained, memo-anchored log entry anyone can re-verify. A private OTC delivery desk on Zcash
 testnet, run live three times, the third by an agent through MCP.
 
-**Live demo:** not hosted yet. The repo is not public; once it is, `pnpm build:site` produces one
-static folder (`site/`: the landing, with the terminal at `terminal/`) for GitHub Pages. Until then
-the 60-second command below shows the same terminal locally.
+**Live demo:** https://yaksok-landing.vercel.app (the terminal at `/terminal/`) and
+https://yaksok-terminal.vercel.app, the static `pnpm build:site` output over the published records.
+A read-only desk serves the pass-3 record at https://yaksok-api.201-18-198-162.sslip.io/api/log
+(`/api/info`, `/api/intents/<hash>`); submitting intents there answers Setup required (a live desk
+needs `PQI_STATE` with its wallets). The repo is not public yet; the 60-second command below shows the
+same terminal locally.
 **Video:** none current. The only clip (`zec-pq-intents-demo.mp4`, 26 s, Oct 20) re-verifies the
 first run in a terminal and predates this UI and passes 2 and 3.
 
