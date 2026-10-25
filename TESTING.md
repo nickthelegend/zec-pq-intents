@@ -75,9 +75,11 @@ write refusals (415, 413, 400, 503 Setup required, no CORS, blocked from another
 Host refused 403) and Setup required when the desk has no record. `e2e/shots.mjs` takes the
 `docs/img/` screenshots from the same stack.
 
-30 tests are defined (landing 13, terminal 11, desk 6), each run in both projects.
+33 tests are defined (landing 16: 13 on `evidence.html`, the full record that was the landing until Oct 25, and 3 on the one-screen landing: headline, buttons, the latest intent's ticket against the record, the numbers against the log and `tests.json`, reduced motion; terminal 11, desk 6), each run in both projects.
 
-| Run of Oct 23 (this HEAD) | desktop | mobile |
+On Oct 25, after the landing/evidence split, `landing.spec.ts` alone: 31 passed, 1 skipped (hover, mobile), 0 failed. The terminal and desk specs did not change.
+
+| Run of Oct 23 | desktop | mobile |
 |---|---|---|
 | passed | 30 | 24 |
 | skipped | 0 | 6 (the 5 HTTP-only desk tests run once, on desktop; hover has no phone equivalent) |

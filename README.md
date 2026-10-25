@@ -130,7 +130,7 @@ the escrow pinned exited 0 with the three anchors in one chain (#8 → #11 → #
 | [`packages/examples`](packages/examples) | the resumable live runs of pass 1 and 2 (`run-live`, `pass2`) |
 | [`packages/dashboard`](packages/dashboard) | the Yaksok terminal: intent book, attestation tape re-verified in the browser, inspector, anchor, attack console |
 | [`packages/docs`](packages/docs) | protocol, rejections, trust model, roadmap sources |
-| [`packages/landing`](packages/landing) | one-page landing generated from the run record; its tape re-verifies in the browser too |
+| [`packages/landing`](packages/landing) | generated from the run records: `index.html`, the one-screen landing (the latest intent as a ticket, three steps, three numbers, what is live), and `evidence.html`, the full record whose tape re-verifies in the browser |
 
 ## Run it
 

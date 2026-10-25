@@ -15,6 +15,7 @@ if (!existsSync(join(here, 'assets/tape.js'))) throw new Error('build the landin
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out);
 cpSync(join(here, 'index.html'), join(out, 'index.html'));
+cpSync(join(here, 'evidence.html'), join(out, 'evidence.html'));
 cpSync(join(here, 'assets'), join(out, 'assets'), { recursive: true });
 cpSync(terminal, join(out, 'terminal'), { recursive: true });
 console.log(`site built: ${out} (landing at /, terminal at /terminal/)`);

@@ -1,10 +1,10 @@
-// The landing, the way a visitor reads it: ticker, run header, intent book, the attestation tape
+// The evidence page (the landing until Oct 25), the way a visitor reads it: ticker, run header, intent book, the attestation tape
 // printing entry by entry while each ML-DSA-65 signature is re-checked in the tab, the anchor head
 // checks, refusals, the pass-2 kill, every link, reduced motion and no JavaScript. All values come
 // from the two records (Oct 20 and pass 2, whose log continues the Oct 20 log).
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { EXPLORER, FUNDING, INTENTS, LANDING, REPO, expect, isMobile, latest, noHorizontalScroll, oct20, pass2, pass3, root, short, test, topInView, zat } from './fixtures';
+import { EVIDENCE, EXPLORER, FUNDING, INTENTS, LANDING, REPO, expect, isMobile, latest, noHorizontalScroll, oct20, pass2, pass3, root, short, test, topInView, zat } from './fixtures';
 
 type E = { seq: number; status: string; reason: string | null; hash: string; intent_hash: string | null; at_height: number; refs: Record<string, string> };
 /** The whole log: Oct 20's #0-9 continued by pass 2 to #12 and by pass 3 (same verifier key). */
@@ -13,9 +13,9 @@ const anchors = log.filter((e) => e.status === 'ANCHORED');
 const anchorPath = anchors.map((a) => `#${a.refs.anchored_seq}`).join(' → ');
 const LETTERS = Object.keys(INTENTS);
 
-test.describe('landing', () => {
+test.describe('evidence page (the full record, the landing until Oct 25)', () => {
   test('ticker and run header come from the records (every entry, every anchor)', async ({ page }) => {
-    await page.goto(LANDING);
+    await page.goto(EVIDENCE);
     await expect(page).toHaveTitle(/Yaksok/);
     const first = page.locator('.ticker-track ul').first().locator('li');
     await expect(first).toHaveCount(log.length + 2);
@@ -41,7 +41,7 @@ test.describe('landing', () => {
         new MutationObserver(() => (window as unknown as { __counts: string[] }).__counts.push(el.textContent ?? '')).observe(el, { childList: true, characterData: true, subtree: true });
       });
     });
-    await page.goto(LANDING);
+    await page.goto(EVIDENCE);
     const rows = page.locator('#tape [data-seq]');
     await expect(rows).toHaveCount(log.length);
     await expect(page.locator('#verify-state')).toHaveText('verified in this tab', { timeout: 20_000 });
@@ -69,7 +69,7 @@ test.describe('landing', () => {
   });
 
   test('intent book: every intent matches the records, payout links point at the release/refund transactions, the spread and fee budget are spelled out', async ({ page }) => {
-    await page.goto(LANDING);
+    await page.goto(EVIDENCE);
     const rows = page.locator('table.book tbody tr');
     await expect(rows).toHaveCount(LETTERS.length);
     for (const [i, k] of LETTERS.entries()) {
@@ -104,7 +104,7 @@ test.describe('landing', () => {
   });
 
   test('refusals: every REJECTED log entry of both runs with its code (FILL_BY_OTHER_SOLVER is log #10, pass 2), plus the four tested-only codes', async ({ page }) => {
-    await page.goto(LANDING);
+    await page.goto(EVIDENCE);
     const refs = page.locator('.refusals .ref');
     const rejected = log.filter((e) => e.status === 'REJECTED');
     expect(rejected.length).toBe(7);
@@ -122,7 +122,7 @@ test.describe('landing', () => {
   });
 
   test('pass 2’s kill: write-ahead at the recorded height, SIGKILL after the release broadcast, reconciled to the one release the escrow sent', async ({ page }) => {
-    await page.goto(LANDING);
+    await page.goto(EVIDENCE);
     const crash = page.locator('#crash');
     await crash.scrollIntoViewIfNeeded();
     await expect(crash.locator('h2')).toHaveText('Killed mid-release, reconciled, paid once');
@@ -144,7 +144,7 @@ test.describe('landing', () => {
   test('pass 3: the agent’s intent E through MCP — quote, submit_intent to a new address, the desk killed after the fill broadcast, the fill found and not resent, settled, audited', async ({ page }) => {
     test.skip(!pass3, 'pass 3 not recorded');
     const p3 = pass3!;
-    await page.goto(LANDING);
+    await page.goto(EVIDENCE);
     const agent = page.locator('#agent');
     await agent.scrollIntoViewIfNeeded();
     await expect(agent.locator('h2')).toHaveText('An agent trades through MCP, live');
@@ -162,13 +162,13 @@ test.describe('landing', () => {
   });
 
   test('anchors: skip link, brand and "Watch the tape verify" land on their targets', async ({ page }) => {
-    await page.goto(LANDING);
+    await page.goto(EVIDENCE);
     await page.getByRole('link', { name: 'Watch the tape verify' }).click();
     await expect(page).toHaveURL(/#tape$/);
     await topInView(page, '#tape');
     await page.getByRole('link', { name: 'Yaksok, top' }).click();
     await expect(page).toHaveURL(/#main$/);
-    await page.goto(LANDING);
+    await page.goto(EVIDENCE);
     await page.keyboard.press('Tab');
     const skip = page.getByRole('link', { name: 'Skip to content' });
     await expect(skip).toBeFocused();
@@ -178,7 +178,7 @@ test.describe('landing', () => {
   });
 
   test('every link resolves: in-page anchors exist, explorer links name a transaction of the record, repo links name files in this repo', async ({ page }) => {
-    await page.goto(LANDING);
+    await page.goto(EVIDENCE);
     const hrefs = await page.locator('a[href]').evaluateAll((as) => as.map((a) => ({ href: a.getAttribute('href')!, blank: a.getAttribute('target') === '_blank', rel: a.getAttribute('rel') ?? '' })));
     expect(hrefs.length).toBeGreaterThan(20);
     const record = JSON.stringify(oct20) + JSON.stringify(pass2);
@@ -198,6 +198,8 @@ test.describe('landing', () => {
         const [path, frag] = href.slice(`${REPO}/blob/main/`.length).split('#');
         expect(existsSync(resolve(root, path)), `${path} exists in the repo`).toBe(true);
         if (frag) expect(readFileSync(resolve(root, path), 'utf8').toLowerCase()).toContain(`## ${frag.replace(/-/g, ' ')}`);
+      } else if (href === './') {
+        expect((await page.request.get(LANDING)).status(), 'the overview link').toBe(200);
       } else {
         expect(href).toBe(REPO);
       }
@@ -211,7 +213,7 @@ test.describe('landing', () => {
 
   test('ticker pauses under the pointer (desktop) and keeps the page from scrolling sideways', async ({ page }) => {
     test.skip(isMobile(test.info().project.name), 'no hover on a phone');
-    await page.goto(LANDING);
+    await page.goto(EVIDENCE);
     const track = page.locator('.ticker-track');
     await expect(track).toHaveCSS('animation-play-state', 'running');
     await page.locator('.ticker').hover();
@@ -219,7 +221,7 @@ test.describe('landing', () => {
   });
 
   test('the ticker has a visible Pause/Play control (a phone has no hover) and names the runs it shows', async ({ page }) => {
-    await page.goto(LANDING);
+    await page.goto(EVIDENCE);
     const ticker = page.getByRole('region', { name: `Decisions from the ${pass3 ? 'three' : 'two'} testnet runs` });
     const track = ticker.locator('.ticker-track');
     await expect(track).toHaveCSS('animation-play-state', 'running');
@@ -236,7 +238,7 @@ test.describe('landing', () => {
   });
 
   test('“Open the terminal” opens the Yaksok terminal served next to the landing; it verifies 13/13 and links back', async ({ page }) => {
-    await page.goto(LANDING);
+    await page.goto(EVIDENCE);
     await expect(page.getByRole('navigation', { name: 'Links' }).getByRole('link', { name: 'Terminal' })).toHaveAttribute('href', 'terminal/');
     await page.getByRole('link', { name: 'Open the terminal' }).click();
     await expect(page).toHaveURL(new URL('terminal/', LANDING).toString());
@@ -245,13 +247,13 @@ test.describe('landing', () => {
     await noHorizontalScroll(page);
     await page.getByRole('link', { name: 'Landing' }).click();
     await expect(page).toHaveURL(LANDING);
-    await expect(page.locator('#verify-state')).toHaveText('verified in this tab', { timeout: 20_000 });
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Sign with post-quantum keys. Settle in shielded ZEC.');
   });
 
   test.describe('reduced motion', () => {
     test.use({ reducedMotion: 'reduce' });
     test('the ticker stands still (one copy, scrollable) and the tape verifies without the print delay', async ({ page }) => {
-      await page.goto(LANDING);
+      await page.goto(EVIDENCE);
       await expect(page.locator('.ticker-track')).toHaveCSS('animation-name', 'none');
       await expect(page.locator('.ticker-track ul[aria-hidden]')).toBeHidden();
       await expect(page.locator('#verify-state')).toHaveText('verified in this tab', { timeout: 5_000 });
@@ -263,7 +265,7 @@ test.describe('landing', () => {
   test.describe('without JavaScript', () => {
     test.use({ javaScriptEnabled: false });
     test('the record still reads: book, tape and refusals are static; the in-tab check says it is waiting for JavaScript', async ({ page }) => {
-      await page.goto(LANDING);
+      await page.goto(EVIDENCE);
       await expect(page.locator('#verify-state')).toHaveText('waiting for JavaScript');
       await expect(page.locator('.ticker-toggle'), 'a control that cannot work stays hidden').toBeHidden();
       await expect(page.locator('#tape [data-seq]')).toHaveCount(log.length);
@@ -271,6 +273,51 @@ test.describe('landing', () => {
       await expect(page.locator('table.book tbody tr')).toHaveCount(LETTERS.length);
       await expect(page.locator('#crash')).toContainText('Paid once');
       await noHorizontalScroll(page);
+    });
+  });
+});
+
+test.describe('landing (one-screen overview)', () => {
+  const T = latest.intent as { hash: string; signed: { intent: Record<string, string>; sig: string }; envelope: { kem_ct: string } };
+  const letterOf = Object.entries(INTENTS).find(([, v]) => v.hash === T.hash)![0];
+  const done = log.find((e) => e.intent_hash === T.hash && (e.status === 'SETTLED' || e.status === 'REFUNDED'))!;
+  const bytes = (b64: string) => Buffer.from(b64, 'base64').length;
+
+  test('first screen: headline, subline, two buttons, and the latest intent as a ticket from the record; no txids', async ({ page }) => {
+    await page.goto(LANDING);
+    await expect(page).toHaveTitle('Yaksok · post-quantum intents, shielded settlement');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Sign with post-quantum keys. Settle in shielded ZEC.');
+    await expect(page.locator('.sub')).toHaveText('Orders signed with ML-DSA-65, sealed with ML-KEM-768, and every verifier decision signed and anchored on Zcash.');
+    const ctas = page.locator('.hero .ctas a');
+    await expect(ctas).toHaveText(['Open the terminal', 'Watch the tape verify']);
+    await expect(ctas.nth(0)).toHaveAttribute('href', 'terminal/');
+    await expect(ctas.nth(1)).toHaveAttribute('href', 'evidence.html#tape');
+    const ticket = page.locator('.ticket');
+    await expect(ticket.locator('header b')).toHaveText(`Intent ${letterOf}`);
+    await expect(ticket.locator('dd')).toHaveText([`${zat(T.signed.intent.pay_zat)} zat`, `${zat(T.signed.intent.min_out_zat)} zat`]);
+    await expect(ticket.locator('.stages .v')).toHaveText([`ML-DSA-65 · ${zat(bytes(T.signed.sig))} B`, `ML-KEM-768 · ${zat(bytes(T.envelope.kem_ct))} B`, `signed log entry #${done.seq}`]);
+    await expect(ticket.locator('.stages li.on')).toHaveCount(3);
+    expect(await page.locator('main').innerText()).not.toMatch(/[0-9a-f]{8}…/);
+    await noHorizontalScroll(page);
+    await page.screenshot({ path: test.info().outputPath('overview.png') });
+  });
+
+  test('numbers come from the log and tests.json; the evidence link opens the tape', async ({ page }) => {
+    await page.goto(LANDING);
+    const tests = JSON.parse(readFileSync(resolve(root, 'packages/landing/tests.json'), 'utf8'));
+    await expect(page.locator('.facts b')).toHaveText([String(log.length), String(log.filter((e) => e.status === 'REJECTED').length), String(tests.total).split(' ')[0]]);
+    await expect(page.locator('.strip h3')).toHaveText(['Live', 'Setup required']);
+    await page.locator('.end').getByRole('link', { name: 'Watch the tape verify' }).click();
+    await expect(page).toHaveURL(`${EVIDENCE}#tape`);
+    await expect(page.locator('#verify-state')).toHaveText('verified in this tab', { timeout: 20_000 });
+  });
+
+  test.describe('reduced motion', () => {
+    test.use({ reducedMotion: 'reduce' });
+    test('the three stages are lit at once, with no transition', async ({ page }) => {
+      await page.goto(LANDING);
+      await expect(page.locator('#stages li.on')).toHaveCount(3, { timeout: 300 });
+      await expect(page.locator('#stages li .v').first()).toHaveCSS('transition-duration', '0s');
     });
   });
 });

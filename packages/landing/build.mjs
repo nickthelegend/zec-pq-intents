@@ -4,7 +4,8 @@
 // (Oct 21: intent D, the same verifier's log continued to #12, a second anchor) and, when present,
 // deployments/testnet-pass3.json (Oct 22: intent E submitted by an agent through MCP, the log
 // continued, a third anchor):
-//   index.html      the page (static; readable without JavaScript)
+//   index.html      the one-screen landing (the latest intent as a ticket, three steps, three numbers)
+//   evidence.html   the full record (static; readable without JavaScript)
 //   src/run.json    the log + verifier key + anchors the tape re-checks
 //   assets/tape.js  src/tape.ts bundled with @pqi/protocol (esbuild)
 // Usage: node packages/landing/build.mjs
@@ -174,7 +175,7 @@ const html = `<!doctype html>
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Yaksok: post-quantum intents, settled in shielded ZEC</title>
+<title>Yaksok evidence: post-quantum intents, settled in shielded ZEC</title>
 <meta name="description" content="Yaksok signs intents with ML-DSA-65, seals them to the solver with ML-KEM-768 and settles them in shielded testnet ZEC. Every decision is a signed, hash-chained log entry, re-checked in your browser." />
 <meta name="theme-color" content="#1c1326" />
 <link rel="icon" href="${favicon}" />
@@ -351,6 +352,7 @@ PQI_PUBLISHED=deployments/testnet.json \\
   <a href="${REPO}/blob/main/deployments/testnet-pass2.json">Pass 2 (Oct 21)</a>${p3 ? `
   <a href="${REPO}/blob/main/deployments/testnet-pass3.json">Pass 3 (Oct 22)</a>` : ''}
   <a href="${REPO}/blob/main/docs/JUDGE-2026-10-21.md">Review</a>
+  <a href="./">Overview</a>
   <span>Zcash testnet · not audited</span>
 </footer>
 <script type="module" src="assets/tape.js"></script>
@@ -358,7 +360,222 @@ PQI_PUBLISHED=deployments/testnet.json \\
 </html>
 `;
 
-writeFileSync(join(here, 'index.html'), html);
+
+// ---------- the one-screen landing (index.html): one ticket, three steps, three numbers ----------
+const T = p3 ?? p2; // the latest run's intent is the ticket
+const TL = letter[T.intent.hash];
+const Ti = T.intent.signed.intent;
+const Tdone = log.find((e) => e.intent_hash === T.intent.hash && (e.status === 'SETTLED' || e.status === 'REFUNDED'));
+const Tsizes = { sig: b64len(T.intent.signed.sig), kemCt: b64len(T.intent.envelope.kem_ct) };
+const overview = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Yaksok · post-quantum intents, shielded settlement</title>
+<meta name="description" content="Yaksok: intents signed with ML-DSA-65 and sealed with ML-KEM-768, settled in shielded ZEC on Zcash testnet; every verifier decision is a signed, hash-chained log entry anchored on chain." />
+<meta name="theme-color" content="#140d1c" />
+<link rel="icon" href="${favicon}" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&family=Red+Hat+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+:root { --bg: #140d1c; --panel: #211729; --panel-2: #2a1f36; --line: rgba(239, 233, 255, 0.1); --line-2: rgba(239, 233, 255, 0.18); --text: #efe9ff; --muted: rgba(239, 233, 255, 0.66); --copper: #f08a4b; --copper-ink: #2a1206; --up: #6fd8a0; --down: #ff8a93; --sans: 'Onest', system-ui, sans-serif; --mono: 'Red Hat Mono', ui-monospace, monospace; color-scheme: dark; }
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 400 18px/1.55 var(--sans); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+a { color: inherit; }
+h1, h2, h3, p { margin: 0; }
+:focus-visible { outline: 2px solid var(--copper); outline-offset: 3px; border-radius: 2px; }
+.wrap { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+.top .wrap { height: 72px; display: flex; align-items: center; gap: 16px; }
+.brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+.brand svg { width: 26px; height: 26px; }
+.brand b { font-weight: 600; font-size: 19px; letter-spacing: -0.02em; }
+.brand span { font-size: 14px; color: var(--muted); }
+.top nav { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+.top nav a { text-decoration: none; font-size: 15px; color: var(--muted); padding: 8px 12px; white-space: nowrap; }
+.top nav a:hover { color: var(--text); }
+.top nav a.gh { color: var(--text); border: 1px solid var(--line-2); border-radius: 4px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; height: 50px; padding: 0 22px; border-radius: 4px; font: 600 16px/1 var(--sans); text-decoration: none; white-space: nowrap; border: 1px solid var(--line-2); }
+.btn:hover { border-color: var(--text); }
+.btn-copper { background: var(--copper); color: var(--copper-ink); border-color: var(--copper); }
+.btn-copper:hover { background: #f5a06c; border-color: #f5a06c; }
+.hero .wrap { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: 72px; align-items: center; padding-top: 64px; padding-bottom: 128px; }
+.kicker { font: 500 13px/1 var(--mono); color: var(--copper); letter-spacing: 0.04em; }
+h1 { font-weight: 600; font-size: clamp(44px, 5.8vw, 80px); line-height: 1; letter-spacing: -0.045em; margin-top: 22px; }
+h1 em { font-style: normal; color: var(--copper); white-space: nowrap; }
+.sub { font-size: 21px; line-height: 1.5; color: var(--muted); margin-top: 26px; max-width: 28em; }
+.ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 38px; }
+/* the centrepiece: the latest intent as an order ticket, stamped stage by stage */
+.ticket { margin: 0; background: var(--panel); border: 1px solid var(--line-2); border-radius: 6px; font-family: var(--mono); min-width: 0; }
+.ticket header { display: flex; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.ticket header b { color: var(--text); font-weight: 600; }
+.ticket dl { margin: 0; display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--line); }
+.ticket dl div { padding: 18px 20px; }
+.ticket dl div + div { border-left: 1px solid var(--line); }
+.ticket dt { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.ticket dd { margin: 6px 0 0; font-size: clamp(22px, 2.6vw, 30px); font-weight: 500; font-variant-numeric: tabular-nums; }
+.ticket dd small { font-size: 13px; color: var(--muted); font-weight: 400; }
+.stages { list-style: none; margin: 0; padding: 8px 0; }
+.stages li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 12px; align-items: baseline; padding: 12px 20px; font-size: 14px; color: var(--muted); }
+.stages li::before { content: ''; width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--line-2); transform: translateY(1px); }
+.stages b { font-weight: 600; color: var(--text); font-family: var(--sans); font-size: 16px; }
+.stages .v { white-space: nowrap; }
+.stages li.on::before { background: var(--up); border-color: var(--up); }
+.stages li.on .v { color: var(--up); }
+.ticket figcaption { padding: 14px 20px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+section.band { padding: 128px 0 0; }
+h2 { font-weight: 600; font-size: clamp(32px, 3.8vw, 50px); line-height: 1.05; letter-spacing: -0.04em; max-width: 17em; }
+.steps { list-style: none; margin: 60px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 48px; counter-reset: s; }
+.steps li { counter-increment: s; border-top: 2px solid var(--copper); padding-top: 22px; }
+.steps li::before { content: '0' counter(s); font: 500 13px/1 var(--mono); color: var(--muted); }
+.steps h3 { font-weight: 600; font-size: 23px; letter-spacing: -0.025em; margin-top: 14px; }
+.steps p { color: var(--muted); margin-top: 8px; }
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 48px; margin-top: 60px; }
+.facts b { display: block; font: 500 clamp(64px, 8.5vw, 120px)/0.92 var(--mono); letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+.facts span { display: block; margin-top: 14px; font: 500 13px/1.3 var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.more { display: inline-flex; gap: 8px; align-items: center; margin-top: 48px; font-weight: 500; text-decoration: none; border-bottom: 2px solid var(--copper); padding-bottom: 2px; }
+.strip { margin-top: 48px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 48px; border-top: 1px solid var(--line-2); padding-top: 24px; }
+.strip h3 { font: 500 13px/1 var(--mono); text-transform: uppercase; letter-spacing: 0.06em; display: flex; align-items: center; gap: 8px; }
+.strip h3::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--up); }
+.strip .setup h3::before { background: var(--copper); }
+.strip p { margin-top: 12px; color: var(--muted); }
+.end { margin-top: 128px; border-top: 1px solid var(--line); background: #1c1326; }
+.end .wrap { padding-top: 112px; padding-bottom: 112px; display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 32px; }
+.end p { color: var(--muted); margin-top: 14px; }
+footer .wrap { padding-top: 26px; padding-bottom: 34px; display: flex; flex-wrap: wrap; gap: 12px 24px; justify-content: space-between; font-size: 14px; color: var(--muted); }
+footer nav { display: flex; flex-wrap: wrap; gap: 20px; }
+footer a { text-decoration: none; }
+footer a:hover { color: var(--text); }
+@media (prefers-reduced-motion: no-preference) { .js .stages li::before, .js .stages li .v { transition: background 0.35s, border-color 0.35s, color 0.35s; } }
+@media (max-width: 1000px) { .hero .wrap { grid-template-columns: minmax(0, 1fr); gap: 56px; padding-top: 40px; padding-bottom: 96px; } .steps { grid-template-columns: minmax(0, 1fr); gap: 32px; } }
+@media (max-width: 640px) {
+  .wrap { padding: 0 16px; }
+  body { font-size: 17px; }
+  .top .wrap { height: 62px; }
+  .top nav .hide-s { display: none; }
+  .sub { font-size: 18px; }
+  .ctas .btn { flex: 1 1 auto; }
+  .ticket header, .ticket dl div, .stages li, .ticket figcaption { padding-left: 14px; padding-right: 14px; }
+  .stages li { grid-template-columns: 18px minmax(0, 1fr); }
+  .stages .v { grid-column: 2; white-space: normal; }
+  section.band { padding-top: 88px; }
+  .facts { gap: 12px; }
+  .facts b { font-size: 50px; }
+  .facts span { font-size: 11px; }
+  .strip { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .end { margin-top: 88px; }
+  .end .wrap { padding-top: 80px; padding-bottom: 80px; }
+  .end .btn { width: 100%; }
+}
+</style>
+</head>
+<body>
+<script>document.documentElement.classList.add('js');</script>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./" aria-label="Yaksok, home">${mark}<b>Yaksok</b><span lang="ko">약속</span></a>
+    <nav aria-label="Main">
+      <a class="hide-s" href="evidence.html">Evidence</a>
+      <a class="hide-s" href="terminal/">Terminal</a>
+      <a class="gh" href="${REPO}">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero" aria-labelledby="h1">
+    <div class="wrap">
+      <div>
+        <p class="kicker">Zcash testnet · private intents</p>
+        <h1 id="h1">Sign with <em>post-quantum</em> keys. Settle in shielded ZEC.</h1>
+        <p class="sub">Orders signed with ML-DSA-65, sealed with ML-KEM-768, and every verifier decision signed and anchored on Zcash.</p>
+        <div class="ctas"><a class="btn btn-copper" href="terminal/">Open the terminal</a><a class="btn" href="evidence.html#tape">Watch the tape verify</a></div>
+      </div>
+      <figure class="ticket" aria-label="Intent ${TL}, recorded on Zcash testnet">
+        <header><b>Intent ${TL}</b><span>${esc(Ti.chain)}</span></header>
+        <dl>
+          <div><dt>Pay into escrow</dt><dd>${zat(Ti.pay_zat)} <small>zat</small></dd></div>
+          <div><dt>Deliver at least</dt><dd>${zat(Ti.min_out_zat)} <small>zat</small></dd></div>
+        </dl>
+        <ol class="stages" id="stages">
+          <li><b>Signed</b><span class="v">ML-DSA-65 · ${zat(Tsizes.sig)} B</span></li>
+          <li><b>Sealed</b><span class="v">ML-KEM-768 · ${zat(Tsizes.kemCt)} B</span></li>
+          <li><b>${Tdone.status === 'SETTLED' ? 'Settled' : 'Refunded'}</b><span class="v">signed log entry #${Tdone.seq}</span></li>
+        </ol>
+        <figcaption>Recorded ${day(T.ranAt)}, 2026. Byte sizes measured from this intent.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="band" aria-labelledby="h-how">
+    <div class="wrap">
+      <h2 id="h-how">Sign. Seal. Settle.</h2>
+      <ol class="steps">
+        <li><h3>Sign</h3><p>You sign the intent with ML-DSA-65; the key id is inside it.</p></li>
+        <li><h3>Seal</h3><p>It is sealed to the solver with ML-KEM-768, unreadable on the wire.</p></li>
+        <li><h3>Settle</h3><p>Escrow pays out in shielded ZEC. Zcash spends stay elliptic-curve.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="band" aria-labelledby="h-proof">
+    <div class="wrap">
+      <h2 id="h-proof">Every decision is signed.</h2>
+      <div class="facts">
+        <div><b>${log.length}</b><span>Decisions</span></div>
+        <div><b>${count('REJECTED')}</b><span>Refusals</span></div>
+        <div><b>${String(TESTS.total).replace(/ .*/, '')}</b><span>Tests</span></div>
+      </div>
+      <a class="more" href="evidence.html">See the evidence <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></a>
+    </div>
+  </section>
+
+  <section class="band" aria-labelledby="h-live">
+    <div class="wrap">
+      <h2 id="h-live">What's live today</h2>
+      <div class="strip">
+        <div><h3>Live</h3><p>The terminal and a read-only desk over ${RUNS_WORD} recorded testnet runs.</p></div>
+        <div class="setup"><h3>Setup required</h3><p>Submitting intents needs a live desk with its wallets. Testnet only, not audited.</p></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<section class="end" aria-labelledby="h-end">
+  <div class="wrap">
+    <div>
+      <h2 id="h-end">Re-check every signature yourself.</h2>
+      <p>The tape verifies all ${log.length} entries in your browser.</p>
+    </div>
+    <a class="btn btn-copper" href="evidence.html#tape">Watch the tape verify</a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>Yaksok <span lang="ko">약속</span> · MIT, Copyright (c) 2026 Nivesh Gajengi · Zcash testnet · not audited</span>
+    <nav aria-label="Footer">
+      <a href="evidence.html">Evidence</a>
+      <a href="terminal/">Terminal</a>
+      <a href="${REPO}/blob/main/TESTING.md">Tests</a>
+      <a href="${REPO}">GitHub</a>
+    </nav>
+  </div>
+</footer>
+<script>
+  // The one animation: the ticket's three stages light once, in order. With reduced motion they are simply on.
+  const st = [...document.querySelectorAll('#stages li')];
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) st.forEach((li) => li.classList.add('on'));
+  else st.forEach((li, k) => setTimeout(() => li.classList.add('on'), 400 + k * 450));
+</script>
+</body>
+</html>
+`;
+
+writeFileSync(join(here, 'evidence.html'), html);
+writeFileSync(join(here, 'index.html'), overview);
 writeFileSync(join(here, 'src/run.json'), JSON.stringify({ verifier: d.keys.verifier, log, anchors: anchors.map((a) => ({ entry: a.seq, seq: Number(a.refs.anchored_seq), head: a.refs.anchored_head, txid: a.refs.anchor_txid, prev: a.refs.prev_anchor_txid ?? null })) }));
 
 // esbuild from the workspace store (a dependency of the dashboard's vite)
@@ -366,4 +583,4 @@ const store = join(root, 'node_modules/.pnpm');
 const dir = readdirSync(store).find((x) => /^esbuild@\d/.test(x));
 if (!dir) throw new Error('esbuild not found: run pnpm install');
 execFileSync(join(store, dir, 'node_modules/esbuild/bin/esbuild'), [join(here, 'src/tape.ts'), '--bundle', '--format=esm', '--minify', '--target=es2022', `--outfile=${join(here, 'assets/tape.js')}`, '--log-level=warning'], { stdio: 'inherit', cwd: join(root, 'packages/protocol') });
-console.log('landing built: index.html, src/run.json, assets/tape.js');
+console.log('landing built: index.html, evidence.html, src/run.json, assets/tape.js');
