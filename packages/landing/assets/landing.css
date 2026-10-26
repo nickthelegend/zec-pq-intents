@@ -246,3 +246,7 @@ td.wrap { white-space: normal; }
   .flow.agent div { border-right: 0; border-bottom: 1px solid var(--line); }
   .flow.agent div:last-child { border-bottom: 0; }
 }
+
+.ref-open { align-self: flex-start; border: 1px solid var(--line); background: transparent; color: var(--text); padding: 6px 8px; font: inherit; font-size: 12px; cursor: pointer; text-align: left; }
+.ref-open:hover { border-color: var(--copper); }
+#ins-details dd { overflow-wrap: anywhere; }

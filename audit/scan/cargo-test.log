@@ -1,12 +1,10 @@
-rustc: rustc 1.89.0 (29483883e 2025-08-04)
-cargo: cargo 1.89.0 (c24e10642 2025-06-23)
-command: cd packages/scan && cargo test --release
-exit: 0
+    Finished `release` profile [optimized] target(s) in 0.43s
+     Running unittests src/lib.rs (../t2/packages/scan/target/release/deps/zpay_verify-7dc64b08e9f9a57d)
 
 running 9 tests
-test tests::each_failure_has_its_reason ... ok
 test tests::exact_payment_passes_and_counts_only_matching_memos ... ok
 test tests::transparent_allowed_when_asked ... ok
+test tests::each_failure_has_its_reason ... ok
 test tests::owns_refuses_what_is_not_an_address ... ok
 test tests::a_new_diversified_address_of_the_same_key_is_covered ... ok
 test tests::owns_the_address_its_key_derives_and_not_another_wallets ... ok
@@ -14,9 +12,9 @@ test tests::address_at_gives_distinct_addresses_the_same_key_covers ... ok
 test tests::a_mixed_address_is_paid_only_on_the_receiver_the_key_covers ... ok
 test tests::the_throwaway_ufvk_fixture_is_derived_from_the_public_test_seed_and_does_not_cover_the_escrow ... ok
 
-test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
-     Running unittests src/main.rs (target/release/deps/zpay_verify-6c269caa46bb6b6b)
+     Running unittests src/main.rs (../t2/packages/scan/target/release/deps/zpay_verify-9889d0087be3fb8b)
 
 running 0 tests
 
@@ -27,5 +25,5 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 running 1 test
 test src/lib.rs - (line 6) - compile ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
 

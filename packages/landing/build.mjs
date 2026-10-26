@@ -124,7 +124,7 @@ const refusals = log
   .filter((e) => e.status === 'REJECTED')
   .map((e) => {
     const t = firstTx(e.refs);
-    return `<div class="ref"><code>${esc(e.reason)}</code><p>${esc(WHY[e.seq])}</p><small>log #${e.seq} · ${pass(e.seq)}${t ? ` · ${t[0].replace('_txid', '')} ${tx(t[1], t[0].replace('_txid', ''))}` : ''}</small></div>`;
+    return `<div class="ref"><code>${esc(e.reason)}</code><p>${esc(WHY[e.seq])}</p><button class="ref-open" type="button" data-entry="${e.seq}" hidden>Open entry #${e.seq} in the inspector</button><small>log #${e.seq} · ${pass(e.seq)}${t ? ` · ${t[0].replace('_txid', '')} ${tx(t[1], t[0].replace('_txid', ''))}` : ''}</small></div>`;
   })
   .concat([
     `<div class="ref tested"><code>FILL_UNKNOWN_SOLVER</code><p>Someone other than the solver claims its real fill, to take the escrow.</p><small>tested on A’s real fill · not a live entry</small></div>`,
@@ -265,6 +265,11 @@ const html = `<!doctype html>
     <section class="p s12" aria-labelledby="ref-h">
       <div class="ph"><h2 id="ref-h">What the verifier refuses</h2><span class="meta">each refusal is a signed log entry</span></div>
       <div class="refusals">${refusals}</div>
+    </section>
+
+    <section class="p s12" id="inspector" aria-labelledby="ins-h" hidden>
+      <div class="ph"><h2 id="ins-h"></h2><span class="st" id="ins-status"></span></div>
+      <dl class="kv pb" id="ins-details"></dl>
     </section>
 
     <section class="p s12" id="crash" aria-labelledby="crash-h">
@@ -504,7 +509,7 @@ footer a:hover { color: var(--text); }
           <li><b>Sealed</b><span class="v">ML-KEM-768 · ${zat(Tsizes.kemCt)} B</span></li>
           <li><b>${Tdone.status === 'SETTLED' ? 'Settled' : 'Refunded'}</b><span class="v">signed log entry #${Tdone.seq}</span></li>
         </ol>
-        <figcaption>Recorded ${day(T.ranAt)}, 2026. Byte sizes measured from this intent.</figcaption>
+        <figcaption>Recorded ${day(T.ranAt)}, 2026 · intent <span title="${T.intent.hash}">${short(T.intent.hash)}</span> · ${Tdone.status === 'SETTLED' ? 'released' : 'refunded'} ${zat(Tdone.refs.released_zat ?? Tdone.refs.refunded_zat)} zat. Byte sizes measured from this intent.</figcaption>
       </figure>
     </div>
   </section>
@@ -513,9 +518,9 @@ footer a:hover { color: var(--text); }
     <div class="wrap">
       <h2 id="h-how">Sign. Seal. Settle.</h2>
       <ol class="steps">
-        <li><h3>Sign</h3><p>You sign the intent with ML-DSA-65; the key id is inside it.</p></li>
-        <li><h3>Seal</h3><p>It is sealed to the solver with ML-KEM-768, unreadable on the wire.</p></li>
-        <li><h3>Settle</h3><p>Escrow pays out in shielded ZEC. Zcash spends stay elliptic-curve.</p></li>
+        <li><h3>Sign and seal</h3><p>You sign with ML-DSA-65 and seal the intent to the solver with ML-KEM-768.</p></li>
+        <li><h3>Deliver</h3><p>The solver delivers shielded ZEC from its own liquidity to your receive address.</p></li>
+        <li><h3>Settle</h3><p>The verifier releases or refunds the escrow. Zcash spends stay elliptic-curve.</p></li>
       </ol>
     </div>
   </section>

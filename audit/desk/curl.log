@@ -13,7 +13,7 @@ OK D-local-tick-readonly oct20 POST /api/tick HTTP/1.1 503 Service Unavailable e
 OK D-local-post-413 oct20 POST /api/intents HTTP/1.1 413 Payload Too Large error="body over 65536 bytes" connection=close acao=absent
 OK D-local-cors oct20 write acao absent=true (intents/tick 415,413,400,503) GET /api/log acao=*
 OK D-local-tick-input oct20 tick 415=415 413=413 400=400 acao absent
-OK D-local-host-403 oct20 GET evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; POST evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; localhost:18404 HTTP/1.1 200 OK; 127.0.0.1:18404 HTTP/1.1 200 OK
+OK D-local-host-403 oct20 GET evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; POST evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; localhost:8404 HTTP/1.1 200 OK; 127.0.0.1:8404 HTTP/1.1 200 OK
 OK D-local-post-setup oct20 log_entries before=10 after=10
 OK D-local-tick-readonly oct20 log_entries stayed 10
 OK D-local-tick-input oct20 published log length stayed 10
@@ -35,7 +35,7 @@ OK D-local-tick-readonly pass2 POST /api/tick HTTP/1.1 503 Service Unavailable e
 OK D-local-post-413 pass2 POST /api/intents HTTP/1.1 413 Payload Too Large error="body over 65536 bytes" connection=close acao=absent
 OK D-local-cors pass2 write acao absent=true (intents/tick 415,413,400,503) GET /api/log acao=*
 OK D-local-tick-input pass2 tick 415=415 413=413 400=400 acao absent
-OK D-local-host-403 pass2 GET evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; POST evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; localhost:18405 HTTP/1.1 200 OK; 127.0.0.1:18405 HTTP/1.1 200 OK
+OK D-local-host-403 pass2 GET evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; POST evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; localhost:8405 HTTP/1.1 200 OK; 127.0.0.1:8405 HTTP/1.1 200 OK
 OK D-local-post-setup pass2 log_entries before=13 after=13
 OK D-local-tick-readonly pass2 log_entries stayed 13
 OK D-local-tick-input pass2 published log length stayed 13
@@ -57,7 +57,7 @@ OK D-local-tick-readonly pass3 POST /api/tick HTTP/1.1 503 Service Unavailable e
 OK D-local-post-413 pass3 POST /api/intents HTTP/1.1 413 Payload Too Large error="body over 65536 bytes" connection=close acao=absent
 OK D-local-cors pass3 write acao absent=true (intents/tick 415,413,400,503) GET /api/log acao=*
 OK D-local-tick-input pass3 tick 415=415 413=413 400=400 acao absent
-OK D-local-host-403 pass3 GET evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; POST evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; localhost:18406 HTTP/1.1 200 OK; 127.0.0.1:18406 HTTP/1.1 200 OK
+OK D-local-host-403 pass3 GET evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; POST evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; localhost:8406 HTTP/1.1 200 OK; 127.0.0.1:8406 HTTP/1.1 200 OK
 OK D-local-post-setup pass3 log_entries before=15 after=15
 OK D-local-tick-readonly pass3 log_entries stayed 15
 OK D-local-tick-input pass3 published log length stayed 15
@@ -86,7 +86,7 @@ OK D-live-tick-input live log_entries before=15 after=15
 OK D-live-post-415 live log_entries before=15 after=15
 OK D-live-post-413 live log_entries before=15 after=15
 OK D-live-post-400 live log_entries before=15 after=15
-OK D-live-host-403 live allowed hostname yaksok-api.201-18-198-162.sslip.io HTTP/1.1 200 OK mode=published (read-only). 403 probe is the local handler, not a reverse-proxy response. oct20 GET evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; POST evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; localhost:18404 HTTP/1.1 200 OK; 127.0.0.1:18404 HTTP/1.1 200 OK | pass2 GET evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; POST evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; localhost:18405 HTTP/1.1 200 OK; 127.0.0.1:18405 HTTP/1.1 200 OK | pass3 GET evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; POST evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; localhost:18406 HTTP/1.1 200 OK; 127.0.0.1:18406 HTTP/1.1 200 OK
+OK D-live-host-403 live allowed hostname yaksok-api.201-18-198-162.sslip.io HTTP/1.1 200 OK mode=published (read-only). 403 probe is the local handler, not a reverse-proxy response. oct20 GET evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; POST evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; localhost:8404 HTTP/1.1 200 OK; 127.0.0.1:8404 HTTP/1.1 200 OK | pass2 GET evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; POST evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; localhost:8405 HTTP/1.1 200 OK; 127.0.0.1:8405 HTTP/1.1 200 OK | pass3 GET evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; POST evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; localhost:8406 HTTP/1.1 200 OK; 127.0.0.1:8406 HTTP/1.1 200 OK
 P-desk #3 REJECTED BAD_SIGNATURE
 P-desk #4 REJECTED ALREADY_SETTLED intent_hash=48a440a659848bcf73cd912be8616be34491132aaf5b277e59e962becf085ca2
 P-desk #5 REJECTED NONCE_REUSED first_use=48a440a659848bcf73cd912be8616be34491132aaf5b277e59e962becf085ca2
