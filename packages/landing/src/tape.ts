@@ -30,6 +30,57 @@ function tickerControl() {
 }
 tickerControl();
 
+/** Inspect the signed entry behind a recorded refusal. Values come from the same log the tape
+ * verifies; textContent keeps the record from becoming HTML. Controls stay hidden without JS. */
+function refusalInspector() {
+  const panel = $('inspector');
+  const details = $('ins-details');
+  if (!panel || !details) return;
+  for (const button of document.querySelectorAll<HTMLButtonElement>('.ref-open[data-entry]')) {
+    button.hidden = false;
+    button.addEventListener('click', () => {
+      const entry = r.log[Number(button.dataset.entry)];
+      if (!entry || entry.status !== 'REJECTED') return;
+      set('ins-h', `Entry #${entry.seq}`);
+      set('ins-status', entry.status);
+      $('ins-status')!.className = 'st st-rejected';
+      details.replaceChildren();
+      const pair = (label: string, value: string, tx = false) => {
+        const dt = document.createElement('dt');
+        dt.textContent = label;
+        const dd = document.createElement('dd');
+        if (tx && /^[a-f0-9]{64}$/.test(value)) {
+          const a = document.createElement('a');
+          a.className = 'tx';
+          a.href = `https://testnet.zecblock.com/tx/${value}`;
+          a.target = '_blank';
+          a.rel = 'noopener';
+          a.textContent = `${value.slice(0, 8)}…`;
+          a.title = value;
+          dd.append(a);
+        } else {
+          dd.textContent = value;
+          dd.title = value;
+        }
+        details.append(dt, dd);
+      };
+      pair('Reason', entry.reason ?? 'none');
+      pair('Block', entry.at_height.toLocaleString('en-US'));
+      pair('Hash', entry.hash);
+      pair('Prev', entry.prev);
+      for (const [label, value] of Object.entries(entry.refs)) pair(label.replace(/_/g, ' '), String(value), label.endsWith('_txid'));
+      const check = document.querySelector<HTMLElement>(`#tape [data-seq="${entry.seq}"]`)?.dataset.check;
+      pair('Signature', check === 'ok' ? 'ML-DSA-65 verifies' : check === 'bad' ? 'does not verify' : 'not checked');
+      panel.hidden = false;
+      panel.setAttribute('tabindex', '-1');
+      panel.focus({ preventScroll: true });
+      panel.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
+    });
+  }
+}
+refusalInspector();
+
+
 async function main() {
   const rows = [...document.querySelectorAll<HTMLElement>('#tape [data-seq]')];
   const pk = fromB64(r.verifier.pk);

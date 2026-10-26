@@ -1,0 +1,100 @@
+=== local desks ===
+OK D-local-info oct20 HTTP/1.1 200 OK ctype=application/json mode=published (read-only) verifier.id=f60f130579386479043287fb68c2c1726a0a210be77aee46b355adb1287f1445 log_entries=10 min_fee_zat="15000"
+OK D-local-log oct20 HTTP/1.1 200 OK len=10 #3=BAD_SIGNATURE #4=ALREADY_SETTLED #6=WRONG_KEY #7=EXPIRED #10=absent equalToPublished=true
+OK D-local-intent oct20 HTTP/1.1 200 OK hash=48a440a659848bcf73cd912be8616be34491132aaf5b277e59e962becf085ca2 stage=settled entries=#0 SETTLED/null,#4 REJECTED/ALREADY_SETTLED
+OK D-local-missing-intent oct20 HTTP/1.1 200 OK {"hash":"0000000000000000000000000000000000000000000000000000000000000000","stage":"unknown","log":[]}
+OK D-local-invalid-hash oct20 HTTP/1.1 200 OK {"hash":"not-a-hash","stage":"unknown","log":[]}
+OK D-local-404 oct20 HTTP/1.1 404 Not Found body={"error":"not found"}
+OK D-local-options oct20 OPTIONS HTTP/1.1 404 Not Found acao=absent POST /api/info HTTP/1.1 404 Not Found acao=absent
+OK D-local-post-415 oct20 POST /api/intents HTTP/1.1 415 Unsupported Media Type error="POST bodies must be application/json" acao=absent
+OK D-local-post-400 oct20 POST /api/intents HTTP/1.1 400 Bad Request error="Expected property name or '}' in JSON at position 1 (line 1 column 2)" acao=absent
+OK D-local-post-setup oct20 POST /api/intents HTTP/1.1 503 Service Unavailable error="Setup required: this desk serves a published record (PQI_PUBLISHED); run it with PQI_STATE to accept intents"
+OK D-local-tick-readonly oct20 POST /api/tick HTTP/1.1 503 Service Unavailable error="Setup required: this desk serves a published record (PQI_PUBLISHED); run it with PQI_STATE to accept intents"
+OK D-local-post-413 oct20 POST /api/intents HTTP/1.1 413 Payload Too Large error="body over 65536 bytes" connection=close acao=absent
+OK D-local-cors oct20 write acao absent=true (intents/tick 415,413,400,503) GET /api/log acao=*
+OK D-local-tick-input oct20 tick 415=415 413=413 400=400 acao absent
+OK D-local-host-403 oct20 GET evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; POST evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; localhost:8404 HTTP/1.1 200 OK; 127.0.0.1:8404 HTTP/1.1 200 OK
+OK D-local-post-setup oct20 log_entries before=10 after=10
+OK D-local-tick-readonly oct20 log_entries stayed 10
+OK D-local-tick-input oct20 published log length stayed 10
+OK D-local-post-415 oct20 log_entries stayed 10
+OK D-local-post-413 oct20 log_entries stayed 10
+OK D-local-post-400 oct20 log_entries stayed 10
+oct20 log summary #0 SETTLED, #1 SETTLED, #2 REJECTED FILL_NOT_CREDITED:MEMO_MISMATCH+AMOUNT_TOO_LOW, #3 REJECTED BAD_SIGNATURE, #4 REJECTED ALREADY_SETTLED, #5 REJECTED NONCE_REUSED, #6 REJECTED WRONG_KEY, #7 REJECTED EXPIRED, #8 REFUNDED, #9 ANCHORED
+OK D-local-info pass2 HTTP/1.1 200 OK ctype=application/json mode=published (read-only) verifier.id=f60f130579386479043287fb68c2c1726a0a210be77aee46b355adb1287f1445 log_entries=13 min_fee_zat="15000"
+OK D-local-log pass2 HTTP/1.1 200 OK len=13 #3=BAD_SIGNATURE #4=ALREADY_SETTLED #6=WRONG_KEY #7=EXPIRED #10=FILL_BY_OTHER_SOLVER equalToPublished=true
+OK D-local-intent pass2 HTTP/1.1 200 OK hash=48a440a659848bcf73cd912be8616be34491132aaf5b277e59e962becf085ca2 stage=settled entries=#0 SETTLED/null,#4 REJECTED/ALREADY_SETTLED
+OK D-local-missing-intent pass2 HTTP/1.1 200 OK {"hash":"0000000000000000000000000000000000000000000000000000000000000000","stage":"unknown","log":[]}
+OK D-local-invalid-hash pass2 HTTP/1.1 200 OK {"hash":"not-a-hash","stage":"unknown","log":[]}
+OK D-local-404 pass2 HTTP/1.1 404 Not Found body={"error":"not found"}
+OK D-local-options pass2 OPTIONS HTTP/1.1 404 Not Found acao=absent POST /api/info HTTP/1.1 404 Not Found acao=absent
+OK D-local-post-415 pass2 POST /api/intents HTTP/1.1 415 Unsupported Media Type error="POST bodies must be application/json" acao=absent
+OK D-local-post-400 pass2 POST /api/intents HTTP/1.1 400 Bad Request error="Expected property name or '}' in JSON at position 1 (line 1 column 2)" acao=absent
+OK D-local-post-setup pass2 POST /api/intents HTTP/1.1 503 Service Unavailable error="Setup required: this desk serves a published record (PQI_PUBLISHED); run it with PQI_STATE to accept intents"
+OK D-local-tick-readonly pass2 POST /api/tick HTTP/1.1 503 Service Unavailable error="Setup required: this desk serves a published record (PQI_PUBLISHED); run it with PQI_STATE to accept intents"
+OK D-local-post-413 pass2 POST /api/intents HTTP/1.1 413 Payload Too Large error="body over 65536 bytes" connection=close acao=absent
+OK D-local-cors pass2 write acao absent=true (intents/tick 415,413,400,503) GET /api/log acao=*
+OK D-local-tick-input pass2 tick 415=415 413=413 400=400 acao absent
+OK D-local-host-403 pass2 GET evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; POST evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; localhost:8405 HTTP/1.1 200 OK; 127.0.0.1:8405 HTTP/1.1 200 OK
+OK D-local-post-setup pass2 log_entries before=13 after=13
+OK D-local-tick-readonly pass2 log_entries stayed 13
+OK D-local-tick-input pass2 published log length stayed 13
+OK D-local-post-415 pass2 log_entries stayed 13
+OK D-local-post-413 pass2 log_entries stayed 13
+OK D-local-post-400 pass2 log_entries stayed 13
+pass2 log summary #0 SETTLED, #1 SETTLED, #2 REJECTED FILL_NOT_CREDITED:MEMO_MISMATCH+AMOUNT_TOO_LOW, #3 REJECTED BAD_SIGNATURE, #4 REJECTED ALREADY_SETTLED, #5 REJECTED NONCE_REUSED, #6 REJECTED WRONG_KEY, #7 REJECTED EXPIRED, #8 REFUNDED, #9 ANCHORED, #10 
+OK D-local-info pass3 HTTP/1.1 200 OK ctype=application/json mode=published (read-only) verifier.id=f60f130579386479043287fb68c2c1726a0a210be77aee46b355adb1287f1445 log_entries=15 min_fee_zat="15000"
+OK D-local-log pass3 HTTP/1.1 200 OK len=15 #3=BAD_SIGNATURE #4=ALREADY_SETTLED #6=WRONG_KEY #7=EXPIRED #10=FILL_BY_OTHER_SOLVER equalToPublished=true
+OK D-local-intent pass3 HTTP/1.1 200 OK hash=48a440a659848bcf73cd912be8616be34491132aaf5b277e59e962becf085ca2 stage=settled entries=#0 SETTLED/null,#4 REJECTED/ALREADY_SETTLED
+OK D-local-missing-intent pass3 HTTP/1.1 200 OK {"hash":"0000000000000000000000000000000000000000000000000000000000000000","stage":"unknown","log":[]}
+OK D-local-invalid-hash pass3 HTTP/1.1 200 OK {"hash":"not-a-hash","stage":"unknown","log":[]}
+OK D-local-404 pass3 HTTP/1.1 404 Not Found body={"error":"not found"}
+OK D-local-options pass3 OPTIONS HTTP/1.1 404 Not Found acao=absent POST /api/info HTTP/1.1 404 Not Found acao=absent
+OK D-local-post-415 pass3 POST /api/intents HTTP/1.1 415 Unsupported Media Type error="POST bodies must be application/json" acao=absent
+OK D-local-post-400 pass3 POST /api/intents HTTP/1.1 400 Bad Request error="Expected property name or '}' in JSON at position 1 (line 1 column 2)" acao=absent
+OK D-local-post-setup pass3 POST /api/intents HTTP/1.1 503 Service Unavailable error="Setup required: this desk serves a published record (PQI_PUBLISHED); run it with PQI_STATE to accept intents"
+OK D-local-tick-readonly pass3 POST /api/tick HTTP/1.1 503 Service Unavailable error="Setup required: this desk serves a published record (PQI_PUBLISHED); run it with PQI_STATE to accept intents"
+OK D-local-post-413 pass3 POST /api/intents HTTP/1.1 413 Payload Too Large error="body over 65536 bytes" connection=close acao=absent
+OK D-local-cors pass3 write acao absent=true (intents/tick 415,413,400,503) GET /api/log acao=*
+OK D-local-tick-input pass3 tick 415=415 413=413 400=400 acao absent
+OK D-local-host-403 pass3 GET evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; POST evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; localhost:8406 HTTP/1.1 200 OK; 127.0.0.1:8406 HTTP/1.1 200 OK
+OK D-local-post-setup pass3 log_entries before=15 after=15
+OK D-local-tick-readonly pass3 log_entries stayed 15
+OK D-local-tick-input pass3 published log length stayed 15
+OK D-local-post-415 pass3 log_entries stayed 15
+OK D-local-post-413 pass3 log_entries stayed 15
+OK D-local-post-400 pass3 log_entries stayed 15
+pass3 log summary #0 SETTLED, #1 SETTLED, #2 REJECTED FILL_NOT_CREDITED:MEMO_MISMATCH+AMOUNT_TOO_LOW, #3 REJECTED BAD_SIGNATURE, #4 REJECTED ALREADY_SETTLED, #5 REJECTED NONCE_REUSED, #6 REJECTED WRONG_KEY, #7 REJECTED EXPIRED, #8 REFUNDED, #9 ANCHORED, #10 
+=== live desk ===
+OK D-live-info live HTTP/1.1 200 OK ctype=application/json mode=published (read-only) verifier.id=f60f130579386479043287fb68c2c1726a0a210be77aee46b355adb1287f1445 log_entries=15 min_fee_zat="15000"
+OK D-live-log live HTTP/1.1 200 OK len=15 #3=BAD_SIGNATURE #4=ALREADY_SETTLED #6=WRONG_KEY #7=EXPIRED #10=FILL_BY_OTHER_SOLVER equalToPass3=true
+OK D-live-intent live HTTP/1.1 200 OK hash=48a440a659848bcf73cd912be8616be34491132aaf5b277e59e962becf085ca2 stage=settled entries=#0 SETTLED/null,#4 REJECTED/ALREADY_SETTLED
+OK D-live-missing-intent live HTTP/1.1 200 OK {"hash":"0000000000000000000000000000000000000000000000000000000000000000","stage":"unknown","log":[]}
+OK D-live-invalid-hash live HTTP/1.1 200 OK {"hash":"not-a-hash","stage":"unknown","log":[]}
+OK D-live-404 live HTTP/1.1 404 Not Found body={"error":"not found"}
+OK D-live-options live OPTIONS HTTP/1.1 404 Not Found acao=absent POST /api/info HTTP/1.1 404 Not Found acao=absent
+OK D-live-post-415 live POST /api/intents HTTP/1.1 415 Unsupported Media Type error="POST bodies must be application/json" acao=absent
+OK D-live-post-400 live POST /api/intents HTTP/1.1 400 Bad Request error="Expected property name or '}' in JSON at position 1 (line 1 column 2)" acao=absent
+OK D-live-post-setup live POST /api/intents {} HTTP/1.1 503 Service Unavailable error="Setup required: this desk serves a published record (PQI_PUBLISHED); run it with PQI_STATE to accept intents"
+OK D-live-tick-readonly live POST /api/tick {} HTTP/1.1 503 Service Unavailable error="Setup required: this desk serves a published record (PQI_PUBLISHED); run it with PQI_STATE to accept intents"
+NO D-live-post-413 live POST /api/intents HTTP/1.1 413 Request Entity Too Large error="body over 65536 bytes" connection=absent acao=absent
+OK D-live-cors live write acao absent=true GET /api/log acao=*
+OK D-live-tick-input live tick 415=415 413=413 400=400 acao absent
+OK D-live-post-setup live log_entries before=15 after=15
+OK D-live-tick-readonly live log_entries before=15 after=15
+OK D-live-tick-input live log_entries before=15 after=15
+OK D-live-post-415 live log_entries before=15 after=15
+OK D-live-post-413 live log_entries before=15 after=15
+OK D-live-post-400 live log_entries before=15 after=15
+OK D-live-host-403 live allowed hostname yaksok-api.201-18-198-162.sslip.io HTTP/1.1 200 OK mode=published (read-only). 403 probe is the local handler, not a reverse-proxy response. oct20 GET evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; POST evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; localhost:8404 HTTP/1.1 200 OK; 127.0.0.1:8404 HTTP/1.1 200 OK | pass2 GET evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; POST evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; localhost:8405 HTTP/1.1 200 OK; 127.0.0.1:8405 HTTP/1.1 200 OK | pass3 GET evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; POST evil HTTP/1.1 403 Forbidden error="Host \"evil.example\" is not this desk; use 127.0.0.1 or localhost" acao=absent; localhost:8406 HTTP/1.1 200 OK; 127.0.0.1:8406 HTTP/1.1 200 OK
+P-desk #3 REJECTED BAD_SIGNATURE
+P-desk #4 REJECTED ALREADY_SETTLED intent_hash=48a440a659848bcf73cd912be8616be34491132aaf5b277e59e962becf085ca2
+P-desk #5 REJECTED NONCE_REUSED first_use=48a440a659848bcf73cd912be8616be34491132aaf5b277e59e962becf085ca2
+P-desk #6 REJECTED WRONG_KEY
+P-desk #7 REJECTED EXPIRED fill_height=4522696 deadline=4522687
+=== empty desk ===
+D-local-empty exit=2 stdout="" stderr="Setup required: PQI_STATE or PQI_PUBLISHED"
+OK D-local-empty exit 2; stderr "Setup required: PQI_STATE or PQI_PUBLISHED"; stdout ""; neither PQI_PUBLISHED nor PQI_STATE; no listen line
+D-local-missing-record exit=2 stdout="" stderr="Setup required: PQI_STATE or PQI_PUBLISHED"
+OK D-local-missing-record exit 2; stderr "Setup required: PQI_STATE or PQI_PUBLISHED"; stdout ""; PQI_PUBLISHED names a nonexistent file and PQI_STATE is unset
+DOCKER not started

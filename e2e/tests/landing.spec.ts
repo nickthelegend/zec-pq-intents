@@ -283,7 +283,7 @@ test.describe('landing (one-screen overview)', () => {
   const done = log.find((e) => e.intent_hash === T.hash && (e.status === 'SETTLED' || e.status === 'REFUNDED'))!;
   const bytes = (b64: string) => Buffer.from(b64, 'base64').length;
 
-  test('first screen: headline, subline, two buttons, and the latest intent as a ticket from the record; no txids', async ({ page }) => {
+  test('first screen: headline, subline, two buttons, and the latest intent as a ticket with its recorded hash and payout', async ({ page }) => {
     await page.goto(LANDING);
     await expect(page).toHaveTitle('Yaksok · post-quantum intents, shielded settlement');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Sign with post-quantum keys. Settle in shielded ZEC.');
@@ -297,7 +297,8 @@ test.describe('landing (one-screen overview)', () => {
     await expect(ticket.locator('dd')).toHaveText([`${zat(T.signed.intent.pay_zat)} zat`, `${zat(T.signed.intent.min_out_zat)} zat`]);
     await expect(ticket.locator('.stages .v')).toHaveText([`ML-DSA-65 · ${zat(bytes(T.signed.sig))} B`, `ML-KEM-768 · ${zat(bytes(T.envelope.kem_ct))} B`, `signed log entry #${done.seq}`]);
     await expect(ticket.locator('.stages li.on')).toHaveCount(3);
-    expect(await page.locator('main').innerText()).not.toMatch(/[0-9a-f]{8}…/);
+    await expect(ticket.locator(`[title="${T.hash}"]`)).toHaveText(short(T.hash));
+    await expect(ticket.locator('figcaption')).toContainText(`${done.status === 'SETTLED' ? 'released' : 'refunded'} ${zat(done.refs.released_zat ?? done.refs.refunded_zat)} zat`);
     await noHorizontalScroll(page);
     await page.screenshot({ path: test.info().outputPath('overview.png') });
   });

@@ -1,0 +1,518 @@
+[
+  {
+    "id": "L-local-headline",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:4183/: Exact headline and both primary hrefs match",
+    "evidence": "audit/browser/screenshots/L-local-headline.jpg; audit/browser/logs/L-local-headline.jsonl"
+  },
+  {
+    "id": "L-local-ticket",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:4183/: Intent E zcash-testnet PAY INTO ESCROW 40,000 zat DELIVER AT LEAST 20,000 zat Signed ML-DSA-65 \u00b7 3,309 B Sealed ML-KEM-768 \u00b7 1,088 B Settled signed log entry #13 Recorded Oct 22, 2026 \u00b7 intent f5af85c4\u2026 \u00b7 released 25,000 zat. Byte sizes measured from this intent.",
+    "evidence": "audit/browser/screenshots/L-local-ticket.jpg; audit/browser/logs/L-local-ticket.jsonl"
+  },
+  {
+    "id": "L-local-facts",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:4183/: 15 Decisions, 7 Refusals, 102 Tests; recorded counts match",
+    "evidence": "audit/browser/screenshots/L-local-facts.jpg; audit/browser/logs/L-local-facts.jsonl"
+  },
+  {
+    "id": "L-local-steps",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:4183/: Sign and seal\n\nYou sign with ML-DSA-65 and seal the intent to the solver with ML-KEM-768.; Deliver\n\nThe solver delivers shielded ZEC from its own liquidity to your receive address.; Settle\n\nThe verifier releases or refunds the escrow. Zcash spends stay elliptic-curve.",
+    "evidence": "audit/browser/screenshots/L-local-steps.jpg; audit/browser/logs/L-local-steps.jsonl"
+  },
+  {
+    "id": "L-local-reduced-motion",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:4183/: 3 stages immediately lit; transition 0s",
+    "evidence": "audit/browser/screenshots/L-local-reduced-motion.jpg; audit/browser/logs/L-local-reduced-motion.jsonl"
+  },
+  {
+    "id": "L-local-no-js",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:4183/: No-JS ticket, headline and primary links readable",
+    "evidence": "audit/browser/screenshots/L-local-no-js.jpg; audit/browser/logs/L-local-no-js.jsonl"
+  },
+  {
+    "id": "L-local-375",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:4183/: {\"sw\":375,\"cw\":375}",
+    "evidence": "audit/browser/screenshots/L-local-375.jpg; audit/browser/logs/L-local-375.jsonl"
+  },
+  {
+    "id": "L-local-console",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:4183/: Console, page errors, request failures and all response statuses captured",
+    "evidence": "audit/browser/screenshots/L-local-console.jpg; audit/browser/logs/L-local-console.jsonl"
+  },
+  {
+    "id": "L-local-navigation",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:4183/: Both primary links clicked; terminal 200 and evidence 15/15",
+    "evidence": "audit/browser/screenshots/L-local-navigation.jpg; audit/browser/logs/L-local-navigation.jsonl"
+  },
+  {
+    "id": "L-local-setup-copy",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:4183/: LIVE The terminal and a read-only desk over three recorded testnet runs. SETUP REQUIRED Submitting intents needs a live desk with its wallets. Testnet only, not audited.",
+    "evidence": "audit/browser/screenshots/L-local-setup-copy.jpg; audit/browser/logs/L-local-setup-copy.jsonl"
+  },
+  {
+    "id": "L-live-headline",
+    "status": "PASS",
+    "observed": "https://yaksok-landing.vercel.app/: Exact headline and both primary hrefs match",
+    "evidence": "audit/browser/screenshots/L-live-headline.jpg; audit/browser/logs/L-live-headline.jsonl"
+  },
+  {
+    "id": "L-live-ticket",
+    "status": "FAIL",
+    "observed": "https://yaksok-landing.vercel.app/: expect(locator).toContainText(expected) failed  Locator: locator('.ticket') Timeout: 5000ms - Expected substring  -  1 + Received string     + 13  - 25,000 +",
+    "evidence": "audit/browser/screenshots/L-live-ticket.jpg; audit/browser/logs/L-live-ticket.jsonl"
+  },
+  {
+    "id": "L-live-facts",
+    "status": "PASS",
+    "observed": "https://yaksok-landing.vercel.app/: 15 Decisions, 7 Refusals, 102 Tests; recorded counts match",
+    "evidence": "audit/browser/screenshots/L-live-facts.jpg; audit/browser/logs/L-live-facts.jsonl"
+  },
+  {
+    "id": "L-live-steps",
+    "status": "FAIL",
+    "observed": "https://yaksok-landing.vercel.app/: expect(locator).toContainText(expected) failed  Locator: locator('.steps li').first() Expected substring: \"ML-KEM-768\" Received string:    \"SignYou sign the intent with ML-DSA-65; the key id is inside it.\" Timeout: 5000ms  Call log:   - Expect \"toContainText\" locator('.steps li').first() with timeout 5000ms",
+    "evidence": "audit/browser/screenshots/L-live-steps.jpg; audit/browser/logs/L-live-steps.jsonl"
+  },
+  {
+    "id": "L-live-reduced-motion",
+    "status": "PASS",
+    "observed": "https://yaksok-landing.vercel.app/: 3 stages immediately lit; transition 0s",
+    "evidence": "audit/browser/screenshots/L-live-reduced-motion.jpg; audit/browser/logs/L-live-reduced-motion.jsonl"
+  },
+  {
+    "id": "L-live-no-js",
+    "status": "PASS",
+    "observed": "https://yaksok-landing.vercel.app/: No-JS ticket, headline and primary links readable",
+    "evidence": "audit/browser/screenshots/L-live-no-js.jpg; audit/browser/logs/L-live-no-js.jsonl"
+  },
+  {
+    "id": "L-live-375",
+    "status": "PASS",
+    "observed": "https://yaksok-landing.vercel.app/: {\"sw\":375,\"cw\":375}",
+    "evidence": "audit/browser/screenshots/L-live-375.jpg; audit/browser/logs/L-live-375.jsonl"
+  },
+  {
+    "id": "L-live-console",
+    "status": "PASS",
+    "observed": "https://yaksok-landing.vercel.app/: Console, page errors, request failures and all response statuses captured",
+    "evidence": "audit/browser/screenshots/L-live-console.jpg; audit/browser/logs/L-live-console.jsonl"
+  },
+  {
+    "id": "L-live-navigation",
+    "status": "PASS",
+    "observed": "https://yaksok-landing.vercel.app/: Both primary links clicked; terminal 200 and evidence 15/15",
+    "evidence": "audit/browser/screenshots/L-live-navigation.jpg; audit/browser/logs/L-live-navigation.jsonl"
+  },
+  {
+    "id": "L-live-setup-copy",
+    "status": "PASS",
+    "observed": "https://yaksok-landing.vercel.app/: LIVE The terminal and a read-only desk over three recorded testnet runs. SETUP REQUIRED Submitting intents needs a live desk with its wallets. Testnet only, not audited.",
+    "evidence": "audit/browser/screenshots/L-live-setup-copy.jpg; audit/browser/logs/L-live-setup-copy.jsonl"
+  },
+  {
+    "id": "E-local-tape",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:4183/evidence.html: 15/15 verified in this tab; all 15 sig ok",
+    "evidence": "audit/browser/screenshots/E-local-tape.jpg; audit/browser/logs/E-local-tape.jsonl"
+  },
+  {
+    "id": "E-local-refusals",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:4183/evidence.html: #2 REJECTED FILL_NOT_CREDITED:MEMO_MISMATCH+AMOUNT_TOO_LOW; #3 REJECTED BAD_SIGNATURE; #4 REJECTED ALREADY_SETTLED; #5 REJECTED NONCE_REUSED; #6 REJECTED WRONG_KEY; #7 REJECTED EXPIRED; #10 REJECTED FILL_BY_OTHER_SOLVER",
+    "evidence": "audit/browser/screenshots/E-local-refusals.jpg; audit/browser/logs/E-local-refusals.jsonl"
+  },
+  {
+    "id": "E-local-anchors",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:4183/evidence.html: Recomputed heads #8/#11/#13 match; recorded links #11 names #8, #13 names #11; #14 remains after last head",
+    "evidence": "audit/browser/screenshots/E-local-anchors.jpg; audit/browser/logs/E-local-anchors.jsonl"
+  },
+  {
+    "id": "E-local-book",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:4183/evidence.html: 5 recorded intents A\u2013E, correct amounts, states and full payout hrefs",
+    "evidence": "audit/browser/screenshots/E-local-book.jpg; audit/browser/logs/E-local-book.jsonl"
+  },
+  {
+    "id": "E-local-375",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:4183/evidence.html: {\"sw\":375,\"cw\":375}",
+    "evidence": "audit/browser/screenshots/E-local-375.jpg; audit/browser/logs/E-local-375.jsonl"
+  },
+  {
+    "id": "E-local-console",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:4183/evidence.html: Console, page errors, request failures and all response statuses captured",
+    "evidence": "audit/browser/screenshots/E-local-console.jpg; audit/browser/logs/E-local-console.jsonl"
+  },
+  {
+    "id": "E-local-reduced-motion",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:4183/evidence.html: Reduced motion: ticker none, duplicate hidden, tape transition 0s, 15/15",
+    "evidence": "audit/browser/screenshots/E-local-reduced-motion.jpg; audit/browser/logs/E-local-reduced-motion.jsonl"
+  },
+  {
+    "id": "E-local-no-js",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:4183/evidence.html: Static 5-row book and 15 not-checked entries; Pause and JS inspector controls hidden",
+    "evidence": "audit/browser/screenshots/E-local-no-js.jpg; audit/browser/logs/E-local-no-js.jsonl"
+  },
+  {
+    "id": "E-local-pause",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:4183/evidence.html: Pause pauses; keyboard Play resumes after pointer and focus leave",
+    "evidence": "audit/browser/screenshots/E-local-pause.jpg; audit/browser/logs/E-local-pause.jsonl"
+  },
+  {
+    "id": "E-local-crash-panel",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:4183/evidence.html: KILLED MID-RELEASE, RECONCILED, PAID ONCE pass 2 \u00b7 intent D \u00b7 live on testnet WRITE-AHEAD Before paying D\u2019s release, the verifier saved (fsync) the recipient, 45,000 zat and memo pqi1:bb30c3\u2026:release at block 4,526,372. KILLED The release was broadcast and the desk process got SIGKILL before it could save the txid. RECONCILED On restart the escrow\u2019s history already held that memo in c0557316\u2026, so the verifier waited for it to be mined and settled with it (log #11). PAID ONCE The escrow sent 1 transaction with that memo: c0557316\u2026.",
+    "evidence": "audit/browser/screenshots/E-local-crash-panel.jpg; audit/browser/logs/E-local-crash-panel.jsonl"
+  },
+  {
+    "id": "E-local-agent-panel",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:4183/evidence.html: AN AGENT TRADES THROUGH MCP, LIVE pass 3 \u00b7 intent E \u00b7 Oct 22 QUOTE quote \u2192 accept, spread 20,000 zat, a refund would return 25,000. SUBMIT_INTENT Signed E with the agent\u2019s own ML-DSA-65 key, saved it, funded 3ba64090\u2026 and posted the envelope; delivered to a new receive address (index 603,070,214), not one A\u2013D used. KILLED The desk got SIGKILL right after the solver\u2019s fill broadcast, with its write-ahead record at block 4,529,708 and no txid saved. FOUND, NOT RESENT On restart the solver\u2019s history held the fill memo in 0ef36c7f\u2026; it was adopted, sent once. SETTLED log #13: released 25,000 zat 6b63f403\u2026; the next anchor 7b1ce3f2\u2026 names pass 2\u2019s. AUDITED verify_log over MCP: ok, 15 entries, 3 anchors; check-anchors with the escrow pinned: exit 0, 3 anchors in one chain.",
+    "evidence": "audit/browser/screenshots/E-local-agent-panel.jpg; audit/browser/logs/E-local-agent-panel.jsonl"
+  },
+  {
+    "id": "E-local-links",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:4183/evidence.html: 69 explorer hrefs match full recorded txids; terminal and Overview navigated",
+    "evidence": "audit/browser/screenshots/E-local-links.jpg; audit/browser/logs/E-local-links.jsonl"
+  },
+  {
+    "id": "E-local-limits",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:4183/evidence.html: Custody, plaintext, ECC, viewing key payouts, A\u2013D linkage, user/nonce linkage, periodic anchors, 3 confirmations disclosed",
+    "evidence": "audit/browser/screenshots/E-local-limits.jpg; audit/browser/logs/E-local-limits.jsonl"
+  },
+  {
+    "id": "E-live-tape",
+    "status": "PASS",
+    "observed": "https://yaksok-landing.vercel.app/evidence.html: 15/15 verified in this tab; all 15 sig ok",
+    "evidence": "audit/browser/screenshots/E-live-tape.jpg; audit/browser/logs/E-live-tape.jsonl"
+  },
+  {
+    "id": "E-live-refusals",
+    "status": "FAIL",
+    "observed": "https://yaksok-landing.vercel.app/evidence.html: locator.click: Timeout 12000ms exceeded. Call log: ",
+    "evidence": "audit/browser/screenshots/E-live-refusals.jpg; audit/browser/logs/E-live-refusals.jsonl"
+  },
+  {
+    "id": "E-live-anchors",
+    "status": "PASS",
+    "observed": "https://yaksok-landing.vercel.app/evidence.html: Recomputed heads #8/#11/#13 match; recorded links #11 names #8, #13 names #11; #14 remains after last head",
+    "evidence": "audit/browser/screenshots/E-live-anchors.jpg; audit/browser/logs/E-live-anchors.jsonl"
+  },
+  {
+    "id": "E-live-book",
+    "status": "PASS",
+    "observed": "https://yaksok-landing.vercel.app/evidence.html: 5 recorded intents A\u2013E, correct amounts, states and full payout hrefs",
+    "evidence": "audit/browser/screenshots/E-live-book.jpg; audit/browser/logs/E-live-book.jsonl"
+  },
+  {
+    "id": "E-live-375",
+    "status": "PASS",
+    "observed": "https://yaksok-landing.vercel.app/evidence.html: {\"sw\":375,\"cw\":375}",
+    "evidence": "audit/browser/screenshots/E-live-375.jpg; audit/browser/logs/E-live-375.jsonl"
+  },
+  {
+    "id": "E-live-console",
+    "status": "PASS",
+    "observed": "https://yaksok-landing.vercel.app/evidence.html: Console, page errors, request failures and all response statuses captured",
+    "evidence": "audit/browser/screenshots/E-live-console.jpg; audit/browser/logs/E-live-console.jsonl"
+  },
+  {
+    "id": "E-live-reduced-motion",
+    "status": "PASS",
+    "observed": "https://yaksok-landing.vercel.app/evidence.html: Reduced motion: ticker none, duplicate hidden, tape transition 0s, 15/15",
+    "evidence": "audit/browser/screenshots/E-live-reduced-motion.jpg; audit/browser/logs/E-live-reduced-motion.jsonl"
+  },
+  {
+    "id": "E-live-no-js",
+    "status": "PASS",
+    "observed": "https://yaksok-landing.vercel.app/evidence.html: Static 5-row book and 15 not-checked entries; Pause and JS inspector controls hidden",
+    "evidence": "audit/browser/screenshots/E-live-no-js.jpg; audit/browser/logs/E-live-no-js.jsonl"
+  },
+  {
+    "id": "E-live-pause",
+    "status": "PASS",
+    "observed": "https://yaksok-landing.vercel.app/evidence.html: Pause pauses; keyboard Play resumes after pointer and focus leave",
+    "evidence": "audit/browser/screenshots/E-live-pause.jpg; audit/browser/logs/E-live-pause.jsonl"
+  },
+  {
+    "id": "E-live-crash-panel",
+    "status": "PASS",
+    "observed": "https://yaksok-landing.vercel.app/evidence.html: KILLED MID-RELEASE, RECONCILED, PAID ONCE pass 2 \u00b7 intent D \u00b7 live on testnet WRITE-AHEAD Before paying D\u2019s release, the verifier saved (fsync) the recipient, 45,000 zat and memo pqi1:bb30c3\u2026:release at block 4,526,372. KILLED The release was broadcast and the desk process got SIGKILL before it could save the txid. RECONCILED On restart the escrow\u2019s history already held that memo in c0557316\u2026, so the verifier waited for it to be mined and settled with it (log #11). PAID ONCE The escrow sent 1 transaction with that memo: c0557316\u2026.",
+    "evidence": "audit/browser/screenshots/E-live-crash-panel.jpg; audit/browser/logs/E-live-crash-panel.jsonl"
+  },
+  {
+    "id": "E-live-agent-panel",
+    "status": "PASS",
+    "observed": "https://yaksok-landing.vercel.app/evidence.html: AN AGENT TRADES THROUGH MCP, LIVE pass 3 \u00b7 intent E \u00b7 Oct 22 QUOTE quote \u2192 accept, spread 20,000 zat, a refund would return 25,000. SUBMIT_INTENT Signed E with the agent\u2019s own ML-DSA-65 key, saved it, funded 3ba64090\u2026 and posted the envelope; delivered to a new receive address (index 603,070,214), not one A\u2013D used. KILLED The desk got SIGKILL right after the solver\u2019s fill broadcast, with its write-ahead record at block 4,529,708 and no txid saved. FOUND, NOT RESENT On restart the solver\u2019s history held the fill memo in 0ef36c7f\u2026; it was adopted, sent once. SETTLED log #13: released 25,000 zat 6b63f403\u2026; the next anchor 7b1ce3f2\u2026 names pass 2\u2019s. AUDITED verify_log over MCP: ok, 15 entries, 3 anchors; check-anchors with the escrow pinned: exit 0, 3 anchors in one chain.",
+    "evidence": "audit/browser/screenshots/E-live-agent-panel.jpg; audit/browser/logs/E-live-agent-panel.jsonl"
+  },
+  {
+    "id": "E-live-links",
+    "status": "PASS",
+    "observed": "https://yaksok-landing.vercel.app/evidence.html: 69 explorer hrefs match full recorded txids; terminal and Overview navigated",
+    "evidence": "audit/browser/screenshots/E-live-links.jpg; audit/browser/logs/E-live-links.jsonl"
+  },
+  {
+    "id": "E-live-limits",
+    "status": "PASS",
+    "observed": "https://yaksok-landing.vercel.app/evidence.html: Custody, plaintext, ECC, viewing key payouts, A\u2013D linkage, user/nonce linkage, periodic anchors, 3 confirmations disclosed",
+    "evidence": "audit/browser/screenshots/E-live-limits.jpg; audit/browser/logs/E-live-limits.jsonl"
+  },
+  {
+    "id": "T-local-book",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:5181/: Each of A\u2013E selected; exact escrow/delivery/payout amounts, stages and recorded full txid hrefs match || http://127.0.0.1:4183/terminal/: Each of A\u2013E selected; exact escrow/delivery/payout amounts, stages and recorded full txid hrefs match",
+    "evidence": "audit/browser/screenshots/T-local-book-vite.jpg; audit/browser/logs/T-local-book-vite.jsonl; audit/browser/screenshots/T-local-book-static.jpg; audit/browser/logs/T-local-book-static.jsonl"
+  },
+  {
+    "id": "T-local-tape",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:5181/: 15/15 signatures verify; each entry sig ok || http://127.0.0.1:4183/terminal/: 15/15 signatures verify; each entry sig ok",
+    "evidence": "audit/browser/screenshots/T-local-tape-vite.jpg; audit/browser/logs/T-local-tape-vite.jsonl; audit/browser/screenshots/T-local-tape-static.jpg; audit/browser/logs/T-local-tape-static.jsonl"
+  },
+  {
+    "id": "T-local-tamper",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:5181/: 08:56:05 REF A with min_out_zat changed \u2192 BAD_SIGNATURE \u00b7 hash dc2cc0da\u2026 \u2260 48a440a6\u2026 || http://127.0.0.1:4183/terminal/: 08:56:07 REF A with min_out_zat changed \u2192 BAD_SIGNATURE \u00b7 hash dc2cc0da\u2026 \u2260 48a440a6\u2026",
+    "evidence": "audit/browser/screenshots/T-local-tamper-vite.jpg; audit/browser/logs/T-local-tamper-vite.jsonl; audit/browser/screenshots/T-local-tamper-static.jpg; audit/browser/logs/T-local-tamper-static.jsonl"
+  },
+  {
+    "id": "T-local-wrong-key",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:5181/: 08:56:10 REF attacker intent \u2192 WRONG_KEY \u00b7 signed by 01bad10f\u2026, names 8679109f\u2026 || http://127.0.0.1:4183/terminal/: 08:56:12 REF attacker intent \u2192 WRONG_KEY \u00b7 signed by 01bad10f\u2026, names 8679109f\u2026",
+    "evidence": "audit/browser/screenshots/T-local-wrong-key-vite.jpg; audit/browser/logs/T-local-wrong-key-vite.jsonl; audit/browser/screenshots/T-local-wrong-key-static.jpg; audit/browser/logs/T-local-wrong-key-static.jsonl"
+  },
+  {
+    "id": "T-local-original",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:5181/: 08:56:15 OK A as signed \u2192 verifies \u00b7 hash 48a440a6\u2026 || http://127.0.0.1:4183/terminal/: 08:56:17 OK A as signed \u2192 verifies \u00b7 hash 48a440a6\u2026",
+    "evidence": "audit/browser/screenshots/T-local-original-vite.jpg; audit/browser/logs/T-local-original-vite.jsonl; audit/browser/screenshots/T-local-original-static.jpg; audit/browser/logs/T-local-original-static.jsonl"
+  },
+  {
+    "id": "T-local-replay-row",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:5181/: #4 ALREADY_SETTLED || http://127.0.0.1:4183/terminal/: #4 ALREADY_SETTLED",
+    "evidence": "audit/browser/screenshots/T-local-replay-row-vite.jpg; audit/browser/logs/T-local-replay-row-vite.jsonl; audit/browser/screenshots/T-local-replay-row-static.jpg; audit/browser/logs/T-local-replay-row-static.jsonl"
+  },
+  {
+    "id": "T-local-expired-row",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:5181/: #7 EXPIRED || http://127.0.0.1:4183/terminal/: #7 EXPIRED",
+    "evidence": "audit/browser/screenshots/T-local-expired-row-vite.jpg; audit/browser/logs/T-local-expired-row-vite.jsonl; audit/browser/screenshots/T-local-expired-row-static.jpg; audit/browser/logs/T-local-expired-row-static.jsonl"
+  },
+  {
+    "id": "T-local-pause",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:5181/: Pause pauses; keyboard Play resumes after pointer and focus leave || http://127.0.0.1:4183/terminal/: Pause pauses; keyboard Play resumes after pointer and focus leave",
+    "evidence": "audit/browser/screenshots/T-local-pause-vite.jpg; audit/browser/logs/T-local-pause-vite.jsonl; audit/browser/screenshots/T-local-pause-static.jpg; audit/browser/logs/T-local-pause-static.jsonl"
+  },
+  {
+    "id": "T-local-keys",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:5181/: All arrow directions, End/Home, wrap, focus and exactly one tab stop verified || http://127.0.0.1:4183/terminal/: All arrow directions, End/Home, wrap, focus and exactly one tab stop verified",
+    "evidence": "audit/browser/screenshots/T-local-keys-vite.jpg; audit/browser/logs/T-local-keys-vite.jsonl; audit/browser/screenshots/T-local-keys-static.jpg; audit/browser/logs/T-local-keys-static.jsonl"
+  },
+  {
+    "id": "T-local-crash-panel",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:5181/: Recorded pass-2 release interruption panel; settlement inspector opened || http://127.0.0.1:4183/terminal/: Recorded pass-2 release interruption panel; settlement inspector opened",
+    "evidence": "audit/browser/screenshots/T-local-crash-panel-vite.jpg; audit/browser/logs/T-local-crash-panel-vite.jsonl; audit/browser/screenshots/T-local-crash-panel-static.jpg; audit/browser/logs/T-local-crash-panel-static.jsonl"
+  },
+  {
+    "id": "T-local-agent-panel",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:5181/: Recorded pass-3 MCP interruption panel; settlement inspector opened || http://127.0.0.1:4183/terminal/: Recorded pass-3 MCP interruption panel; settlement inspector opened",
+    "evidence": "audit/browser/screenshots/T-local-agent-panel-vite.jpg; audit/browser/logs/T-local-agent-panel-vite.jsonl; audit/browser/screenshots/T-local-agent-panel-static.jpg; audit/browser/logs/T-local-agent-panel-static.jsonl"
+  },
+  {
+    "id": "T-local-375",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:5181/: {\"sw\":375,\"cw\":375} || http://127.0.0.1:4183/terminal/: {\"sw\":375,\"cw\":375}",
+    "evidence": "audit/browser/screenshots/T-local-375-vite.jpg; audit/browser/logs/T-local-375-vite.jsonl; audit/browser/screenshots/T-local-375-static.jpg; audit/browser/logs/T-local-375-static.jsonl"
+  },
+  {
+    "id": "T-local-console",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:5181/: Console, page errors, request failures and all response statuses captured || http://127.0.0.1:4183/terminal/: Console, page errors, request failures and all response statuses captured",
+    "evidence": "audit/browser/screenshots/T-local-console-vite.jpg; audit/browser/logs/T-local-console-vite.jsonl; audit/browser/screenshots/T-local-console-static.jpg; audit/browser/logs/T-local-console-static.jsonl"
+  },
+  {
+    "id": "T-local-tx-links",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:5181/: Each of A\u2013E selected; exact escrow/delivery/payout amounts, stages and recorded full txid hrefs match || http://127.0.0.1:4183/terminal/: Each of A\u2013E selected; exact escrow/delivery/payout amounts, stages and recorded full txid hrefs match",
+    "evidence": "audit/browser/screenshots/T-local-tx-links-vite.jpg; audit/browser/logs/T-local-tx-links-vite.jsonl; audit/browser/screenshots/T-local-tx-links-static.jpg; audit/browser/logs/T-local-tx-links-static.jsonl"
+  },
+  {
+    "id": "T-local-inspector",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:5181/: #0 SETTLED ; #1 SETTLED ; #2 REJECTED FILL_NOT_CREDITED:MEMO_MISMATCH+AMOUNT_TOO_LOW; #3 REJECTED BAD_SIGNATURE; #4 REJECTED ALREADY_SETTLED; #5 REJECTED NONCE_REUSED; #6 REJECTED WRONG_KEY; #7 REJECTED EXPIRED; #8 REFUNDED ; #9 ANCHORED ; #10 REJECTED FILL_BY_OTHER_SOLVER; #11 SETTLED ; #12 ANCHORED ; #13 SETTLED ; #14 ANCHORED  || http://127.0.0.1:4183/terminal/: #0 SETTLED ; #1 SETTLED ; #2 REJECTED FILL_NOT_CREDITED:MEMO_MISMATCH+AMOUNT_TOO_LOW; #3 REJECTED BAD_SIGNATURE; #4 REJECTED ALREADY_SETTLED; #5 REJECTED NONCE_REUSED; #6 REJECTED WRONG_KEY; #7 REJECTED EXPIRED; #8 REFUNDED ; #9 ANCHORED ; #10 REJECTED FILL_BY_OTHER_SOLVER; #11 SETTLED ; #12 ANCHORED ; #13 SETTLED ; #14 ANCHORED ",
+    "evidence": "audit/browser/screenshots/T-local-inspector-vite.jpg; audit/browser/logs/T-local-inspector-vite.jsonl; audit/browser/screenshots/T-local-inspector-static.jpg; audit/browser/logs/T-local-inspector-static.jsonl"
+  },
+  {
+    "id": "T-local-refusals",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:5181/: #2 FILL_NOT_CREDITED:MEMO_MISMATCH+AMOUNT_TOO_LOW; #3 BAD_SIGNATURE; #4 ALREADY_SETTLED; #5 NONCE_REUSED; #6 WRONG_KEY; #7 EXPIRED; #10 FILL_BY_OTHER_SOLVER || http://127.0.0.1:4183/terminal/: #2 FILL_NOT_CREDITED:MEMO_MISMATCH+AMOUNT_TOO_LOW; #3 BAD_SIGNATURE; #4 ALREADY_SETTLED; #5 NONCE_REUSED; #6 WRONG_KEY; #7 EXPIRED; #10 FILL_BY_OTHER_SOLVER",
+    "evidence": "audit/browser/screenshots/T-local-refusals-vite.jpg; audit/browser/logs/T-local-refusals-vite.jsonl; audit/browser/screenshots/T-local-refusals-static.jpg; audit/browser/logs/T-local-refusals-static.jsonl"
+  },
+  {
+    "id": "T-local-anchor-chain",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:5181/: one chain, 3 anchors, no fork: #8 \u2192 #11 \u2192 #13 \u00b7 15/15 signatures verify || http://127.0.0.1:4183/terminal/: one chain, 3 anchors, no fork: #8 \u2192 #11 \u2192 #13 \u00b7 15/15 signatures verify",
+    "evidence": "audit/browser/screenshots/T-local-anchor-chain-vite.jpg; audit/browser/logs/T-local-anchor-chain-vite.jsonl; audit/browser/screenshots/T-local-anchor-chain-static.jpg; audit/browser/logs/T-local-anchor-chain-static.jsonl"
+  },
+  {
+    "id": "T-local-reduced-motion",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:5181/: Reduced motion: ticker none, duplicate hidden, tape transition 0s, 15/15 || http://127.0.0.1:4183/terminal/: Reduced motion: ticker none, duplicate hidden, tape transition 0s, 15/15",
+    "evidence": "audit/browser/screenshots/T-local-reduced-motion-vite.jpg; audit/browser/logs/T-local-reduced-motion-vite.jsonl; audit/browser/screenshots/T-local-reduced-motion-static.jpg; audit/browser/logs/T-local-reduced-motion-static.jsonl"
+  },
+  {
+    "id": "T-local-other-tamper-fields",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:5181/: 08:58:03 REF A with pay_zat changed \u2192 BAD_SIGNATURE \u00b7 hash c5efa37c\u2026 \u2260 48a440a6\u2026; 08:58:03 REF A with receive_ua changed \u2192 BAD_SIGNATURE \u00b7 hash 34b2bd20\u2026 \u2260 48a440a6\u2026; 08:58:03 REF A with deadline_height changed \u2192 BAD_SIGNATURE \u00b7 hash d9c4c9e5\u2026 \u2260 48a440a6\u2026; 08:58:03 REF A with nonce changed \u2192 BAD_SIGNATURE \u00b7 hash 938116d9\u2026 \u2260 48a440a6\u2026; 08:58:03 REF A with pay_zat changed \u2192 BAD_SIGNATURE \u00b7 hash c5efa37c\u2026 \u2260 48a440a6\u2026; 08:58:03 REF A with receive_ua changed \u2192 BAD_SIGNATURE \u00b7 hash 34b2bd20\u2026 \u2260 48a440a6\u2026; 08:58:03 REF A with deadline_height changed \u2192 BAD_SIGNATURE \u00b7 hash d9c4c9e5\u2026 \u2260 48a440a6\u2026; 08:58:03 REF A with nonce changed \u2192 BAD_SIGNATURE \u00b7 hash 938116d9\u2026 \u2260 48a440a6\u2026; 08:58:03 REF A with min_out_zat changed \u2192 BAD_SIGNATURE \u00b7 hash dc2cc0da\u2026 \u2260 48a440a6\u2026 || http://127.0.0.1:4183/terminal/: 08:58:06 REF A with pay_zat changed \u2192 BAD_SIGNATURE \u00b7 hash c5efa37c\u2026 \u2260 48a440a6\u2026; 08:58:06 REF A with receive_ua changed \u2192 BAD_SIGNATURE \u00b7 hash 34b2bd20\u2026 \u2260 48a440a6\u2026; 08:58:06 REF A with deadline_height changed \u2192 BAD_SIGNATURE \u00b7 hash d9c4c9e5\u2026 \u2260 48a440a6\u2026; 08:58:06 REF A with nonce changed \u2192 BAD_SIGNATURE \u00b7 hash 938116d9\u2026 \u2260 48a440a6\u2026; 08:58:06 REF A with pay_zat changed \u2192 BAD_SIGNATURE \u00b7 hash c5efa37c\u2026 \u2260 48a440a6\u2026; 08:58:06 REF A with receive_ua changed \u2192 BAD_SIGNATURE \u00b7 hash 34b2bd20\u2026 \u2260 48a440a6\u2026; 08:58:06 REF A with deadline_height changed \u2192 BAD_SIGNATURE \u00b7 hash d9c4c9e5\u2026 \u2260 48a440a6\u2026; 08:58:06 REF A with nonce changed \u2192 BAD_SIGNATURE \u00b7 hash 938116d9\u2026 \u2260 48a440a6\u2026; 08:58:06 REF A with min_out_zat changed \u2192 BAD_SIGNATURE \u00b7 hash dc2cc0da\u2026 \u2260 48a440a6\u2026",
+    "evidence": "audit/browser/screenshots/T-local-other-tamper-fields-vite.jpg; audit/browser/logs/T-local-other-tamper-fields-vite.jsonl; audit/browser/screenshots/T-local-other-tamper-fields-static.jpg; audit/browser/logs/T-local-other-tamper-fields-static.jsonl"
+  },
+  {
+    "id": "T-live-book",
+    "status": "PASS",
+    "observed": "https://yaksok-terminal.vercel.app/: Each of A\u2013E selected; exact escrow/delivery/payout amounts, stages and recorded full txid hrefs match",
+    "evidence": "audit/browser/screenshots/T-live-book.jpg; audit/browser/logs/T-live-book.jsonl"
+  },
+  {
+    "id": "T-live-tape",
+    "status": "PASS",
+    "observed": "https://yaksok-terminal.vercel.app/: 15/15 signatures verify; each entry sig ok",
+    "evidence": "audit/browser/screenshots/T-live-tape.jpg; audit/browser/logs/T-live-tape.jsonl"
+  },
+  {
+    "id": "T-live-tamper",
+    "status": "PASS",
+    "observed": "https://yaksok-terminal.vercel.app/: 08:58:14 REF A with min_out_zat changed \u2192 BAD_SIGNATURE \u00b7 hash dc2cc0da\u2026 \u2260 48a440a6\u2026",
+    "evidence": "audit/browser/screenshots/T-live-tamper.jpg; audit/browser/logs/T-live-tamper.jsonl"
+  },
+  {
+    "id": "T-live-wrong-key",
+    "status": "PASS",
+    "observed": "https://yaksok-terminal.vercel.app/: 08:58:16 REF attacker intent \u2192 WRONG_KEY \u00b7 signed by 01bad10f\u2026, names 8679109f\u2026",
+    "evidence": "audit/browser/screenshots/T-live-wrong-key.jpg; audit/browser/logs/T-live-wrong-key.jsonl"
+  },
+  {
+    "id": "T-live-original",
+    "status": "PASS",
+    "observed": "https://yaksok-terminal.vercel.app/: 08:58:19 OK A as signed \u2192 verifies \u00b7 hash 48a440a6\u2026",
+    "evidence": "audit/browser/screenshots/T-live-original.jpg; audit/browser/logs/T-live-original.jsonl"
+  },
+  {
+    "id": "T-live-replay-row",
+    "status": "PASS",
+    "observed": "https://yaksok-terminal.vercel.app/: #4 ALREADY_SETTLED",
+    "evidence": "audit/browser/screenshots/T-live-replay-row.jpg; audit/browser/logs/T-live-replay-row.jsonl"
+  },
+  {
+    "id": "T-live-expired-row",
+    "status": "PASS",
+    "observed": "https://yaksok-terminal.vercel.app/: #7 EXPIRED",
+    "evidence": "audit/browser/screenshots/T-live-expired-row.jpg; audit/browser/logs/T-live-expired-row.jsonl"
+  },
+  {
+    "id": "T-live-pause",
+    "status": "PASS",
+    "observed": "https://yaksok-terminal.vercel.app/: Pause pauses; keyboard Play resumes after pointer and focus leave",
+    "evidence": "audit/browser/screenshots/T-live-pause.jpg; audit/browser/logs/T-live-pause.jsonl"
+  },
+  {
+    "id": "T-live-keys",
+    "status": "PASS",
+    "observed": "https://yaksok-terminal.vercel.app/: All arrow directions, End/Home, wrap, focus and exactly one tab stop verified",
+    "evidence": "audit/browser/screenshots/T-live-keys.jpg; audit/browser/logs/T-live-keys.jsonl"
+  },
+  {
+    "id": "T-live-crash-panel",
+    "status": "PASS",
+    "observed": "https://yaksok-terminal.vercel.app/: Recorded pass-2 release interruption panel; settlement inspector opened",
+    "evidence": "audit/browser/screenshots/T-live-crash-panel.jpg; audit/browser/logs/T-live-crash-panel.jsonl"
+  },
+  {
+    "id": "T-live-agent-panel",
+    "status": "PASS",
+    "observed": "https://yaksok-terminal.vercel.app/: Recorded pass-3 MCP interruption panel; settlement inspector opened",
+    "evidence": "audit/browser/screenshots/T-live-agent-panel.jpg; audit/browser/logs/T-live-agent-panel.jsonl"
+  },
+  {
+    "id": "T-live-375",
+    "status": "PASS",
+    "observed": "https://yaksok-terminal.vercel.app/: {\"sw\":375,\"cw\":375}",
+    "evidence": "audit/browser/screenshots/T-live-375.jpg; audit/browser/logs/T-live-375.jsonl"
+  },
+  {
+    "id": "T-live-console",
+    "status": "PASS",
+    "observed": "https://yaksok-terminal.vercel.app/: Console, page errors, request failures and all response statuses captured",
+    "evidence": "audit/browser/screenshots/T-live-console.jpg; audit/browser/logs/T-live-console.jsonl"
+  },
+  {
+    "id": "T-live-tx-links",
+    "status": "PASS",
+    "observed": "https://yaksok-terminal.vercel.app/: Each of A\u2013E selected; exact escrow/delivery/payout amounts, stages and recorded full txid hrefs match",
+    "evidence": "audit/browser/screenshots/T-live-tx-links.jpg; audit/browser/logs/T-live-tx-links.jsonl"
+  },
+  {
+    "id": "T-live-inspector",
+    "status": "PASS",
+    "observed": "https://yaksok-terminal.vercel.app/: #0 SETTLED ; #1 SETTLED ; #2 REJECTED FILL_NOT_CREDITED:MEMO_MISMATCH+AMOUNT_TOO_LOW; #3 REJECTED BAD_SIGNATURE; #4 REJECTED ALREADY_SETTLED; #5 REJECTED NONCE_REUSED; #6 REJECTED WRONG_KEY; #7 REJECTED EXPIRED; #8 REFUNDED ; #9 ANCHORED ; #10 REJECTED FILL_BY_OTHER_SOLVER; #11 SETTLED ; #12 ANCHORED ; #13 SETTLED ; #14 ANCHORED ",
+    "evidence": "audit/browser/screenshots/T-live-inspector.jpg; audit/browser/logs/T-live-inspector.jsonl"
+  },
+  {
+    "id": "T-live-refusals",
+    "status": "PASS",
+    "observed": "https://yaksok-terminal.vercel.app/: #2 FILL_NOT_CREDITED:MEMO_MISMATCH+AMOUNT_TOO_LOW; #3 BAD_SIGNATURE; #4 ALREADY_SETTLED; #5 NONCE_REUSED; #6 WRONG_KEY; #7 EXPIRED; #10 FILL_BY_OTHER_SOLVER",
+    "evidence": "audit/browser/screenshots/T-live-refusals.jpg; audit/browser/logs/T-live-refusals.jsonl"
+  },
+  {
+    "id": "T-live-anchor-chain",
+    "status": "PASS",
+    "observed": "https://yaksok-terminal.vercel.app/: one chain, 3 anchors, no fork: #8 \u2192 #11 \u2192 #13 \u00b7 15/15 signatures verify",
+    "evidence": "audit/browser/screenshots/T-live-anchor-chain.jpg; audit/browser/logs/T-live-anchor-chain.jsonl"
+  },
+  {
+    "id": "T-live-reduced-motion",
+    "status": "PASS",
+    "observed": "https://yaksok-terminal.vercel.app/: Reduced motion: ticker none, duplicate hidden, tape transition 0s, 15/15",
+    "evidence": "audit/browser/screenshots/T-live-reduced-motion.jpg; audit/browser/logs/T-live-reduced-motion.jsonl"
+  },
+  {
+    "id": "T-live-other-tamper-fields",
+    "status": "PASS",
+    "observed": "https://yaksok-terminal.vercel.app/: 08:59:13 REF A with pay_zat changed \u2192 BAD_SIGNATURE \u00b7 hash c5efa37c\u2026 \u2260 48a440a6\u2026; 08:59:14 REF A with receive_ua changed \u2192 BAD_SIGNATURE \u00b7 hash 34b2bd20\u2026 \u2260 48a440a6\u2026; 08:59:14 REF A with deadline_height changed \u2192 BAD_SIGNATURE \u00b7 hash d9c4c9e5\u2026 \u2260 48a440a6\u2026; 08:59:14 REF A with nonce changed \u2192 BAD_SIGNATURE \u00b7 hash 938116d9\u2026 \u2260 48a440a6\u2026; 08:59:14 REF A with pay_zat changed \u2192 BAD_SIGNATURE \u00b7 hash c5efa37c\u2026 \u2260 48a440a6\u2026; 08:59:14 REF A with receive_ua changed \u2192 BAD_SIGNATURE \u00b7 hash 34b2bd20\u2026 \u2260 48a440a6\u2026; 08:59:14 REF A with deadline_height changed \u2192 BAD_SIGNATURE \u00b7 hash d9c4c9e5\u2026 \u2260 48a440a6\u2026; 08:59:14 REF A with nonce changed \u2192 BAD_SIGNATURE \u00b7 hash 938116d9\u2026 \u2260 48a440a6\u2026; 08:59:14 REF A with min_out_zat changed \u2192 BAD_SIGNATURE \u00b7 hash dc2cc0da\u2026 \u2260 48a440a6\u2026",
+    "evidence": "audit/browser/screenshots/T-live-other-tamper-fields.jpg; audit/browser/logs/T-live-other-tamper-fields.jsonl"
+  },
+  {
+    "id": "T-local-navigation",
+    "status": "PASS",
+    "observed": "http://127.0.0.1:5181/: Correct Landing visibility/return, GitHub/Docs hrefs and keyboard skip to #main || http://127.0.0.1:4183/terminal/: Correct Landing visibility/return, GitHub/Docs hrefs and keyboard skip to #main",
+    "evidence": "audit/browser/screenshots/T-local-navigation-vite.jpg; audit/browser/logs/T-local-navigation-vite.jsonl; audit/browser/screenshots/T-local-navigation-static.jpg; audit/browser/logs/T-local-navigation-static.jsonl"
+  },
+  {
+    "id": "T-live-navigation",
+    "status": "PASS",
+    "observed": "https://yaksok-terminal.vercel.app/: Correct Landing visibility/return, GitHub/Docs hrefs and keyboard skip to #main",
+    "evidence": "audit/browser/screenshots/T-live-navigation.jpg; audit/browser/logs/T-live-navigation.jsonl"
+  }
+]

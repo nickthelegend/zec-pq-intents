@@ -1,0 +1,70 @@
+=== vitest ===
+✓ test/protocol.test.ts (17 tests) 549ms
+Test Files  1 passed (1)
+Tests  17 passed (17)
+=== quoted assertions from packages/protocol/test/protocol.test.ts (executed by vitest) ===
+L71: for (const s of ['QR==', 'QUJ=', 'QUI', 'Q===']) expect(code(() => fromB64(s))).toBe('BAD_ENCODING');
+L80: expect(code(() => verifyIntent({ ...s, user_pk: respelled }))).toBe('BAD_ENCODING');
+L99: expect(code(() => verifyIntent(t))).toBe('BAD_SIGNATURE');
+L106: expect(code(() => verifyIntent({ ...forged, intent: { ...forged.intent, user: s.intent.user } }))).toBe('WRONG_KEY');
+L107: expect(code(() => verifyIntent({ ...s, user_pk: forged.user_pk }))).toBe('WRONG_KEY');
+=== P-encoding re-exec ===
+fromB64 "QR==" -> BAD_ENCODING
+fromB64 "QUJ=" -> BAD_ENCODING
+fromB64 "QUI" -> BAD_ENCODING
+fromB64 "Q===" -> BAD_ENCODING
+respelled differs=true verify=BAD_ENCODING original=OK
+=== P-tamper published A ===
+before_prefix=48a440a6 after_prefix=9e945bb2 differs=true code=BAD_SIGNATURE original_ok_prefix=48a440a6
+=== P-wrong-key published forgedAsUser ===
+code=WRONG_KEY
+=== recorded refusals (not fresh payout claims) ===
+#3 REJECTED BAD_SIGNATURE intent_hash=e24845cabeeea449f7972971407d7934cd8a63044735bba154711313123d3702 first_use= fill_height= deadline=
+#4 REJECTED ALREADY_SETTLED intent_hash=48a440a659848bcf73cd912be8616be34491132aaf5b277e59e962becf085ca2 first_use= fill_height= deadline=
+#5 REJECTED NONCE_REUSED intent_hash=d9c4c9e5b2b05192619a2147bc4c804a0c58473290f31478c5351f386b28bed0 first_use=48a440a659848bcf73cd912be8616be34491132aaf5b277e59e962becf085ca2 fill_height= deadline=
+#6 REJECTED WRONG_KEY intent_hash=7c0dc68b255a6ccb1b48bcaa7b7b0963edff4728e59551e6e9b992cbbc19a9c0 first_use= fill_height= deadline=
+#7 REJECTED EXPIRED intent_hash=0c9bdfce35e3daa62af0bccd04d77046bb5b32aba89092aedfe6d65f3e2c0439 first_use= fill_height=4522696 deadline=
+=== P-envelope ===
+open_hash_prefix=93667d9b original_prefix=93667d9b match=true
+other_key=NOT_FOR_ME
+flipped_ct=BAD_ENVELOPE
+swapped_hash=BAD_ENVELOPE
+=== P-log published records ===
+oct20 ok=true entries=10 problem=null
+oct20 content_edit ok=false seq=0 problem_nonempty=true
+oct20 drop ok=false seq=1 problem_nonempty=true
+oct20 reorder ok=false seq=0 problem_nonempty=true
+oct20 foreign_verifier ok=false seq=0 problem=names another verifier key
+oct20 sig_change ok=false seq=1 problem=ML-DSA-65 signature does not verify
+pass2 ok=true entries=13 problem=null
+pass2 content_edit ok=false seq=0 problem_nonempty=true
+pass2 drop ok=false seq=1 problem_nonempty=true
+pass2 reorder ok=false seq=0 problem_nonempty=true
+pass2 foreign_verifier ok=false seq=0 problem=names another verifier key
+pass2 sig_change ok=false seq=1 problem=ML-DSA-65 signature does not verify
+pass3 ok=true entries=15 problem=null
+pass3 content_edit ok=false seq=0 problem_nonempty=true
+pass3 drop ok=false seq=1 problem_nonempty=true
+pass3 reorder ok=false seq=0 problem_nonempty=true
+pass3 foreign_verifier ok=false seq=0 problem=names another verifier key
+pass3 sig_change ok=false seq=1 problem=ML-DSA-65 signature does not verify
+=== P-shape ===
+missing_nonce=BAD_INTENT
+extra_field=BAD_INTENT
+bad_version=BAD_INTENT
+bad_kind=BAD_INTENT
+bad_chain=BAD_INTENT
+zero_pay=BAD_INTENT
+negative_min=BAD_INTENT
+fractional_pay=BAD_INTENT
+bad_receive=BAD_INTENT
+bad_escrow=BAD_INTENT
+bad_nonce=BAD_INTENT
+bad_user=BAD_INTENT
+fractional_deadline=BAD_INTENT
+zero_deadline=BAD_INTENT
+=== P-anchor-invariants ===
+oct20_vs_3_anchors ok=false kinds=LOG_BEHIND_ANCHORS later=11,13 entries=10
+fork_kinds=ANCHOR_HEAD_MISMATCH,ANCHOR_NOT_IN_LOG
+hidden_kinds=ANCHOR_NOT_IN_LOG,LOG_BEHIND_ANCHORS
+legacy_late_kinds=ANCHOR_LEGACY_LATE
