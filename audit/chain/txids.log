@@ -1,0 +1,38 @@
+Z-funding PASS
+deployments/testnet.json txs.funding=1d6b38683c64a5e157af4cbfed344dca3604c28242f178de83894654b68354d9; README prefix 1d6b3868 matches=true; full txid equals README link=true; README contains full txid=true; log refs: #0 SETTLED refs.funding_txid; #1 SETTLED refs.funding_txid; #3 REJECTED BAD_SIGNATURE refs.funding_txid; #4 REJECTED ALREADY_SETTLED refs.funding_txid; #5 REJECTED NONCE_REUSED refs.funding_txid; #6 REJECTED WRONG_KEY refs.funding_txid; #8 REFUNDED refs.funding_txid
+
+Z-fill PASS
+deployments/testnet.json txs.fills.48a440a659848bcf73cd912be8616be34491132aaf5b277e59e962becf085ca2=2970d8ba4538bdfae599a64d016c65231e42addb544ccdc1a609f17df59448cb; README prefix 2970d8ba matches=true; full txid equals README link=true; README contains full txid=true; log refs: #0 SETTLED refs.fill_txid
+
+Z-release PASS
+deployments/testnet.json txs.releases.0=9800b912682a0630a64dd4a54c245fc7c0810ee117eed7b304138fddda63b7c2; README prefix 9800b912 matches=true; full txid equals README link=true; README contains full txid=true; log refs: #0 SETTLED refs.release_txid
+
+Z-wrong-memo-fill PASS
+deployments/testnet.json txs.wrongMemoFill=36d0f49acbcb0498073393f554c135697cb5c0bccc6ce788deb6b3c3a05bc33a; README prefix 36d0f49a matches=true; full txid equals README link=true; README contains full txid=true; log refs: #2 REJECTED FILL_NOT_CREDITED:MEMO_MISMATCH+AMOUNT_TOO_LOW refs.fill_txid
+
+Z-late-fill PASS
+deployments/testnet.json txs.lateFill=3b81e337b0669f97ad0f8c4a02a0e332a412a65276fbb5db0088704c6c39b1bb; README prefix 3b81e337 matches=true; full txid equals README link=true; README contains full txid=true; log refs: #7 REJECTED EXPIRED refs.fill_txid
+
+Z-refund PASS
+deployments/testnet.json txs.refund=357b706505ae07232939aa39fe7a862363283b49a06e4a62fafc6eaa823a2966; README prefix 357b7065 matches=true; full txid equals README link=true; README contains full txid=true; log refs: #8 REFUNDED refs.refund_txid
+
+Z-anchor PASS
+deployments/testnet.json txs.anchor=a7d960386f2d8dc926003e700b15bcc761b6e72419765ea6f958a85d73a65a73; README prefix a7d96038 matches=true; full txid equals README link=true; README contains full txid=true; log refs: #9 ANCHORED refs.anchor_txid
+
+Z-pass2-release PASS
+deployments/testnet-pass2.json txs.release=c0557316e0378e65a3d63b2996a139b88dff37f8bfe2e1ce5f3af32e8fca0db1; README prefix c0557316 matches=true; full txid equals README link=true; README contains full txid=true; log refs: #11 SETTLED refs.release_txid
+
+Z-pass2-anchor PASS
+deployments/testnet-pass2.json txs.anchor=694a94c7f81b83f396ca3f974f08eb7c43cc801663c442ff225a07a429a9b41c; README prefix 694a94c7 matches=true; full txid equals README link=true; README contains full txid=true; log refs: #12 ANCHORED refs.anchor_txid
+
+Z-pass3-funding PASS
+deployments/testnet-pass3.json txs.funding=3ba6409028ebb04a0331be9b9564245b4553aa9b847dec1ce21eb0532a1d3ac1; README prefix 3ba64090 matches=true; full txid equals README link=true; README contains full txid=true; log refs: #13 SETTLED refs.funding_txid
+
+Z-pass3-fill PASS
+deployments/testnet-pass3.json txs.fill=0ef36c7f68e08f1a825d5985df6b9a7efbf89f906f3e2d5f72a98caa97364b0a; README prefix 0ef36c7f matches=true; full txid equals README link=true; README contains full txid=true; log refs: #13 SETTLED refs.fill_txid
+
+Z-pass3-release PASS
+deployments/testnet-pass3.json txs.release=6b63f403ceaf79c436edb8a9457133c97ad9ff1998a5f3254b57dd469876599a; README prefix 6b63f403 matches=true; full txid equals README link=true; README contains full txid=true; log refs: #13 SETTLED refs.release_txid
+
+Z-pass3-anchor PASS
+deployments/testnet-pass3.json txs.anchor=7b1ce3f29e9fc14239fab38fba9d0286b2dab327f465d43f959c3d22f9766f4f; README prefix 7b1ce3f2 matches=true; full txid equals README link=true; README contains full txid=true; log refs: #14 ANCHORED refs.anchor_txid
