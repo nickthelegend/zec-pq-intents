@@ -380,6 +380,7 @@ const overview = `<!doctype html>
 <title>Yaksok · post-quantum intents, shielded settlement</title>
 <meta name="description" content="Yaksok: intents signed with ML-DSA-65 and sealed with ML-KEM-768, settled in shielded ZEC on Zcash testnet; every verifier decision is a signed, hash-chained log entry anchored on chain." />
 <meta name="theme-color" content="#140d1c" />
+<link rel="preload" as="image" href="assets/hero.webp" type="image/webp" />
 <link rel="icon" href="${favicon}" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -454,7 +455,17 @@ footer nav { display: flex; flex-wrap: wrap; gap: 20px; }
 footer a { text-decoration: none; }
 footer a:hover { color: var(--text); }
 @media (prefers-reduced-motion: no-preference) { .js .stages li::before, .js .stages li .v { transition: background 0.35s, border-color 0.35s, color 0.35s; } }
-@media (max-width: 1000px) { .hero .wrap { grid-template-columns: minmax(0, 1fr); gap: 56px; padding-top: 40px; padding-bottom: 96px; } .steps { grid-template-columns: minmax(0, 1fr); gap: 32px; } }
+/* cinematic hero: a copper ring and a lattice-glass ring, locked together (generated art, assets/hero.*) */
+.top { position: absolute; inset: 0 0 auto; z-index: 3; }
+.hero { position: relative; isolation: isolate; overflow: hidden; min-height: min(100svh, 940px); display: flex; align-items: center; }
+.hero > .wrap { width: 100%; padding-top: 136px; align-items: end; }
+.stage { position: absolute; inset: 0; z-index: -1; }
+.stage img, .stage video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 82% 50%; }
+.stage::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, #140d1c 0%, rgba(20, 13, 28, 0.88) 30%, rgba(20, 13, 28, 0.3) 58%, rgba(20, 13, 28, 0) 80%), linear-gradient(0deg, #140d1c 0%, rgba(20, 13, 28, 0) 36%); }
+.hero .ticket { margin-top: 260px; background: rgba(33, 23, 41, 0.6); -webkit-backdrop-filter: blur(18px) saturate(1.25); backdrop-filter: blur(18px) saturate(1.25); box-shadow: 0 40px 120px -40px rgba(0, 0, 0, 0.85); }
+@media (prefers-reduced-motion: no-preference) { .stage img, .stage video { animation: yk-settle 2.4s cubic-bezier(0.2, 0.7, 0.2, 1) both; } @keyframes yk-settle { from { transform: scale(1.06); opacity: 0; } to { transform: none; opacity: 1; } } }
+@media (max-width: 1000px) { .hero { min-height: 0; display: block; } .stage { bottom: auto; height: min(80vw, 640px); } .stage img, .stage video { object-position: 72% 50%; } .stage::after { background: linear-gradient(90deg, rgba(20, 13, 28, 0.9) 0%, rgba(20, 13, 28, 0.35) 75%), linear-gradient(0deg, #140d1c 0%, rgba(20, 13, 28, 0) 45%); } .hero .ticket { margin-top: 8px; } }
+@media (max-width: 1000px) { .hero .wrap { grid-template-columns: minmax(0, 1fr); gap: 56px; padding-top: 112px; padding-bottom: 72px; } .steps { grid-template-columns: minmax(0, 1fr); gap: 32px; } }
 @media (max-width: 640px) {
   .wrap { padding: 0 16px; }
   body { font-size: 17px; }
@@ -491,6 +502,7 @@ footer a:hover { color: var(--text); }
 
 <main>
   <section class="hero" aria-labelledby="h1">
+    <div class="stage" aria-hidden="true"><img src="assets/hero.webp" alt="" width="1600" height="900" fetchpriority="high" decoding="async" /></div>
     <div class="wrap">
       <div>
         <p class="kicker">Zcash testnet · private intents</p>
