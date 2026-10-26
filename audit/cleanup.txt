@@ -1,0 +1,11 @@
+Final resource cleanup observed on Oct 26, 2026 (local Asia/Kolkata):
+- The stack EXIT trap stopped landing PID 70413, dashboard PID 70414, desk PID 70415,
+  and pass-2 desk PID 70416 via e2e/stack.sh stop.
+- The same trap stopped the extra pass-3 desk PID 71440 and waited for it.
+- Trap output: CLEANED: stack stopped by PID; slot released.
+- heavy-slot.sh release yaksok-audit-final completed; /tmp/grokbot-heavy-slots is empty.
+- lsof found no listeners on 4183, 5181, 8404, 8405, 8406, 8414, 8415, 8416 or 8417.
+- All audit and regression Chrome sessions closed. The browser runner awaits browser.close()
+  in finally before writing completed results; both completed browser runs/rechecks and
+  the final Playwright regression command returned. No Chrome session remains owned by the audit.
+- No deployment, push, Zcash send, funded MCP call, or crash re-execution occurred.

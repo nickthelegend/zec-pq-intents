@@ -84,3 +84,20 @@ On Oct 25, after the landing/evidence split, `landing.spec.ts` alone: 31 passed,
 | passed | 30 | 24 |
 | skipped | 0 | 6 (the 5 HTTP-only desk tests run once, on desktop; hover has no phone equivalent) |
 | failed | 0 | 0 |
+
+## Final audit run (Oct 26, 2026)
+
+The table above describes the historical full suite and its **102 + doc** defined tests. It is not a claim that all 102 passed in this audit. The final measured counts are below. No crash suite was re-executed, and no funded Zcash submit/resubmit or send was invoked.
+
+| Surface | Command actually run | Measured result | Carried or not rerun |
+| --- | --- | --- | --- |
+| protocol | `pnpm --filter @pqi/protocol test` | 17 passed, 0 failed | None; [output](audit/protocol/tests.txt) |
+| scan | `cargo test --manifest-path packages/scan/Cargo.toml --release` with a shared `CARGO_TARGET_DIR` | 9 unit + 1 doc passed, 0 failed | None; [output](audit/scan/cargo-test.log) |
+| node | `PQI_ZINGO_CLI=/nonexistent/zingo-cli pnpm --filter @pqi/node exec vitest run test/setup.test.ts test/solver.test.ts test/receive-key.test.ts test/live.test.ts` | 36 passed, 0 failed across 4 files | The old full-suite count 67 is carried as a definition count only. The other 31 tests (desk 14, crash 6, anchors 7, verifier 4) were not rerun; none is credited as a fresh PASS. [Output](audit/node/tests.txt) |
+| mcp | `PQI_ZINGO_CLI=/nonexistent/zingo-cli pnpm --filter @pqi/mcp exec vitest run -t 'lists\|verify_log\|needs at least\|status and quote\|Setup required without\|no desk'` | 8 passed, 1 skipped, 0 failed (9 defined) | The saved-wallet outcome/resubmit case was excluded; 9 is the historical definition count, not 9 measured passes. [Output](audit/mcp/tests.txt) |
+| e2e regression | `cd e2e && env -u NO_COLOR -u FORCE_COLOR npx playwright test --config audit.config.ts` | 60 passed, 6 skipped, 0 failed, 0 flaky | Both 1280x800 and 375x812. The 6 skips are duplicate mobile HTTP probes and desktop-only hover; HTTP audit rows ran separately through curl. [Output](audit/e2e/tests.txt), [JSON](audit/e2e/results.json) |
+| Browser audit | `node e2e/audit-browser.mjs` | 86 IDs: 83 PASS, 3 FAIL, 0 UNTESTED | All L/E/T rows, including both local terminal surfaces and fixed public URLs. Separate from the e2e test count. [Results](audit/browser/results.md) |
+
+The three UI source fixes were rechecked in Chrome from page load before the final whole-plan pass. The final browser run captures console messages and all network response statuses, including third-party requests, without interception. Final screenshots are JPEG under 200,000 bytes. API probes use curl; MCP calls use the real stdio server and real scanner. HTTP diagnostics only observe requests and verify that schema/setup failures cause no HTTP lookup. Recorded txid file comparisons and pinned anchor memo reads are read-only.
+
+The full plan remains short of a zero-failure close: the three corrected UI behaviors still fail on the unchanged public landing/evidence deployment, and the public proxy omits `Connection: close` on oversized POSTs. CLI full-history checks need `zingo-cli`; Docker needs its daemon and external `coolify` network; funded submit/resubmit and crash re-execution need a funded Zcash testnet send and remain UNTESTED. See [AUDIT.md](AUDIT.md).

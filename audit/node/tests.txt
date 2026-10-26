@@ -1,0 +1,33 @@
+
+ RUN  v3.2.7 /Volumes/Extreme SSD/Projects/grokbot/projects/.loom-worktrees/zec-pq-intents-2297c8624b1a/omvomz36q/t4/packages/node
+
+ ✓ test/live.test.ts (23 tests) 60078ms
+   ✓ published run, re-checked on testnet > the escrow key sees each intent funded with its own memo, in one transaction  1961ms
+   ✓ published run, re-checked on testnet > the receive key sees A and B delivered, C’s wrong-memo fill not credited, and C’s late fill after its deadline  2341ms
+   ✓ published run, re-checked on testnet > the solver key sees both releases, the user key the refund, the anchor key the anchored head  2384ms
+   ✓ a fresh verifier refuses the same attacks, from chain data alone > changed intent → BAD_SIGNATURE; another key naming the user → WRONG_KEY; each a signed entry  798ms
+   ✓ a fresh verifier refuses the same attacks, from chain data alone > C: a fill with the wrong memo is not credited; a correct fill after the deadline is EXPIRED  4987ms
+   ✓ a fresh verifier refuses the same attacks, from chain data alone > after A settled: A again → ALREADY_SETTLED; a new intent with A’s nonce → NONCE_REUSED  760ms
+   ✓ fill claims: only the configured solver is paid > a claim on A’s real fill signed by anyone else → FILL_UNKNOWN_SOLVER; the solver’s own claim settles  4403ms
+   ✓ fill binding: only the solver the fill memo names is paid > with two solver keys configured, A’s Oct 20 fill (its memo names no solver) is paid to neither → FILL_NOT_SOLVER_BOUND  3976ms
+   ✓ fill binding: only the solver the fill memo names is paid > an unbound fill is legacy only for the listed Oct 20 intents: unlisted → FILL_NOT_SOLVER_BOUND; listed → SETTLED, marked legacy-single-solver  5229ms
+   ✓ confirmations: funding and fill are acted on only at N (default 3) > A with the observed height held: funding at 2 confirmations → PENDING; fill at 2 → PENDING; fill at 3 → SETTLED; nothing logged before  5639ms
+   ✓ confirmations: funding and fill are acted on only at N (default 3) > N is configurable: with 6, the same fill at 5 confirmations is still PENDING  2532ms
+   ✓ a fill lightwalletd does not return is not refused while it could still count > A with a claim on a txid that is not on chain: PENDING (FILL_NOT_FOUND_YET) up to the end of the claim window, nothing logged; after it → REJECTED FILL_NOT_CREDITED:TX_NOT_FOUND  4627ms
+   ✓ one decision at a time, and a claim window before refunds > a settle and a refund of A at the same time: one SETTLED, the other ALREADY_SETTLED (never both paid)  3235ms
+   ✓ one decision at a time, and a claim window before refunds > two settles of B at the same time: one SETTLED, one ALREADY_SETTLED  3416ms
+   ✓ one decision at a time, and a claim window before refunds > C one block after its deadline → CLAIM_WINDOW_OPEN; after the window (the real tip) → REFUNDED  2061ms
+   ✓ money that reached the escrow is always refundable to the signed refund address > C’s deposit (60,000 zat under its memo) after the window, on a verifier whose escrow is not the one C names → REFUNDED 45,000 with reason WRONG_ESCROW, not refund_refused  1497ms
+   ✓ money that reached the escrow is always refundable to the signed refund address > C’s nonce already used by another intent → C’s deposit is still REFUNDED (reason NONCE_REUSED), and the nonce stays bound to its first use  1739ms
+   ✓ pass 2 on testnet (Oct 21): a fill that names its solver, 3 confirmations, a crash mid-release > D’s fill names the solver’s key in its memo; a fresh verifier with two solver keys refuses the other one (FILL_BY_OTHER_SOLVER) and pays the named one  5029ms
+   ✓ pass 2 on testnet (Oct 21): a fill that names its solver, 3 confirmations, a crash mid-release > the release broadcast before the kill is on-chain once, with the memo of the write-ahead record, and is the txid the log settled with  1277ms
+   ✓ pass 3 on testnet (Oct 22): the agent path through MCP > E’s funding, its fill to the new address naming the solver, and its release are on-chain as their keys see them; the fill the restarted desk found is the one the solver sent once  1993ms
+ ✓ test/setup.test.ts (6 tests) 1004ms
+ ✓ test/receive-key.test.ts (4 tests) 93ms
+ ✓ test/solver.test.ts (3 tests) 39ms
+
+ Test Files  4 passed (4)
+      Tests  36 passed (36)
+   Start at  08:46:27
+   Duration  61.87s (transform 84ms, setup 0ms, collect 222ms, tests 61.21s, environment 0ms, prepare 132ms)
+

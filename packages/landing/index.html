@@ -135,7 +135,7 @@ footer a:hover { color: var(--text); }
           <li><b>Sealed</b><span class="v">ML-KEM-768 · 1,088 B</span></li>
           <li><b>Settled</b><span class="v">signed log entry #13</span></li>
         </ol>
-        <figcaption>Recorded Oct 22, 2026. Byte sizes measured from this intent.</figcaption>
+        <figcaption>Recorded Oct 22, 2026 · intent <span title="f5af85c45eea57664537587f204d9d6f2f60501dcd65aea3ded87e3b04d51b36">f5af85c4…</span> · released 25,000 zat. Byte sizes measured from this intent.</figcaption>
       </figure>
     </div>
   </section>
@@ -144,9 +144,9 @@ footer a:hover { color: var(--text); }
     <div class="wrap">
       <h2 id="h-how">Sign. Seal. Settle.</h2>
       <ol class="steps">
-        <li><h3>Sign</h3><p>You sign the intent with ML-DSA-65; the key id is inside it.</p></li>
-        <li><h3>Seal</h3><p>It is sealed to the solver with ML-KEM-768, unreadable on the wire.</p></li>
-        <li><h3>Settle</h3><p>Escrow pays out in shielded ZEC. Zcash spends stay elliptic-curve.</p></li>
+        <li><h3>Sign and seal</h3><p>You sign with ML-DSA-65 and seal the intent to the solver with ML-KEM-768.</p></li>
+        <li><h3>Deliver</h3><p>The solver delivers shielded ZEC from its own liquidity to your receive address.</p></li>
+        <li><h3>Settle</h3><p>The verifier releases or refunds the escrow. Zcash spends stay elliptic-curve.</p></li>
       </ol>
     </div>
   </section>

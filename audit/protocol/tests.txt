@@ -1,0 +1,14 @@
+
+> @pqi/protocol@0.1.0 test /Volumes/Extreme SSD/Projects/grokbot/projects/.loom-worktrees/zec-pq-intents-2297c8624b1a/omvomz36q/t4/packages/protocol
+> vitest run
+
+
+ RUN  v3.2.7 /Volumes/Extreme SSD/Projects/grokbot/projects/.loom-worktrees/zec-pq-intents-2297c8624b1a/omvomz36q/t4/packages/protocol
+
+ ✓ test/protocol.test.ts (17 tests) 549ms
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  08:59:26
+   Duration  726ms (transform 27ms, setup 0ms, collect 64ms, tests 549ms, environment 0ms, prepare 44ms)
+

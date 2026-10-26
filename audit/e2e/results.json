@@ -1,0 +1,2564 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/26.5.0/bin/node",
+      "/Volumes/Extreme SSD/Projects/grokbot/projects/.loom-worktrees/zec-pq-intents-2297c8624b1a/omvomz36q/t4/e2e/node_modules/.bin/playwright",
+      "test",
+      "--config",
+      "audit.config.ts"
+    ],
+    "configFile": "/Volumes/Extreme SSD/Projects/grokbot/projects/.loom-worktrees/zec-pq-intents-2297c8624b1a/omvomz36q/t4/e2e/audit.config.ts",
+    "rootDir": "/Volumes/Extreme SSD/Projects/grokbot/projects/.loom-worktrees/zec-pq-intents-2297c8624b1a/omvomz36q/t4/e2e/tests",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/Volumes/Extreme SSD/Projects/grokbot/projects/.loom-worktrees/zec-pq-intents-2297c8624b1a/omvomz36q/t4/e2e/global-setup.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Volumes/Extreme SSD/Projects/grokbot/projects/.loom-worktrees/zec-pq-intents-2297c8624b1a/omvomz36q/t4/e2e/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "desktop",
+        "name": "desktop",
+        "testDir": "/Volumes/Extreme SSD/Projects/grokbot/projects/.loom-worktrees/zec-pq-intents-2297c8624b1a/omvomz36q/t4/e2e/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/Volumes/Extreme SSD/Projects/grokbot/projects/.loom-worktrees/zec-pq-intents-2297c8624b1a/omvomz36q/t4/e2e/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "mobile",
+        "name": "mobile",
+        "testDir": "/Volumes/Extreme SSD/Projects/grokbot/projects/.loom-worktrees/zec-pq-intents-2297c8624b1a/omvomz36q/t4/e2e/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "../audit/e2e/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.63.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "desk.spec.ts",
+      "file": "desk.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "desk API",
+          "file": "desk.spec.ts",
+          "line": 12,
+          "column": 6,
+          "specs": [
+            {
+              "title": "reads: info, log and every intent match the Oct 20 record (replay and expiry refused on testnet)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 177,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:29:34.956Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a28aa61fdbb67fa3521b-a2a4c74a387bb1bab629",
+              "file": "desk.spec.ts",
+              "line": 15,
+              "column": 3
+            },
+            {
+              "title": "pass 2: intent D settled to the bound solver after a second solver’s claim was refused (FILL_BY_OTHER_SOLVER), log extends Oct 20",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 94,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:29:35.594Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a28aa61fdbb67fa3521b-a854e6629ce23f203571",
+              "file": "desk.spec.ts",
+              "line": 35,
+              "column": 3
+            },
+            {
+              "title": "writes: non-JSON 415, oversize 413, malformed 400, JSON 503 Setup required; none carries a CORS header",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 103,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:29:35.697Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a28aa61fdbb67fa3521b-6d39b0cc2f7e57dba257",
+              "file": "desk.spec.ts",
+              "line": 45,
+              "column": 3
+            },
+            {
+              "title": "a request whose Host is not 127.0.0.1 or localhost (DNS rebinding) is refused 403, reads and writes alike, with no CORS header",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 99,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:29:35.808Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a28aa61fdbb67fa3521b-4f15ed3811570654efa2",
+              "file": "desk.spec.ts",
+              "line": 67,
+              "column": 3
+            },
+            {
+              "title": "Setup required: a desk with neither PQI_STATE nor PQI_PUBLISHED exits 2 and says so",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 334,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:29:35.915Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a28aa61fdbb67fa3521b-5db7affe9bd561fc1c14",
+              "file": "desk.spec.ts",
+              "line": 80,
+              "column": 3
+            },
+            {
+              "title": "reads: info, log and every intent match the Oct 20 record (replay and expiry refused on testnet)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "HTTP API: once, on the desktop project",
+                      "location": {
+                        "file": "/Volumes/Extreme SSD/Projects/grokbot/projects/.loom-worktrees/zec-pq-intents-2297c8624b1a/omvomz36q/t4/e2e/tests/desk.spec.ts",
+                        "line": 13,
+                        "column": 30
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 141,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:27.458Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "description": "HTTP API: once, on the desktop project",
+                          "location": {
+                            "file": "/Volumes/Extreme SSD/Projects/grokbot/projects/.loom-worktrees/zec-pq-intents-2297c8624b1a/omvomz36q/t4/e2e/tests/desk.spec.ts",
+                            "line": 13,
+                            "column": 30
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a28aa61fdbb67fa3521b-dad0e8210d130a55685c",
+              "file": "desk.spec.ts",
+              "line": 15,
+              "column": 3
+            },
+            {
+              "title": "pass 2: intent D settled to the bound solver after a second solver’s claim was refused (FILL_BY_OTHER_SOLVER), log extends Oct 20",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "HTTP API: once, on the desktop project",
+                      "location": {
+                        "file": "/Volumes/Extreme SSD/Projects/grokbot/projects/.loom-worktrees/zec-pq-intents-2297c8624b1a/omvomz36q/t4/e2e/tests/desk.spec.ts",
+                        "line": 13,
+                        "column": 30
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 95,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:27.954Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "description": "HTTP API: once, on the desktop project",
+                          "location": {
+                            "file": "/Volumes/Extreme SSD/Projects/grokbot/projects/.loom-worktrees/zec-pq-intents-2297c8624b1a/omvomz36q/t4/e2e/tests/desk.spec.ts",
+                            "line": 13,
+                            "column": 30
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a28aa61fdbb67fa3521b-d8a794906fec521223d1",
+              "file": "desk.spec.ts",
+              "line": 35,
+              "column": 3
+            },
+            {
+              "title": "writes: non-JSON 415, oversize 413, malformed 400, JSON 503 Setup required; none carries a CORS header",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "HTTP API: once, on the desktop project",
+                      "location": {
+                        "file": "/Volumes/Extreme SSD/Projects/grokbot/projects/.loom-worktrees/zec-pq-intents-2297c8624b1a/omvomz36q/t4/e2e/tests/desk.spec.ts",
+                        "line": 13,
+                        "column": 30
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 87,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:28.057Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "description": "HTTP API: once, on the desktop project",
+                          "location": {
+                            "file": "/Volumes/Extreme SSD/Projects/grokbot/projects/.loom-worktrees/zec-pq-intents-2297c8624b1a/omvomz36q/t4/e2e/tests/desk.spec.ts",
+                            "line": 13,
+                            "column": 30
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a28aa61fdbb67fa3521b-65a56d52be6759bc44db",
+              "file": "desk.spec.ts",
+              "line": 45,
+              "column": 3
+            },
+            {
+              "title": "a request whose Host is not 127.0.0.1 or localhost (DNS rebinding) is refused 403, reads and writes alike, with no CORS header",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "HTTP API: once, on the desktop project",
+                      "location": {
+                        "file": "/Volumes/Extreme SSD/Projects/grokbot/projects/.loom-worktrees/zec-pq-intents-2297c8624b1a/omvomz36q/t4/e2e/tests/desk.spec.ts",
+                        "line": 13,
+                        "column": 30
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 94,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:28.151Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "description": "HTTP API: once, on the desktop project",
+                          "location": {
+                            "file": "/Volumes/Extreme SSD/Projects/grokbot/projects/.loom-worktrees/zec-pq-intents-2297c8624b1a/omvomz36q/t4/e2e/tests/desk.spec.ts",
+                            "line": 13,
+                            "column": 30
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a28aa61fdbb67fa3521b-744b06db148b080f5b5c",
+              "file": "desk.spec.ts",
+              "line": 67,
+              "column": 3
+            },
+            {
+              "title": "Setup required: a desk with neither PQI_STATE nor PQI_PUBLISHED exits 2 and says so",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "HTTP API: once, on the desktop project",
+                      "location": {
+                        "file": "/Volumes/Extreme SSD/Projects/grokbot/projects/.loom-worktrees/zec-pq-intents-2297c8624b1a/omvomz36q/t4/e2e/tests/desk.spec.ts",
+                        "line": 13,
+                        "column": 30
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 87,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:28.253Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "description": "HTTP API: once, on the desktop project",
+                          "location": {
+                            "file": "/Volumes/Extreme SSD/Projects/grokbot/projects/.loom-worktrees/zec-pq-intents-2297c8624b1a/omvomz36q/t4/e2e/tests/desk.spec.ts",
+                            "line": 13,
+                            "column": 30
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a28aa61fdbb67fa3521b-14f8a6aa3fdcf3986963",
+              "file": "desk.spec.ts",
+              "line": 80,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "desk from a browser page on another origin",
+          "file": "desk.spec.ts",
+          "line": 93,
+          "column": 6,
+          "specs": [
+            {
+              "title": "the landing’s origin can read the desk log (CORS open) but cannot write to it",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 402,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:29:36.256Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a28aa61fdbb67fa3521b-f1e28d7665155e52b173",
+              "file": "desk.spec.ts",
+              "line": 94,
+              "column": 3
+            },
+            {
+              "title": "the landing’s origin can read the desk log (CORS open) but cannot write to it",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 335,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:28.354Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a28aa61fdbb67fa3521b-927eaa31220a92c221dc",
+              "file": "desk.spec.ts",
+              "line": 94,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "landing.spec.ts",
+      "file": "landing.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "evidence page (the full record, the landing until Oct 25)",
+          "file": "landing.spec.ts",
+          "line": 16,
+          "column": 6,
+          "specs": [
+            {
+              "title": "ticker and run header come from the records (every entry, every anchor)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 489,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:29:36.676Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-1f7c4a7c77a2d0f322cf",
+              "file": "landing.spec.ts",
+              "line": 17,
+              "column": 3
+            },
+            {
+              "title": "the attestation log prints entry by entry as each signature is re-checked in the tab, then every anchored head matches and each anchor names the one before",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2970,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:29:37.174Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-594526aa764ec24fc3cb",
+              "file": "landing.spec.ts",
+              "line": 36,
+              "column": 3
+            },
+            {
+              "title": "intent book: every intent matches the records, payout links point at the release/refund transactions, the spread and fee budget are spelled out",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 479,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:29:40.153Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-3e71233b0341e7d38092",
+              "file": "landing.spec.ts",
+              "line": 71,
+              "column": 3
+            },
+            {
+              "title": "refusals: every REJECTED log entry of both runs with its code (FILL_BY_OTHER_SOLVER is log #10, pass 2), plus the four tested-only codes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 449,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:29:40.640Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-e7c8e2ca638b1ff53f1b",
+              "file": "landing.spec.ts",
+              "line": 106,
+              "column": 3
+            },
+            {
+              "title": "pass 2’s kill: write-ahead at the recorded height, SIGKILL after the release broadcast, reconciled to the one release the escrow sent",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 530,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:29:41.096Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-bc508f8520bb46e83364",
+              "file": "landing.spec.ts",
+              "line": 124,
+              "column": 3
+            },
+            {
+              "title": "pass 3: the agent’s intent E through MCP — quote, submit_intent to a new address, the desk killed after the fill broadcast, the fill found and not resent, settled, audited",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 513,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:29:41.632Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-36d405235264b07e7f30",
+              "file": "landing.spec.ts",
+              "line": 144,
+              "column": 3
+            },
+            {
+              "title": "anchors: skip link, brand and \"Watch the tape verify\" land on their targets",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 551,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:29:42.151Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-dea48c1173146197d9ed",
+              "file": "landing.spec.ts",
+              "line": 164,
+              "column": 3
+            },
+            {
+              "title": "every link resolves: in-page anchors exist, explorer links name a transaction of the record, repo links name files in this repo",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1556,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:29:42.708Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-3bfa33f5a7212a140fe3",
+              "file": "landing.spec.ts",
+              "line": 180,
+              "column": 3
+            },
+            {
+              "title": "ticker pauses under the pointer (desktop) and keeps the page from scrolling sideways",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 495,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:29:44.272Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-5e91be0e330d05285151",
+              "file": "landing.spec.ts",
+              "line": 214,
+              "column": 3
+            },
+            {
+              "title": "the ticker has a visible Pause/Play control (a phone has no hover) and names the runs it shows",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 506,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:29:44.774Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-a64a5c180f0b5fbf7902",
+              "file": "landing.spec.ts",
+              "line": 223,
+              "column": 3
+            },
+            {
+              "title": "“Open the terminal” opens the Yaksok terminal served next to the landing; it verifies 13/13 and links back",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2383,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:29:45.286Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-e3171ebc580d82ab780a",
+              "file": "landing.spec.ts",
+              "line": 240,
+              "column": 3
+            },
+            {
+              "title": "ticker and run header come from the records (every entry, every anchor)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 500,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:28.708Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-564ce8053958fc22de99",
+              "file": "landing.spec.ts",
+              "line": 17,
+              "column": 3
+            },
+            {
+              "title": "the attestation log prints entry by entry as each signature is re-checked in the tab, then every anchored head matches and each anchor names the one before",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2950,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:29.217Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-6e8ee946e2aa049cde82",
+              "file": "landing.spec.ts",
+              "line": 36,
+              "column": 3
+            },
+            {
+              "title": "intent book: every intent matches the records, payout links point at the release/refund transactions, the spread and fee budget are spelled out",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 594,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:32.175Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-20a3eb1fbec8d0aae2f6",
+              "file": "landing.spec.ts",
+              "line": 71,
+              "column": 3
+            },
+            {
+              "title": "refusals: every REJECTED log entry of both runs with its code (FILL_BY_OTHER_SOLVER is log #10, pass 2), plus the four tested-only codes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 492,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:32.776Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-60ec4e9e9f491ec25a5f",
+              "file": "landing.spec.ts",
+              "line": 106,
+              "column": 3
+            },
+            {
+              "title": "pass 2’s kill: write-ahead at the recorded height, SIGKILL after the release broadcast, reconciled to the one release the escrow sent",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 610,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:33.276Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-a797fc6fdb96970e3b84",
+              "file": "landing.spec.ts",
+              "line": 124,
+              "column": 3
+            },
+            {
+              "title": "pass 3: the agent’s intent E through MCP — quote, submit_intent to a new address, the desk killed after the fill broadcast, the fill found and not resent, settled, audited",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 661,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:33.892Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-66baec57f3d0c74a609e",
+              "file": "landing.spec.ts",
+              "line": 144,
+              "column": 3
+            },
+            {
+              "title": "anchors: skip link, brand and \"Watch the tape verify\" land on their targets",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 607,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:34.565Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-ed3959e07724c03c9377",
+              "file": "landing.spec.ts",
+              "line": 164,
+              "column": 3
+            },
+            {
+              "title": "every link resolves: in-page anchors exist, explorer links name a transaction of the record, repo links name files in this repo",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1116,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:35.178Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-e1be57ba834661a611d3",
+              "file": "landing.spec.ts",
+              "line": 180,
+              "column": 3
+            },
+            {
+              "title": "ticker pauses under the pointer (desktop) and keeps the page from scrolling sideways",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "no hover on a phone",
+                      "location": {
+                        "file": "/Volumes/Extreme SSD/Projects/grokbot/projects/.loom-worktrees/zec-pq-intents-2297c8624b1a/omvomz36q/t4/e2e/tests/landing.spec.ts",
+                        "line": 215,
+                        "column": 10
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 93,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:36.306Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "description": "no hover on a phone",
+                          "location": {
+                            "file": "/Volumes/Extreme SSD/Projects/grokbot/projects/.loom-worktrees/zec-pq-intents-2297c8624b1a/omvomz36q/t4/e2e/tests/landing.spec.ts",
+                            "line": 215,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-e35ff5cdee5c2ca99c87",
+              "file": "landing.spec.ts",
+              "line": 214,
+              "column": 3
+            },
+            {
+              "title": "the ticker has a visible Pause/Play control (a phone has no hover) and names the runs it shows",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 629,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:36.407Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-9a95b7e739a827b02449",
+              "file": "landing.spec.ts",
+              "line": 223,
+              "column": 3
+            },
+            {
+              "title": "“Open the terminal” opens the Yaksok terminal served next to the landing; it verifies 13/13 and links back",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2487,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:37.043Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-284137de6f42c34872b4",
+              "file": "landing.spec.ts",
+              "line": 240,
+              "column": 3
+            }
+          ],
+          "suites": [
+            {
+              "title": "reduced motion",
+              "file": "landing.spec.ts",
+              "line": 253,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "the ticker stands still (one copy, scrollable) and the tape verifies without the print delay",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "desktop",
+                      "projectName": "desktop",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 491,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-10-26T03:29:47.676Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "4e5b49d369fd48ca0656-a532fd03d3176b51536b",
+                  "file": "landing.spec.ts",
+                  "line": 255,
+                  "column": 5
+                },
+                {
+                  "title": "the ticker stands still (one copy, scrollable) and the tape verifies without the print delay",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "mobile",
+                      "projectName": "mobile",
+                      "results": [
+                        {
+                          "workerIndex": 1,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 481,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-10-26T03:30:39.537Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "4e5b49d369fd48ca0656-24108b258d488aecb890",
+                  "file": "landing.spec.ts",
+                  "line": 255,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "without JavaScript",
+              "file": "landing.spec.ts",
+              "line": 265,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "the record still reads: book, tape and refusals are static; the in-tab check says it is waiting for JavaScript",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "desktop",
+                      "projectName": "desktop",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 414,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-10-26T03:29:48.175Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "4e5b49d369fd48ca0656-45623a6564b1344f862b",
+                  "file": "landing.spec.ts",
+                  "line": 267,
+                  "column": 5
+                },
+                {
+                  "title": "the record still reads: book, tape and refusals are static; the in-tab check says it is waiting for JavaScript",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "mobile",
+                      "projectName": "mobile",
+                      "results": [
+                        {
+                          "workerIndex": 1,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 501,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-10-26T03:30:40.025Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "4e5b49d369fd48ca0656-919246ec26fcd6ea38f2",
+                  "file": "landing.spec.ts",
+                  "line": 267,
+                  "column": 5
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "landing (one-screen overview)",
+          "file": "landing.spec.ts",
+          "line": 280,
+          "column": 6,
+          "specs": [
+            {
+              "title": "first screen: headline, subline, two buttons, and the latest intent as a ticket with its recorded hash and payout",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1723,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:29:48.595Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-4e1bee0ff3080dc3c5d3",
+              "file": "landing.spec.ts",
+              "line": 286,
+              "column": 3
+            },
+            {
+              "title": "numbers come from the log and tests.json; the evidence link opens the tape",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2829,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:29:50.327Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-21c32a7ad696172b2b61",
+              "file": "landing.spec.ts",
+              "line": 306,
+              "column": 3
+            },
+            {
+              "title": "first screen: headline, subline, two buttons, and the latest intent as a ticket with its recorded hash and payout",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1712,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:40.532Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-38a73cf6adf4c40cf1c9",
+              "file": "landing.spec.ts",
+              "line": 286,
+              "column": 3
+            },
+            {
+              "title": "numbers come from the log and tests.json; the evidence link opens the tape",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2806,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:42.251Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-c99389cb35655759d255",
+              "file": "landing.spec.ts",
+              "line": 306,
+              "column": 3
+            }
+          ],
+          "suites": [
+            {
+              "title": "reduced motion",
+              "file": "landing.spec.ts",
+              "line": 316,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "the three stages are lit at once, with no transition",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "desktop",
+                      "projectName": "desktop",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 340,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-10-26T03:29:53.165Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "4e5b49d369fd48ca0656-b90285236c763880e451",
+                  "file": "landing.spec.ts",
+                  "line": 318,
+                  "column": 5
+                },
+                {
+                  "title": "the three stages are lit at once, with no transition",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "mobile",
+                      "projectName": "mobile",
+                      "results": [
+                        {
+                          "workerIndex": 1,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 371,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-10-26T03:30:45.065Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "4e5b49d369fd48ca0656-b0c599b9452695d4aee3",
+                  "file": "landing.spec.ts",
+                  "line": 318,
+                  "column": 5
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "terminal.spec.ts",
+      "file": "terminal.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "terminal",
+          "file": "terminal.spec.ts",
+          "line": 15,
+          "column": 6,
+          "specs": [
+            {
+              "title": "the attestation tape prints entry by entry as each ML-DSA-65 signature verifies; the bar ends at N/N",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2195,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:29:53.523Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "8f9206fb64e745a9d86f-57446ccb81312fb0ca61",
+              "file": "terminal.spec.ts",
+              "line": 16,
+              "column": 3
+            },
+            {
+              "title": "every tape row (log entry) opens in the inspector, fully on screen, with the entry the record has",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 12055,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:29:55.724Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "8f9206fb64e745a9d86f-ed796127d7ae48cbcb41",
+              "file": "terminal.spec.ts",
+              "line": 44,
+              "column": 3
+            },
+            {
+              "title": "every refusal button (\"log #n · open in the inspector\") opens that signed entry in the inspector",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2474,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:07.786Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "8f9206fb64e745a9d86f-69db2b7cbb06be26915b",
+              "file": "terminal.spec.ts",
+              "line": 67,
+              "column": 3
+            },
+            {
+              "title": "intent book: every intent shows its steps, transactions and log entries from the records",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 572,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:10.268Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "8f9206fb64e745a9d86f-5ec8afbb88668a4c3176",
+              "file": "terminal.spec.ts",
+              "line": 93,
+              "column": 3
+            },
+            {
+              "title": "anchors: every head recomputed here; \"Check the anchor chain\" verifies the runs as one chain",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2449,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:10.847Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "8f9206fb64e745a9d86f-15711bf32528a1c0d72b",
+              "file": "terminal.spec.ts",
+              "line": 136,
+              "column": 3
+            },
+            {
+              "title": "attack console: a changed field and the attacker key are refused with the verifier codes; the original verifies",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 764,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:13.303Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "8f9206fb64e745a9d86f-2ae5cffb97db58c9986e",
+              "file": "terminal.spec.ts",
+              "line": 160,
+              "column": 3
+            },
+            {
+              "title": "pass 2’s kill: write-ahead, SIGKILL after the release broadcast, reconciled to the one release; its \"log #11\" opens the SETTLED entry",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2653,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:14.074Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "8f9206fb64e745a9d86f-0fc0a667072c6e00d022",
+              "file": "terminal.spec.ts",
+              "line": 185,
+              "column": 3
+            },
+            {
+              "title": "pass 3: the agent panel shows E through MCP, the kill after the fill broadcast, the fill found and not resent, the audit; its \"log #n\" opens E’s SETTLED entry",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3092,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:16.736Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "8f9206fb64e745a9d86f-e88e65348e72c5d4895f",
+              "file": "terminal.spec.ts",
+              "line": 202,
+              "column": 3
+            },
+            {
+              "title": "the ticker has a visible Pause/Play control (touch and keyboard too) and names the runs it shows; the intent book is one tab stop moved with the arrow keys",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 544,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:19.840Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "8f9206fb64e745a9d86f-0ea8491f0503e7430aec",
+              "file": "terminal.spec.ts",
+              "line": 222,
+              "column": 3
+            },
+            {
+              "title": "every control labelled \"log\" works; links go to the repo and the explorer",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6289,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:20.394Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "8f9206fb64e745a9d86f-11b362b2d4b0ed83ab82",
+              "file": "terminal.spec.ts",
+              "line": 260,
+              "column": 3
+            },
+            {
+              "title": "the attestation tape prints entry by entry as each ML-DSA-65 signature verifies; the bar ends at N/N",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2221,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:45.457Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "8f9206fb64e745a9d86f-afe248fbb682b3623cfa",
+              "file": "terminal.spec.ts",
+              "line": 16,
+              "column": 3
+            },
+            {
+              "title": "every tape row (log entry) opens in the inspector, fully on screen, with the entry the record has",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 11330,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:47.684Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "8f9206fb64e745a9d86f-741e13c2b0d8a2ca1a9a",
+              "file": "terminal.spec.ts",
+              "line": 44,
+              "column": 3
+            },
+            {
+              "title": "every refusal button (\"log #n · open in the inspector\") opens that signed entry in the inspector",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 7171,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:30:59.021Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "8f9206fb64e745a9d86f-4027c45499f060c0382f",
+              "file": "terminal.spec.ts",
+              "line": 67,
+              "column": 3
+            },
+            {
+              "title": "intent book: every intent shows its steps, transactions and log entries from the records",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 487,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:31:06.198Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "8f9206fb64e745a9d86f-9a8c636d18fc8d387069",
+              "file": "terminal.spec.ts",
+              "line": 93,
+              "column": 3
+            },
+            {
+              "title": "anchors: every head recomputed here; \"Check the anchor chain\" verifies the runs as one chain",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2381,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:31:06.692Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "8f9206fb64e745a9d86f-2e19a4f07ae6eb81b6e5",
+              "file": "terminal.spec.ts",
+              "line": 136,
+              "column": 3
+            },
+            {
+              "title": "attack console: a changed field and the attacker key are refused with the verifier codes; the original verifies",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 840,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:31:09.079Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "8f9206fb64e745a9d86f-8a4330862acd0c709573",
+              "file": "terminal.spec.ts",
+              "line": 160,
+              "column": 3
+            },
+            {
+              "title": "pass 2’s kill: write-ahead, SIGKILL after the release broadcast, reconciled to the one release; its \"log #11\" opens the SETTLED entry",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3095,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:31:09.925Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "8f9206fb64e745a9d86f-59a5d6178d25ab2b8ef3",
+              "file": "terminal.spec.ts",
+              "line": 185,
+              "column": 3
+            },
+            {
+              "title": "pass 3: the agent panel shows E through MCP, the kill after the fill broadcast, the fill found and not resent, the audit; its \"log #n\" opens E’s SETTLED entry",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3041,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:31:13.027Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "8f9206fb64e745a9d86f-c5afd8e6788c27562003",
+              "file": "terminal.spec.ts",
+              "line": 202,
+              "column": 3
+            },
+            {
+              "title": "the ticker has a visible Pause/Play control (touch and keyboard too) and names the runs it shows; the intent book is one tab stop moved with the arrow keys",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 432,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:31:16.076Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "8f9206fb64e745a9d86f-e078588af41811c33370",
+              "file": "terminal.spec.ts",
+              "line": 222,
+              "column": 3
+            },
+            {
+              "title": "every control labelled \"log\" works; links go to the repo and the explorer",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile",
+                  "projectName": "mobile",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 11573,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-26T03:31:16.516Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "8f9206fb64e745a9d86f-67404c3508d3dd88a063",
+              "file": "terminal.spec.ts",
+              "line": 260,
+              "column": 3
+            }
+          ],
+          "suites": [
+            {
+              "title": "reduced motion",
+              "file": "terminal.spec.ts",
+              "line": 287,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "ticker stands still with one copy; the tape verifies without the print delay",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "desktop",
+                      "projectName": "desktop",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 419,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-10-26T03:30:26.691Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "8f9206fb64e745a9d86f-6d7b0cf3aca3a0b24111",
+                  "file": "terminal.spec.ts",
+                  "line": 289,
+                  "column": 5
+                },
+                {
+                  "title": "ticker stands still with one copy; the tape verifies without the print delay",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "mobile",
+                      "projectName": "mobile",
+                      "results": [
+                        {
+                          "workerIndex": 1,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 394,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-10-26T03:31:28.096Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "8f9206fb64e745a9d86f-7ca8e24c5f9fedee3c27",
+                  "file": "terminal.spec.ts",
+                  "line": 289,
+                  "column": 5
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-26T03:29:34.703Z",
+    "duration": 113944.08,
+    "expected": 60,
+    "skipped": 6,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

@@ -1,0 +1,14 @@
+
+ RUN  v3.2.7 /Volumes/Extreme SSD/Projects/grokbot/projects/.loom-worktrees/zec-pq-intents-2297c8624b1a/omvomz36q/t4/packages/mcp
+
+ ✓ test/mcp.test.ts (9 tests | 1 skipped) 4463ms
+   ✓ pqi-mcp > verify_log: every signature and link verifies, and the anchor memo is on-chain and matches  852ms
+   ✓ pqi-mcp > verify_log: a desk serving a log signed by a key other than the pinned one fails; no pin is Setup required  396ms
+   ✓ pqi-mcp > verify_log reads the anchor memos only with the anchor key you pinned: unpinned is Setup required, even when the desk serves no key at all  1287ms
+   ✓ pqi-mcp > submit_intent: Setup required without an agent identity or trust pins; a desk whose escrow is not the pinned one is refused before signing or paying  622ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed | 1 skipped (9)
+   Start at  08:49:41
+   Duration  4.82s (transform 43ms, setup 0ms, collect 240ms, tests 4.46s, environment 0ms, prepare 41ms)
+

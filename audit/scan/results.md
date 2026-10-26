@@ -1,3 +1,3 @@
 | ID | status | exact observed result | evidence path |
 | --- | --- | --- | --- |
-| S-scan | PASS | cd packages/scan && cargo test --release with rustc 1.89.0 (29483883e 2025-08-04) and cargo 1.89.0 exited 0. Unit tests: 9 passed, 0 failed (each_failure_has_its_reason, exact_payment_passes_and_counts_only_matching_memos, transparent_allowed_when_asked, owns_refuses_what_is_not_an_address, a_new_diversified_address_of_the_same_key_is_covered, owns_the_address_its_key_derives_and_not_another_wallets, address_at_gives_distinct_addresses_the_same_key_covers, a_mixed_address_is_paid_only_on_the_receiver_the_key_covers, the_throwaway_ufvk_fixture_is_derived_from_the_public_test_seed_and_does_not_cover_the_escrow). Doc-tests: 1 passed, 0 failed. | audit/scan/cargo-test.log |
+| S-scan | PASS | cargo test --release: 9 unit tests and 1 doc test passed; 0 failed. Current checkout compiled with a shared Cargo target cache. | audit/scan/cargo-test.log |
